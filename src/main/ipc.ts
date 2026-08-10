@@ -150,6 +150,7 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
   handle('terminal:resize', (id, cols, rows) => services.terminals.resize(id, cols, rows))
   handle('terminal:kill', (id) => services.terminals.kill(id))
   handle('terminal:list', () => services.terminals.list())
+  handle('terminal:history', (id) => services.terminals.history(id))
 
   // -- ports ----------------------------------------------------------------
 

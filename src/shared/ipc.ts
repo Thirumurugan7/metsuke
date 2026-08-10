@@ -116,12 +116,18 @@ export interface TerminalSpawnOptions {
   cwd?: string
   cols?: number
   rows?: number
+  /** Opaque UI metadata, kept so a reloaded renderer can rebuild the tab. */
+  kind?: string
+  title?: string
 }
 
 export interface TerminalSession {
   id: string
   command: string
   cwd: string
+  /** Echoed back from spawn, so tabs survive a reload. */
+  kind: string
+  title: string
 }
 
 /** What Claude was doing when it asked for attention. */
@@ -234,6 +240,8 @@ export interface InvokeChannels {
   'terminal:resize': { args: [id: string, cols: number, rows: number]; result: void }
   'terminal:kill': { args: [id: string]; result: void }
   'terminal:list': { args: []; result: TerminalSession[] }
+  /** Buffered output so far, replayed when a reloaded renderer reattaches. */
+  'terminal:history': { args: [id: string]; result: string }
 
   // -- ports ----------------------------------------------------------------
   'ports:list': { args: []; result: PortInfo[] }
@@ -327,6 +335,7 @@ export const INVOKE_CHANNELS = [
   'terminal:resize',
   'terminal:kill',
   'terminal:list',
+  'terminal:history',
   'ports:list',
   'notify:get',
   'notify:set',

@@ -233,10 +233,29 @@ function TerminalInstance({ tab, visible }: { tab: TerminalTab; visible: boolean
       observer.disconnect()
       offData()
       offExit()
-      if (session.current) void call('terminal:kill', session.current)
+      // Deliberately does not kill the pty. The session belongs to the app, not to this
+      // component: closeTerminal kills it when you close the tab, adoption kills ones
+      // left over from another folder, and quitting kills the rest. Killing here would
+      // also destroy an adopted session during StrictMode's double-mount.
       terminal.dispose()
     }
   }, [])
+
+  /*
+   * Reattach to a session that outlived the renderer.
+   *
+   * The pty kept running through the reload, so the process is fine — but this xterm is
+   * brand new and empty. Replaying the buffered output restores what was on screen,
+   * including whatever Claude was in the middle of asking.
+   */
+  useEffect(() => {
+    if (!tab.sessionId || session.current !== null || !term.current) return
+    session.current = tab.sessionId
+
+    void call('terminal:history', tab.sessionId).then((history) => {
+      if (history && term.current) term.current.write(history)
+    })
+  }, [tab.sessionId])
 
   // Spawn when the tab has no live process — on first mount, and again after a restart.
   useEffect(() => {
@@ -249,6 +268,8 @@ function TerminalInstance({ tab, visible }: { tab: TerminalTab; visible: boolean
         // The prompt is passed as an argv entry, never through a shell, so quoting and
         // newlines in it cannot be reinterpreted as shell syntax.
         args: tab.kind === 'claude' && tab.prompt ? [tab.prompt] : undefined,
+        kind: tab.kind,
+        title: tab.title,
         cols: term.current?.cols ?? 80,
         rows: term.current?.rows ?? 24
       })

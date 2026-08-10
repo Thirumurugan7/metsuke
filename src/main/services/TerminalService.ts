@@ -6,7 +6,15 @@ import type { TerminalSession, TerminalSpawnOptions } from '@shared/ipc'
 interface Session {
   meta: TerminalSession
   proc: pty.IPty
+  /**
+   * Recent output, so a renderer that reloads can redraw the terminal instead of
+   * showing an empty pane attached to a live process.
+   */
+  scrollback: string
 }
+
+/** Roughly a few thousand lines — enough to restore context without hoarding memory. */
+const MAX_SCROLLBACK = 256 * 1024
 
 /** The user's login shell, or a sane fallback per platform. */
 function defaultShell(): string {
@@ -65,10 +73,20 @@ export class TerminalService {
       }
     })
 
-    const meta: TerminalSession = { id, command, cwd }
-    this.#sessions.set(id, { meta, proc })
+    const meta: TerminalSession = {
+      id,
+      command,
+      cwd,
+      kind: opts.kind ?? 'shell',
+      title: opts.title ?? command
+    }
+    const session: Session = { meta, proc, scrollback: '' }
+    this.#sessions.set(id, session)
 
-    proc.onData((data) => this.#onData?.(id, data))
+    proc.onData((data) => {
+      session.scrollback = (session.scrollback + data).slice(-MAX_SCROLLBACK)
+      this.#onData?.(id, data)
+    })
     proc.onExit(({ exitCode }) => {
       this.#sessions.delete(id)
       this.#onExit?.(id, exitCode)
@@ -101,6 +119,11 @@ export class TerminalService {
 
   list(): TerminalSession[] {
     return [...this.#sessions.values()].map((s) => s.meta)
+  }
+
+  /** Buffered output, replayed by a renderer reattaching after a reload. */
+  history(id: string): string {
+    return this.#sessions.get(id)?.scrollback ?? ''
   }
 
   /** PIDs of every live pty, used by PortService to tell our servers from other ones. */

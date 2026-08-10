@@ -44,10 +44,17 @@ async function adopt(workspace: Workspace, opts: { check: boolean }): Promise<vo
 async function adoptInner(workspace: Workspace, opts: { check: boolean }): Promise<void> {
   localStorage.setItem(LAST_FOLDER_KEY, workspace.root)
 
-  // Terminals are bound to the old folder's cwd, so kill them rather than leaving
-  // sessions pointed somewhere the UI no longer shows.
-  for (const tab of useStore.getState().terminals) {
-    if (tab.sessionId) void call('terminal:kill', tab.sessionId)
+  /*
+   * Sessions live in the main process and outlive this renderer, so after a reload
+   * there may already be terminals running for this folder. Reattach to them rather
+   * than killing and respawning — a `claude` session must not die because a window
+   * reloaded. Sessions belonging to a folder we are no longer showing are killed here,
+   * which is also what stops them accumulating.
+   */
+  const live = (await call('terminal:list')) ?? []
+  const mine = live.filter((s) => s.cwd === workspace.root)
+  for (const stale of live.filter((s) => s.cwd !== workspace.root)) {
+    void call('terminal:kill', stale.id)
   }
 
   useStore.setState({
@@ -66,6 +73,22 @@ async function adoptInner(workspace: Workspace, opts: { check: boolean }): Promi
 
   await useStore.getState().loadDir('')
   await useStore.getState().refreshGit()
+
+  // Reattach to whatever survived, keeping tab order and titles.
+  if (mine.length > 0) {
+    useStore.setState({
+      terminals: mine.map((s) => ({
+        id: nextTerminalId(),
+        kind: s.kind === 'claude' ? 'claude' : 'shell',
+        title: s.title,
+        sessionId: s.id,
+        exitCode: null
+      })),
+      activeTerminal: null
+    })
+    useStore.setState((state) => ({ activeTerminal: state.terminals[0]?.id ?? null }))
+    return
+  }
 
   // Opening a folder starts a Claude session. When you opened it deliberately and
   // auto-check is on, that session begins by walking the project end to end and

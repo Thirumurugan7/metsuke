@@ -54,15 +54,20 @@ function createWindow(): void {
   // Clear the attention cue once the user actually looks at the window.
   window.on('focus', () => window?.flashFrame(false))
 
-  /**
-   * Terminals belong to the renderer session that opened them. A reload — or an HMR
-   * full refresh, or a renderer crash — throws that session away without running React
-   * cleanup, so the ptys were surviving as orphans: seven live `claude` processes
-   * accumulated behind a UI showing one tab. Killing them as the frame starts loading
-   * happens before the new renderer spawns its own.
+  /*
+   * Terminals deliberately outlive the renderer.
+   *
+   * They used to be killed whenever the frame started loading, which was a blunt fix
+   * for ptys leaking across reloads. But that fires on every reload — including an HMR
+   * refresh and a renderer crash — so a long-running `claude` session died for entirely
+   * unrelated reasons, which defeats the point of the editor.
+   *
+   * Sessions now belong to the app, not to a page load. The renderer re-adopts whatever
+   * is still running for the open folder (see restoreTerminals in the store), so they
+   * cannot accumulate: a reload reconnects to the same ptys rather than spawning more.
+   * Anything left for a folder that is no longer open is killed at adoption time, and
+   * everything is killed on quit.
    */
-  window.webContents.on('did-start-loading', () => services.terminals.killAll())
-  window.webContents.on('render-process-gone', () => services.terminals.killAll())
 
   // Links that would replace the editor open in the user's real browser instead.
   window.webContents.setWindowOpenHandler(({ url }) => {

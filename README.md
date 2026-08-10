@@ -46,6 +46,11 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`.
   another Claude session or a plain shell, middle-click or `×` to close, restart in
   place when a process exits. Switching tabs never kills a session.
 
+  Sessions belong to the app, not to the window. A reload — including an HMR refresh
+  while hacking on the editor itself, or a renderer crash — reattaches to the running
+  ptys and replays their scrollback rather than starting over. A session ends when you
+  close its tab, when you open a different folder, or when you quit.
+
 ## Notifications
 
 When Claude wants something — permission to run a tool, or your input after sitting
