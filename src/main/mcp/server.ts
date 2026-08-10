@@ -13,11 +13,11 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 
-const CONTROL_URL = process.env['CODEEDITOR_CONTROL_URL']
-const CONTROL_TOKEN = process.env['CODEEDITOR_CONTROL_TOKEN']
+const CONTROL_URL = process.env['OPEN_CLAUDE_CONTROL_URL']
+const CONTROL_TOKEN = process.env['OPEN_CLAUDE_CONTROL_TOKEN']
 
 if (!CONTROL_URL || !CONTROL_TOKEN) {
-  console.error('codeeditor-mcp must be launched by the editor; control channel is not configured.')
+  console.error('open-claude-mcp must be launched by the editor; control channel is not configured.')
   process.exit(1)
 }
 
@@ -173,7 +173,7 @@ async function callBridge(tool: string, args: Record<string, unknown>): Promise<
 }
 
 const server = new Server(
-  { name: 'codeeditor-preview', version: '0.1.0' },
+  { name: 'open-claude-preview', version: '0.1.0' },
   { capabilities: { tools: {} } }
 )
 

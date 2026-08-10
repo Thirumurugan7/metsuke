@@ -95,6 +95,7 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
   // -- files ----------------------------------------------------------------
 
   handle('files:list', (dir) => ws().files.list(dir))
+  handle('files:all', () => ws().files.allFiles())
   handle('files:read', (p) => ws().files.read(p))
   handle('files:write', (p, contents) => ws().files.write(p, contents))
   handle('files:create', (p, isDirectory) => ws().files.create(p, isDirectory))

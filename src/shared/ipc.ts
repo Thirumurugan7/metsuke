@@ -156,6 +156,8 @@ export interface InvokeChannels {
   // -- files ----------------------------------------------------------------
   /** One level of the tree. `dir` is relative to the workspace root; '' is the root. */
   'files:list': { args: [dir: string]; result: DirEntry[] }
+  /** Every file path in the workspace, for quick-open. */
+  'files:all': { args: []; result: string[] }
   'files:read': { args: [path: string]; result: string }
   'files:write': { args: [path: string, contents: string]; result: void }
   'files:create': { args: [path: string, isDirectory: boolean]; result: void }
@@ -233,6 +235,7 @@ export const INVOKE_CHANNELS = [
   'workspace:current',
   'workspace:close',
   'files:list',
+  'files:all',
   'files:read',
   'files:write',
   'files:create',

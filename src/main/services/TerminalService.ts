@@ -49,7 +49,7 @@ export class TerminalService {
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
         // Lets tools detect they are embedded, the way VS Code advertises itself.
-        TERM_PROGRAM: 'codeeditor'
+        TERM_PROGRAM: 'open-claude'
       }
     })
 

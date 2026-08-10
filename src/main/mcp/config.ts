@@ -22,8 +22,8 @@ export async function writeMcpConfig(bridge: ControlBridge): Promise<string> {
         command: process.execPath,
         args: [serverEntry],
         env: {
-          CODEEDITOR_CONTROL_URL: `http://127.0.0.1:${bridge.port}`,
-          CODEEDITOR_CONTROL_TOKEN: bridge.token,
+          OPEN_CLAUDE_CONTROL_URL: `http://127.0.0.1:${bridge.port}`,
+          OPEN_CLAUDE_CONTROL_TOKEN: bridge.token,
           // Electron's binary runs as a browser unless told to behave as plain Node.
           ELECTRON_RUN_AS_NODE: '1'
         }

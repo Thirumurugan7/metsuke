@@ -10,7 +10,7 @@ describe('FileService', () => {
   let files: FileService
 
   beforeEach(async () => {
-    const base = await fs.mkdtemp(path.join(os.tmpdir(), 'codeeditor-fs-'))
+    const base = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-fs-'))
     root = path.join(base, 'workspace')
     outside = path.join(base, 'outside')
     await fs.mkdir(root)

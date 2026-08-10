@@ -30,17 +30,30 @@ export function SearchPanel(): JSX.Element {
       <div className="search-controls">
         <input
           value={query}
-          placeholder="Search"
+          placeholder="Search in files — press Enter"
+          aria-label="Search text in files"
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void search()
           }}
         />
         <div className="search-toggles">
-          <button className={caseSensitive ? 'active' : ''} title="Match case" onClick={() => setCaseSensitive((v) => !v)}>
+          <button
+            className={`icon-only${caseSensitive ? ' active' : ''}`}
+            title="Match case"
+            aria-label="Match case"
+            aria-pressed={caseSensitive}
+            onClick={() => setCaseSensitive((v) => !v)}
+          >
             Aa
           </button>
-          <button className={regex ? 'active' : ''} title="Regular expression" onClick={() => setRegex((v) => !v)}>
+          <button
+            className={`icon-only${regex ? ' active' : ''}`}
+            title="Use regular expression"
+            aria-label="Use regular expression"
+            aria-pressed={regex}
+            onClick={() => setRegex((v) => !v)}
+          >
             .*
           </button>
         </div>
@@ -63,7 +76,14 @@ export function SearchPanel(): JSX.Element {
               {path}
             </div>
             {matches.map((m, i) => (
-              <div key={i} className="search-hit" onClick={() => void openFile(m.path)}>
+              // Jumps to the matching line; previously it opened the file at line 1,
+              // leaving you to find the match yourself.
+              <div
+                key={i}
+                className="search-hit"
+                title={`${m.path}:${m.line}`}
+                onClick={() => void openFile(m.path, m.line)}
+              >
                 <span className="search-line">{m.line}</span>
                 <span className="search-text">{m.text.trim()}</span>
               </div>

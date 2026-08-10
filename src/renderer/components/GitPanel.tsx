@@ -22,6 +22,17 @@ const LETTERS: Record<string, string> = {
   conflicted: '!'
 }
 
+/** The single letters are conventional but opaque; these back them with a tooltip. */
+const STATE_LABELS: Record<string, string> = {
+  modified: 'Modified',
+  added: 'Added',
+  deleted: 'Deleted',
+  renamed: 'Renamed',
+  copied: 'Copied',
+  untracked: 'Untracked',
+  conflicted: 'Conflicted — resolve before committing'
+}
+
 export function GitPanel(): JSX.Element {
   const { workspace, git, refreshGit, showDiff, setError } = useStore()
   const [message, setMessage] = useState('')
@@ -54,7 +65,13 @@ export function GitPanel(): JSX.Element {
 
   const commit = async (): Promise<void> => {
     if (!message.trim()) return setError('Enter a commit message first')
+
     await run('commit', async () => {
+      // Committing with an empty index would fail with git's own confusing message,
+      // so stage everything first when that is plainly the intent.
+      if (staged.length === 0) {
+        if ((await call('git:stage', changes.map((f) => f.path))) === null) return
+      }
       const hash = await call('git:commit', message, {})
       if (hash) setMessage('')
     })
@@ -81,33 +98,61 @@ export function GitPanel(): JSX.Element {
 
         <div className="git-sync">
           <button
+            className="labelled"
             disabled={busy !== null}
-            title={git.behind ? `${git.behind} commits to pull` : 'Pull'}
+            title={git.behind ? `Pull ${git.behind} incoming commit(s)` : 'Pull from the remote'}
             onClick={() => void run('pull', () => call('git:pull', {}))}
           >
-            ↓ {git.behind || ''}
+            <span aria-hidden="true">↓</span> Pull{git.behind > 0 && ` (${git.behind})`}
           </button>
           <button
+            className="labelled"
             disabled={busy !== null}
-            title={git.upstream ? `${git.ahead} commits to push` : 'Publish branch'}
+            title={
+              git.upstream
+                ? `Push ${git.ahead} outgoing commit(s)`
+                : 'Publish this branch to the remote'
+            }
             onClick={() => void run('push', () => call('git:push', { setUpstream: !git.upstream }))}
           >
-            ↑ {git.ahead || ''}
+            <span aria-hidden="true">↑</span> {git.upstream ? 'Push' : 'Publish'}
+            {git.ahead > 0 && ` (${git.ahead})`}
           </button>
         </div>
       </div>
 
+      {busy && <div className="git-busy">Running git {busy}…</div>}
+
       <div className="git-commit">
         <textarea
-          placeholder={`Message (⌘Enter to commit on ${git.branch ?? 'HEAD'})`}
+          placeholder={`Commit message (⌘Enter to commit on ${git.branch ?? 'HEAD'})`}
+          aria-label="Commit message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void commit()
           }}
         />
-        <button disabled={busy !== null || staged.length === 0} onClick={() => void commit()}>
-          Commit {staged.length > 0 && `(${staged.length})`}
+        {/*
+          With nothing staged this button used to be simply disabled, with no
+          explanation and no way forward. Now it offers to stage everything first,
+          which is what the user meant anyway.
+        */}
+        <button
+          className="primary"
+          disabled={busy !== null || (staged.length === 0 && changes.length === 0)}
+          title={
+            staged.length > 0
+              ? `Commit ${staged.length} staged file(s)`
+              : 'Stage every change and commit it'
+          }
+          onClick={() => void commit()}
+        >
+          {staged.length > 0
+            ? `Commit ${staged.length} staged file${staged.length === 1 ? '' : 's'}`
+            : changes.length > 0
+              ? `Stage all & commit (${changes.length})`
+              : 'Nothing to commit'}
         </button>
       </div>
 
@@ -122,6 +167,7 @@ export function GitPanel(): JSX.Element {
           title: 'Unstage',
           run: (paths) => run('unstage', () => call('git:unstage', paths))
         }}
+        emptyHint="Stage a change below to include it in the next commit."
       />
 
       <Section
@@ -143,14 +189,23 @@ export function GitPanel(): JSX.Element {
             await run('discard', () => call('git:discard', paths))
           }
         }}
+        emptyHint="Working tree is clean."
       />
 
       <div className="git-log">
-        <div className="section-header">History</div>
+        <div className="section-header">
+          <span>History</span>
+        </div>
+        {log.length === 0 && <div className="section-empty">No commits yet</div>}
         {log.map((entry) => (
-          <div key={entry.hash} className="log-row" title={`${entry.author} · ${entry.date}`}>
+          <div
+            key={entry.hash}
+            className="log-row"
+            title={`${entry.subject}\n${entry.author} · ${new Date(entry.date).toLocaleString()}\n${entry.hash}`}
+          >
             <span className="log-hash">{entry.shortHash}</span>
             <span className="log-subject">{entry.subject}</span>
+            <span className="log-author">{entry.author}</span>
           </div>
         ))}
       </div>
@@ -171,7 +226,8 @@ function Section({
   side,
   onDiff,
   action,
-  secondaryAction
+  secondaryAction,
+  emptyHint
 }: {
   title: string
   count: number
@@ -180,9 +236,24 @@ function Section({
   onDiff: (path: string) => void
   action: Action
   secondaryAction?: Action
-}): JSX.Element | null {
-  if (count === 0) return null
+  emptyHint: string
+}): JSX.Element {
   const allPaths = files.map((f) => f.path)
+
+  // An empty section used to vanish entirely, so a clean tree showed a bare panel with
+  // no indication of what the sections even were.
+  if (count === 0) {
+    return (
+      <div className="git-section">
+        <div className="section-header">
+          <span>
+            {title} <span className="count">0</span>
+          </span>
+        </div>
+        <div className="section-empty">{emptyHint}</div>
+      </div>
+    )
+  }
 
   return (
     <div className="git-section">
@@ -190,8 +261,12 @@ function Section({
         <span>
           {title} <span className="count">{count}</span>
         </span>
-        <button title={`${action.title} all`} onClick={() => void action.run(allPaths)}>
-          {action.label}
+        <button
+          className="labelled"
+          title={`${action.title} all ${count} file(s)`}
+          onClick={() => void action.run(allPaths)}
+        >
+          {action.title} all
         </button>
       </div>
 
@@ -207,7 +282,9 @@ function Section({
             <span className="git-actions">
               {secondaryAction && (
                 <button
-                  title={secondaryAction.title}
+                  className="icon-only"
+                  title={`${secondaryAction.title} — ${file.path}`}
+                  aria-label={`${secondaryAction.title} ${file.path}`}
                   onClick={(e) => {
                     e.stopPropagation()
                     void secondaryAction.run([file.path])
@@ -217,7 +294,9 @@ function Section({
                 </button>
               )}
               <button
-                title={action.title}
+                className="icon-only"
+                title={`${action.title} — ${file.path}`}
+                aria-label={`${action.title} ${file.path}`}
                 onClick={(e) => {
                   e.stopPropagation()
                   void action.run([file.path])
@@ -225,7 +304,9 @@ function Section({
               >
                 {action.label}
               </button>
-              <span className={`git-letter letter-${state}`}>{LETTERS[state] ?? ''}</span>
+              <span className={`git-letter letter-${state}`} title={STATE_LABELS[state] ?? state}>
+                {LETTERS[state] ?? ''}
+              </span>
             </span>
           </div>
         )

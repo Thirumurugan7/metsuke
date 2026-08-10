@@ -23,6 +23,13 @@ function parsePatch(patch: string): Line[] {
     .filter((line) => line.kind !== 'meta')
 }
 
+/** The three diff sides, each with an explanation — "Unstaged/Staged/All" alone is cryptic. */
+const KINDS = [
+  { id: 'worktree', label: 'Unstaged', help: 'Changes you have not staged yet (working tree vs index)' },
+  { id: 'staged', label: 'Staged', help: 'Changes staged for the next commit (index vs HEAD)' },
+  { id: 'head', label: 'All', help: 'Everything since the last commit (working tree vs HEAD)' }
+] as const satisfies ReadonlyArray<{ id: DiffKind; label: string; help: string }>
+
 export function DiffView({ path }: { path: string }): JSX.Element {
   const { git, showDiff } = useStore()
   const [kind, setKind] = useState<DiffKind>('worktree')
@@ -47,29 +54,51 @@ export function DiffView({ path }: { path: string }): JSX.Element {
   return (
     <div className="diff-view">
       <div className="diff-header">
-        <span className="diff-path">{path}</span>
+        <span className="diff-path" title={path}>
+          {path}
+        </span>
         <span className="diff-stat">
-          <span className="diff-added">+{added}</span> <span className="diff-removed">−{removed}</span>
+          <span className="diff-added" title={`${added} lines added`}>
+            +{added}
+          </span>{' '}
+          <span className="diff-removed" title={`${removed} lines removed`}>
+            −{removed}
+          </span>
         </span>
 
-        <div className="diff-kind">
-          {(['worktree', 'staged', 'head'] as const).map((k) => (
-            <button key={k} className={kind === k ? 'active' : ''} onClick={() => setKind(k)}>
-              {k === 'worktree' ? 'Unstaged' : k === 'staged' ? 'Staged' : 'All'}
+        <div className="diff-kind" role="group" aria-label="Which changes to show">
+          {KINDS.map((k) => (
+            <button
+              key={k.id}
+              className={kind === k.id ? 'active' : ''}
+              title={k.help}
+              aria-pressed={kind === k.id}
+              onClick={() => setKind(k.id)}
+            >
+              {k.label}
             </button>
           ))}
         </div>
 
-        <button className="diff-close" onClick={() => showDiff(null)}>
+        <button className="icon-only" title="Close diff" aria-label="Close diff" onClick={() => showDiff(null)}>
           ×
         </button>
       </div>
 
       <div className="diff-body">
         {diff?.binary ? (
-          <div className="panel-empty">Binary file</div>
+          <div className="panel-empty">
+            <p className="empty-title">Binary file</p>
+            <p className="hint">There is no text diff to show.</p>
+          </div>
         ) : lines.length === 0 ? (
-          <div className="panel-empty">No changes on this side</div>
+          <div className="panel-empty">
+            <p className="empty-title">Nothing here</p>
+            <p className="hint">
+              This file has no {kind === 'staged' ? 'staged' : 'unstaged'} changes. Try another
+              tab above.
+            </p>
+          </div>
         ) : (
           lines.map((line, i) => (
             <div key={i} className={`diff-line diff-${line.kind}`}>

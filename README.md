@@ -1,4 +1,4 @@
-# Code Editor
+# Open Claude
 
 A VS Code–style desktop editor built around Claude Code. It exists so you can watch
 Claude work: the file tree, git diffs, and a live browser preview all update as the
@@ -14,10 +14,25 @@ npm run dev     # launches the app with hot reload
 
 Other scripts: `npm test`, `npm run typecheck`, `npm run build`.
 
+## Keyboard shortcuts
+
+`⌘` on macOS, `Ctrl` elsewhere.
+
+| Shortcut | Does |
+|---|---|
+| `⌘P` | Go to file (fuzzy) |
+| `⌘S` | Save |
+| `⌘B` | Toggle sidebar |
+| `⌘J` | Toggle terminal |
+| `⌘W` | Close tab |
+| `⌘O` | Open folder |
+| `⌘⇧E` / `⌘⇧G` / `⌘⇧F` / `⌘⇧P` | Files / Git / Search / Ports |
+
 ## What it does
 
 - **Explorer** — open a folder, browse the tree, edit in Monaco with per-tab undo
-  history. Files edited on disk by Claude refresh in place without losing your cursor.
+  history. Right-click for new file/folder, rename, and delete. Files edited on disk by
+  Claude refresh in place without losing your cursor.
 - **Source control** — full git client: status, staged/unstaged diffs, stage, discard,
   commit, branch switching, push/pull, and history.
 - **Ports** — every listening port on the machine, with the ones started from the
@@ -65,3 +80,10 @@ a per-run bearer token.
 | `src/shared/ipc.ts` | The IPC contract, imported by both sides |
 
 Design notes: `docs/superpowers/specs/2026-08-10-claude-code-editor-design.md`.
+
+## Inspecting the editor's own UI
+
+In dev, Open Claude exposes its own window over CDP on port 9222 (override with
+`OPEN_CLAUDE_DEBUG_PORT`). That means the same trick the preview pane gives you for
+your project works on the editor itself — you can screenshot it, query its DOM, and
+drive it while building. `http://127.0.0.1:9222/json/list` lists the target.

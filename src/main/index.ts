@@ -73,6 +73,13 @@ function createWindow(): void {
   }
 }
 
+// In dev, expose the editor's own window over CDP. This is what lets Claude inspect
+// and screenshot Open Claude's UI while building it — the same trick the preview pane
+// gives you for your project, turned back on the editor itself.
+if (process.env['ELECTRON_RENDERER_URL']) {
+  app.commandLine.appendSwitch('remote-debugging-port', process.env['OPEN_CLAUDE_DEBUG_PORT'] ?? '9222')
+}
+
 app.whenReady().then(async () => {
   // The webview's own preferences are set from the main process; the renderer cannot
   // widen them. webSecurity is off *inside the preview only*, so dev servers with

@@ -10,7 +10,7 @@ const exec = promisify(execFile)
 
 /** A real repo in a temp dir — parsing git output is only worth testing against real git. */
 async function makeRepo(): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'codeeditor-git-'))
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-git-'))
   const run = (args: string[]) => exec('git', args, { cwd: dir })
   await run(['init', '-q', '-b', 'main'])
   await run(['config', 'user.email', 'test@example.com'])

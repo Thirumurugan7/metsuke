@@ -163,6 +163,32 @@ export class FileService {
     await fs.rm(absolute, { recursive: true, force: true })
   }
 
+  /**
+   * Every file path in the workspace, for quick-open. Capped so a huge repo cannot
+   * stall the UI; the cap is generous enough that hitting it is unusual.
+   */
+  async allFiles(limit = 20_000): Promise<string[]> {
+    const out: string[] = []
+
+    const walk = async (dir: string): Promise<void> => {
+      if (out.length >= limit) return
+      let entries: DirEntry[]
+      try {
+        entries = await this.list(dir)
+      } catch {
+        return
+      }
+      for (const entry of entries) {
+        if (out.length >= limit) return
+        if (entry.isDirectory) await walk(entry.path)
+        else out.push(entry.path)
+      }
+    }
+
+    await walk('')
+    return out
+  }
+
   /** Recursive content search, breadth-limited and capped at `limit` matches. */
   async search(
     query: string,

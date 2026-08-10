@@ -22,7 +22,7 @@ export async function call<C extends InvokeChannel>(
   return null
 }
 
-const LAST_FOLDER_KEY = 'codeeditor.lastFolder'
+const LAST_FOLDER_KEY = 'open-claude.lastFolder'
 
 /**
  * Adopt a freshly opened workspace: clear everything scoped to the previous folder,
@@ -53,9 +53,18 @@ export interface OpenFile {
   saved: string
 }
 
+export interface Toast {
+  id: number
+  message: string
+}
+
 interface State {
   workspace: Workspace | null
-  error: string | null
+  /**
+   * A queue rather than one slot: a single `error` field meant a second failure
+   * silently replaced the first before the user had read it.
+   */
+  toasts: Toast[]
 
   // -- explorer -------------------------------------------------------------
   /** Children by directory path; '' is the root. Absent means not yet loaded. */
@@ -73,11 +82,19 @@ interface State {
    */
   externalEdit: { path: string; contents: string; at: number } | null
 
+  /** Line to scroll to and highlight once the file is open; cleared after use. */
+  revealLine: { path: string; line: number; at: number } | null
+
   // -- panels ---------------------------------------------------------------
   sidebar: SidebarView
   sidebarVisible: boolean
   previewVisible: boolean
   terminalVisible: boolean
+  /** Panel sizes in pixels, dragged by the splitters and persisted. */
+  sidebarWidth: number
+  previewWidth: number
+  terminalHeight: number
+  quickOpen: boolean
 
   // -- git ------------------------------------------------------------------
   git: GitStatus | null
@@ -87,13 +104,16 @@ interface State {
   // -- preview --------------------------------------------------------------
   ports: PortInfo[]
   previewUrl: string
+  /** True once the CDP debugger is attached, i.e. Claude can drive the page. */
+  previewAttached: boolean
 
   setError: (error: string | null) => void
+  dismissToast: (id: number) => void
   openFolder: () => Promise<void>
   restoreLastFolder: () => Promise<void>
   loadDir: (dir: string) => Promise<void>
   toggleDir: (dir: string) => Promise<void>
-  openFile: (path: string) => Promise<void>
+  openFile: (path: string, line?: number) => Promise<void>
   closeFile: (path: string) => void
   markDirty: (path: string, isDirty: boolean) => void
   saveFile: (path: string, contents: string) => Promise<void>
@@ -101,28 +121,59 @@ interface State {
   showDiff: (path: string | null) => void
   setSidebar: (view: SidebarView) => void
   togglePanel: (panel: 'sidebar' | 'preview' | 'terminal') => void
+  setPanelSize: (panel: 'sidebar' | 'preview' | 'terminal', px: number) => void
+  setQuickOpen: (open: boolean) => void
+  setPreviewAttached: (attached: boolean) => void
+  /** Load a URL into the preview, revealing the panel if it is collapsed. */
+  showInPreview: (url: string) => void
   setPreviewUrl: (url: string) => void
+}
+
+/** Panel sizes survive restarts; they are pure layout, so localStorage is enough. */
+const LAYOUT_KEY = 'open-claude.layout'
+
+function loadLayout(): { sidebarWidth: number; previewWidth: number; terminalHeight: number } {
+  const fallback = { sidebarWidth: 280, previewWidth: 440, terminalHeight: 260 }
+  try {
+    return { ...fallback, ...JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') }
+  } catch {
+    return fallback
+  }
 }
 
 export const useStore = create<State>((set, get) => ({
   workspace: null,
-  error: null,
+  toasts: [],
   tree: {},
   expanded: new Set(),
   openFiles: [],
   activePath: null,
   dirty: new Set(),
   externalEdit: null,
+  revealLine: null,
   sidebar: 'explorer',
   sidebarVisible: true,
   previewVisible: true,
   terminalVisible: true,
+  ...loadLayout(),
+  quickOpen: false,
   git: null,
   diffPath: null,
   ports: [],
   previewUrl: '',
+  previewAttached: false,
 
-  setError: (error) => set({ error }),
+  setError: (error) =>
+    set((s) =>
+      error === null
+        ? { toasts: [] }
+        : // Collapse an identical repeat rather than stacking the same message twice.
+          s.toasts.at(-1)?.message === error
+          ? s
+          : { toasts: [...s.toasts, { id: Date.now() + Math.random(), message: error }] }
+    ),
+
+  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
   openFolder: async () => {
     const workspace = await call('workspace:open')
@@ -161,11 +212,12 @@ export const useStore = create<State>((set, get) => ({
     set({ expanded })
   },
 
-  openFile: async (path) => {
+  openFile: async (path, line) => {
+    const reveal = line ? { path, line, at: Date.now() } : null
     set({ diffPath: null })
 
     if (get().openFiles.some((f) => f.path === path)) {
-      set({ activePath: path })
+      set({ activePath: path, revealLine: reveal })
       return
     }
 
@@ -173,7 +225,8 @@ export const useStore = create<State>((set, get) => ({
     if (contents === null) return
     set((s) => ({
       openFiles: [...s.openFiles, { path, saved: contents }],
-      activePath: path
+      activePath: path,
+      revealLine: reveal
     }))
   },
 
@@ -219,7 +272,14 @@ export const useStore = create<State>((set, get) => ({
   },
 
   showDiff: (diffPath) => set({ diffPath }),
-  setSidebar: (sidebar) => set({ sidebar, sidebarVisible: true }),
+
+  /** Clicking the active view's icon collapses the sidebar, as VS Code does. */
+  setSidebar: (view) =>
+    set((s) =>
+      s.sidebar === view && s.sidebarVisible
+        ? { sidebarVisible: false }
+        : { sidebar: view, sidebarVisible: true }
+    ),
 
   togglePanel: (panel) =>
     set((s) => {
@@ -228,6 +288,26 @@ export const useStore = create<State>((set, get) => ({
       return { terminalVisible: !s.terminalVisible }
     }),
 
+  setPanelSize: (panel, px) => {
+    // Clamped so a panel can never be dragged to nothing, which would leave the user
+    // with an invisible splitter and no way back.
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+    const key =
+      panel === 'sidebar' ? 'sidebarWidth' : panel === 'preview' ? 'previewWidth' : 'terminalHeight'
+    const value =
+      panel === 'terminal'
+        ? clamp(px, 80, window.innerHeight - 200)
+        : clamp(px, 160, window.innerWidth - 400)
+
+    set({ [key]: value } as Partial<State>)
+    const { sidebarWidth, previewWidth, terminalHeight } = get()
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify({ sidebarWidth, previewWidth, terminalHeight }))
+  },
+
+  setQuickOpen: (quickOpen) => set({ quickOpen }),
+  setPreviewAttached: (previewAttached) => set({ previewAttached }),
+
+  showInPreview: (previewUrl) => set({ previewUrl, previewVisible: true }),
   setPreviewUrl: (previewUrl) => set({ previewUrl })
 }))
 

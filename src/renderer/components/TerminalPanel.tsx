@@ -109,22 +109,56 @@ export function TerminalPanel(): JSX.Element {
   return (
     <div className="terminal-panel">
       <div className="terminal-bar">
-        <button className={command === 'claude' ? 'active' : ''} onClick={() => setCommand('claude')}>
+        <span className="terminal-title">Terminal</span>
+        <button
+          className={`labelled${command === 'claude' ? ' active' : ''}`}
+          title="Run Claude Code in the open folder, with the preview tools wired in"
+          aria-pressed={command === 'claude'}
+          onClick={() => setCommand('claude')}
+        >
           claude
         </button>
-        <button className={command === 'shell' ? 'active' : ''} onClick={() => setCommand('shell')}>
+        <button
+          className={`labelled${command === 'shell' ? ' active' : ''}`}
+          title="Run your normal login shell"
+          aria-pressed={command === 'shell'}
+          onClick={() => setCommand('shell')}
+        >
           shell
         </button>
         {exited !== null && (
-          <button className="restart" onClick={() => setGeneration((g) => g + 1)}>
-            restart
+          <button
+            className="labelled restart"
+            title="Start the session again"
+            onClick={() => setGeneration((g) => g + 1)}
+          >
+            ↻ Restart
           </button>
         )}
-        <span className="terminal-hint">
-          {command === 'claude' ? 'preview tools attached' : workspace?.root ?? ''}
+
+        <span className="terminal-hint" title={workspace?.root ?? ''}>
+          {!workspace
+            ? 'Open a folder to start a session'
+            : command === 'claude'
+              ? 'preview tools attached'
+              : workspace.root}
         </span>
       </div>
-      <div ref={host} className="terminal-host" />
+      <div className="terminal-body">
+        <div ref={host} className="terminal-host" />
+        {/*
+          With no folder open there is no pty, so xterm rendered as a bare blinking
+          cursor that looked like a hung shell. The overlay says what is actually going on.
+        */}
+        {!workspace && (
+          <div className="terminal-overlay">
+            <p>No session running</p>
+            <button className="primary" onClick={() => void useStore.getState().openFolder()}>
+              Open Folder
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
