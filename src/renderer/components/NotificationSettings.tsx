@@ -97,8 +97,11 @@ export function NotificationSettings(): JSX.Element | null {
                 onChange={(e) => void updateNotifySettings({ modal: e.target.checked })}
               />
               <span>
-                Pop-up in the editor
-                <small>Appears over whatever you are doing, wherever you are in the window.</small>
+                Pop-up on screen
+                <small>
+                  Floats above every application, on whichever display your cursor is on —
+                  you see it in your browser or terminal, not only in the editor.
+                </small>
               </span>
               <button className="labelled" disabled={testing !== null} onClick={() => void test('modal')}>
                 Test
@@ -113,8 +116,11 @@ export function NotificationSettings(): JSX.Element | null {
                 onChange={(e) => void updateNotifySettings({ focusWindow: e.target.checked })}
               />
               <span>
-                Bring the window to the front
-                <small>Steals focus from whatever app you are in. Effective, and rude.</small>
+                Take focus when it appears
+                <small>
+                  Off by default the pop-up appears without interrupting your typing. On, it
+                  grabs the keyboard — effective, and rude.
+                </small>
               </span>
             </label>
 

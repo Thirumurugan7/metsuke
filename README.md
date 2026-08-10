@@ -49,7 +49,7 @@ idle — the editor tells you, through whatever channels you turn on:
 
 | Channel | What it does |
 |---|---|
-| **Pop-up** | A modal over whatever you are doing, wherever you are in the window. Optionally raises the window over other apps. |
+| **Pop-up** | A floating card above *every* application — your browser, your terminal, a fullscreen app — on whichever display your cursor is on. |
 | **System** | Your OS notification centre. On macOS, allow it once under System Settings → Notifications. |
 | **Sound** | A built-in chime, or any audio file you pick. Volume adjustable. |
 | **Telegram** | A message to your phone. Create a bot with @BotFather, get your chat ID from @userinfobot. |
@@ -59,6 +59,13 @@ because a notification you find out is broken when you miss one is worse than no
 
 You choose which events notify: permission requests and idle waits are on by default,
 "finished a turn" is off because it is noisy.
+
+The pop-up is a separate always-on-top OS window, not a modal inside the editor — a
+modal only exists while you are looking at the editor, which is exactly when you least
+need telling. It appears without stealing focus, so it never interrupts your typing
+(turn on "Take focus" if you want it to). A permission alert stays until you answer it;
+idle and finished alerts clear themselves after 20 seconds. "Go to Claude" raises the
+editor and selects the session that asked.
 
 ### How it knows
 

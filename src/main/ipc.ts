@@ -13,6 +13,7 @@ import { TerminalService } from './services/TerminalService'
 import { PortService } from './services/PortService'
 import { AutomationService } from './services/AutomationService'
 import { NotificationService } from './services/NotificationService'
+import { AlertWindow } from './AlertWindow'
 import { GitError } from './services/GitService'
 
 /** Long-lived services, independent of which folder is open. */
@@ -21,6 +22,7 @@ export interface AppServices {
   ports: PortService
   automation: AutomationService
   notifications: NotificationService
+  alerts: AlertWindow
   /** The currently open folder, or null. */
   workspace: WorkspaceContext | null
   /** Path to the generated MCP config handed to the embedded `claude`. */
@@ -159,7 +161,15 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
 
   // -- notifications --------------------------------------------------------
 
-  services.notifications.listen((payload) => emit('notify:fired', payload))
+  services.notifications.listen((payload) => {
+    // The renderer still hears about every alert so it can keep the history and play
+    // the sound; the visible pop-up is the floating window, which works no matter which
+    // application is in front.
+    emit('notify:fired', payload)
+    if (services.notifications.popup) {
+      services.alerts.present(payload, { takeFocus: services.notifications.focusWindow })
+    }
+  })
 
   handle('notify:get', () => services.notifications.read())
   handle('notify:set', (settings) => services.notifications.update(settings))
@@ -178,6 +188,21 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
     const path = result.filePaths[0]
     await services.notifications.update({ sound: { enabled: true, path, volume: 0.7 } })
     return path
+  })
+
+  // -- floating alert window ------------------------------------------------
+
+  handle('alert:ready', () => services.alerts.markReady())
+  handle('alert:dismiss', () => services.alerts.hide())
+
+  handle('alert:goto', (sessionId) => {
+    services.alerts.hide()
+    const window = getWindow()
+    if (!window) return
+    if (window.isMinimized()) window.restore()
+    window.show()
+    window.focus()
+    emit('notify:goto', sessionId)
   })
 
   // -- preview automation ---------------------------------------------------

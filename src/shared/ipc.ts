@@ -243,6 +243,13 @@ export interface InvokeChannels {
   /** The configured sound as base64, so the renderer can play it under a strict CSP. */
   'notify:sound': { args: []; result: { mimeType: string; base64: string } | null }
 
+  // -- floating alert window ------------------------------------------------
+  /** The alert page reporting it can receive payloads. */
+  'alert:ready': { args: []; result: void }
+  'alert:dismiss': { args: []; result: void }
+  /** Hide the alert, raise the editor, and focus the Claude session that raised it. */
+  'alert:goto': { args: [sessionId: string | null]; result: void }
+
   // -- preview automation ---------------------------------------------------
   /**
    * Hand the main process the webContents id of the preview <webview> so
@@ -268,6 +275,10 @@ export interface EventChannels {
   'terminal:data': [id: string, data: string]
   'terminal:exit': [id: string, exitCode: number]
   'notify:fired': [payload: NotificationPayload]
+  /** Sent to the floating alert window only. */
+  'alert:payload': [payload: NotificationPayload]
+  /** Main renderer: focus the Claude terminal that asked for attention. */
+  'notify:goto': [sessionId: string | null]
   'preview:navigated': [url: string]
   'preview:console': [message: ConsoleMessage]
   /** A background operation failed with no invoke to attach the error to. */
@@ -316,6 +327,9 @@ export const INVOKE_CHANNELS = [
   'notify:test',
   'notify:pickSound',
   'notify:sound',
+  'alert:ready',
+  'alert:dismiss',
+  'alert:goto',
   'preview:register',
   'preview:navigate',
   'preview:reload',
@@ -333,5 +347,7 @@ export const EVENT_CHANNELS = [
   'preview:navigated',
   'preview:console',
   'notify:fired',
+  'alert:payload',
+  'notify:goto',
   'app:error'
 ] as const satisfies readonly EventChannel[]

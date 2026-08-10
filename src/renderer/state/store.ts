@@ -187,8 +187,6 @@ interface State {
 
   // -- notifications --------------------------------------------------------
   notifySettings: (NotificationSettings & { telegramConfigured: boolean }) | null
-  /** The alert currently on screen, if any. */
-  activeNotification: NotificationPayload | null
   /** Most recent alerts, newest first, so you can see what you missed. */
   notificationLog: NotificationPayload[]
   settingsOpen: boolean
@@ -233,7 +231,6 @@ interface State {
   // -- notifications --------------------------------------------------------
   loadNotifySettings: () => Promise<void>
   updateNotifySettings: (patch: Partial<NotificationSettings>) => Promise<void>
-  dismissNotification: () => void
   setSettingsOpen: (open: boolean) => void
   /** Load a URL into the preview, revealing the panel if it is collapsed. */
   showInPreview: (url: string) => void
@@ -274,7 +271,6 @@ export const useStore = create<State>((set, get) => ({
   activeTerminal: null,
   autoCheck: localStorage.getItem(AUTO_CHECK_KEY) !== 'off',
   notifySettings: null,
-  activeNotification: null,
   notificationLog: [],
   settingsOpen: false,
   ports: [],
@@ -503,7 +499,6 @@ export const useStore = create<State>((set, get) => ({
     await get().loadNotifySettings()
   },
 
-  dismissNotification: () => set({ activeNotification: null }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
 
   showInPreview: (previewUrl) => set({ previewUrl, previewVisible: true }),
@@ -550,7 +545,6 @@ export function wireEvents(): () => void {
       const settings = useStore.getState().notifySettings
 
       useStore.setState((s) => ({
-        activeNotification: settings?.modal === false ? s.activeNotification : payload,
         notificationLog: [payload, ...s.notificationLog].slice(0, 50)
       }))
 
@@ -559,6 +553,15 @@ export function wireEvents(): () => void {
           call('notify:sound')
         )
       }
+    }),
+
+    // "Go to Claude" from the floating alert lands here.
+    window.api.on('notify:goto', (sessionId) => {
+      const { terminals, setActiveTerminal, terminalVisible, togglePanel } = useStore.getState()
+      const tab =
+        terminals.find((t) => t.sessionId === sessionId) ?? terminals.find((t) => t.kind === 'claude')
+      if (tab) setActiveTerminal(tab.id)
+      if (!terminalVisible) togglePanel('terminal')
     }),
 
     window.api.on('git:changed', (git) => useStore.setState({ git })),

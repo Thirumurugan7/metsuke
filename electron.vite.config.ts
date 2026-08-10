@@ -34,7 +34,14 @@ export default defineConfig({
       alias: { '@shared': shared, '@renderer': resolve('src/renderer') }
     },
     build: {
-      rollupOptions: { input: { index: resolve('src/renderer/index.html') } }
+      rollupOptions: {
+        input: {
+          index: resolve('src/renderer/index.html'),
+          // The floating alert is its own page, loaded into a separate always-on-top
+          // window so it can appear over other applications.
+          alert: resolve('src/renderer/alert.html')
+        }
+      }
     }
   }
 })

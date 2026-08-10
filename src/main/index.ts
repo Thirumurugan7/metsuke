@@ -7,6 +7,7 @@ import { PortService } from './services/PortService'
 import { AutomationService } from './services/AutomationService'
 import { NotificationService } from './services/NotificationService'
 import { classifyHook } from './services/hookEvent'
+import { AlertWindow } from './AlertWindow'
 import { ControlBridge } from './mcp/bridge'
 import { writeMcpConfig, writeHookSettings } from './mcp/config'
 
@@ -19,6 +20,7 @@ const services: AppServices = {
   ports: new PortService(),
   automation: new AutomationService(),
   notifications: new NotificationService(),
+  alerts: new AlertWindow(),
   workspace: null,
   mcpConfigPath: null,
   hookSettingsPath: null
@@ -137,20 +139,11 @@ app.whenReady().then(async () => {
       hook.session_id ?? null
     )
 
-    if (!window || window.isFocused()) return
-
-    if (services.notifications.focusWindow) {
-      // Opt-in, because taking focus from whatever the user is doing is intrusive.
-      if (window.isMinimized()) window.restore()
-      window.show()
-      window.focus()
-      if (process.platform === 'darwin') app.dock?.bounce('critical')
-      return
+    // A dock bounce is a quiet secondary cue; the floating alert does the real work.
+    if (window && !window.isFocused()) {
+      if (process.platform === 'darwin') app.dock?.bounce('informational')
+      else window.flashFrame(true)
     }
-
-    // Otherwise just draw the eye. flashFrame is the taskbar equivalent elsewhere.
-    if (process.platform === 'darwin') app.dock?.bounce('informational')
-    else window.flashFrame(true)
   })
 
   registerIpc(services, () => window)
@@ -166,6 +159,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  services.alerts.destroy()
   services.terminals.disposeAll()
   services.ports.stop()
   services.automation.detach()

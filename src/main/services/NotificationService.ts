@@ -53,7 +53,12 @@ export class NotificationService {
     this.#onFire = onFire
   }
 
-  /** Whether an alert should raise the editor window over whatever else is in front. */
+  /** Whether the floating pop-up should be shown at all. */
+  get popup(): boolean {
+    return this.#settings.modal
+  }
+
+  /** Whether an alert should take focus rather than appearing quietly beside your work. */
   get focusWindow(): boolean {
     return this.#settings.modal && this.#settings.focusWindow
   }
