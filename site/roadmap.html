@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open Claude · What is left to do</title>
+    <meta name="description" content="The build checklist for Open Claude: what blocks a release, what is unverified, and who is blocked on each item." />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="roadmap.css" />
+  </head>
+
+  <body>
+    <header class="nav">
+      <div class="wrap nav-inner">
+        <a class="brand" href="/">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <rect width="100" height="100" rx="24" fill="#141417" />
+            <path d="M32 30 L54 50 L32 70" fill="none" stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+            <line x1="59" y1="70" x2="74" y2="70" stroke="#f2f4f8" stroke-width="10" stroke-linecap="round" />
+            <defs>
+              <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#0a84ff" />
+                <stop offset="1" stop-color="#4ec9b0" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span>Open Claude</span>
+        </a>
+        <nav class="nav-links">
+          <a href="/">Home</a>
+          <a href="/#download">Download</a>
+          <a href="https://github.com/OWNER/REPO" rel="noopener">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap road">
+      <div class="road-head">
+        <h1>What is left to do</h1>
+        <p>
+          Everything standing between this and something you can hand to a stranger. It
+          includes the parts of my own work that are unverified or that I worked around, because
+          those are the ones that get quietly forgotten.
+        </p>
+      </div>
+
+      <div class="progress">
+        <div class="progress-top">
+          <span id="count">0 of 0 done</span>
+          <span id="percent">0%</span>
+        </div>
+        <div class="track"><div class="bar" id="bar"></div></div>
+      </div>
+
+      <div class="controls">
+        <div class="filter" role="group" aria-label="Filter tasks">
+          <button class="on" data-filter="all">All</button>
+          <button data-filter="todo">Remaining</button>
+          <button data-filter="done">Done</button>
+        </div>
+        <button id="reset" class="reset">Clear my ticks</button>
+      </div>
+
+      <div id="groups"></div>
+
+      <p id="empty" class="empty" hidden>Nothing here under that filter.</p>
+
+      <p class="road-foot">
+        Ticks are stored in this browser only. The committed list lives in
+        <code>site/roadmap.js</code>, so the real state is reviewable in a diff.
+      </p>
+    </main>
+
+    <script src="roadmap.js"></script>
+  </body>
+</html>
