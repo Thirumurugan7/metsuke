@@ -12,6 +12,8 @@ import { Splitter } from './components/Splitter'
 import { QuickOpen } from './components/QuickOpen'
 import { Toasts } from './components/Toasts'
 import { ElementComment } from './components/ElementComment'
+import { Welcome } from './components/Welcome'
+import { Guide } from './components/Guide'
 import { Adaptation } from './components/Adaptation'
 import { NotificationSettings } from './components/NotificationSettings'
 
@@ -218,7 +220,10 @@ export function App(): JSX.Element {
 
         <main className="main">
           <div className="center">
-            <EditorPane onCursorChange={setCursor} />
+            <div className="editor-region">
+              <EditorPane onCursorChange={setCursor} />
+              {!workspace && <Welcome />}
+            </div>
 
             {/*
               Panels are hidden with CSS rather than unmounted. Unmounting the terminal
@@ -261,6 +266,7 @@ export function App(): JSX.Element {
 
       <StatusBar cursor={cursor} />
       <Adaptation />
+      <Guide />
       <ElementComment />
       <QuickOpen />
       <NotificationSettings />

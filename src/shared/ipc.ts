@@ -186,6 +186,19 @@ export interface NotificationPayload {
   timestamp: number
 }
 
+/**
+ * What the editor found on the machine when it started.
+ *
+ * The editor runs the real `claude` CLI in its terminal, so a missing binary is the
+ * single most likely first-run failure. Detecting it lets the welcome screen say so
+ * plainly instead of leaving the user with a terminal that dies without explanation.
+ */
+export interface SystemCheck {
+  claude: { installed: boolean; version: string | null }
+  git: { installed: boolean; version: string | null }
+  platform: NodeJS.Platform
+}
+
 /** An element the user picked in the preview with the element picker. */
 export interface PickedElement {
   selector: string
@@ -231,6 +244,9 @@ export interface InvokeChannels {
   'workspace:openPath': { args: [root: string]; result: Workspace }
   'workspace:current': { args: []; result: Workspace | null }
   'workspace:close': { args: []; result: void }
+
+  /** What tooling is present on this machine. Cheap, and cached after the first call. */
+  'system:check': { args: []; result: SystemCheck }
 
   // -- files ----------------------------------------------------------------
   /** One level of the tree. `dir` is relative to the workspace root; '' is the root. */
@@ -353,6 +369,7 @@ export const INVOKE_CHANNELS = [
   'workspace:openPath',
   'workspace:current',
   'workspace:close',
+  'system:check',
   'files:list',
   'files:all',
   'files:read',

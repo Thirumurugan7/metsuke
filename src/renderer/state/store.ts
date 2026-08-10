@@ -10,6 +10,7 @@ import type {
   Adaptation,
   PickedElement,
   PortInfo,
+  SystemCheck,
   Workspace
 } from '@shared/ipc'
 
@@ -263,6 +264,10 @@ interface State {
   /** Most recent alerts, newest first, so you can see what you missed. */
   notificationLog: NotificationPayload[]
   settingsOpen: boolean
+  /** Whether the guide overlay is up. */
+  guideOpen: boolean
+  /** What tooling the machine has. Null until the first check comes back. */
+  systemCheck: SystemCheck | null
 
   // -- preview --------------------------------------------------------------
   ports: PortInfo[]
@@ -328,6 +333,8 @@ interface State {
   loadNotifySettings: () => Promise<void>
   updateNotifySettings: (patch: Partial<NotificationSettings>) => Promise<void>
   setSettingsOpen: (open: boolean) => void
+  setGuideOpen: (open: boolean) => void
+  loadSystemCheck: () => Promise<void>
   /** Load a URL into the preview, revealing the panel if it is collapsed. */
   showInPreview: (url: string) => void
   setPreviewUrl: (url: string) => void
@@ -369,6 +376,8 @@ export const useStore = create<State>((set, get) => ({
   notifySettings: null,
   notificationLog: [],
   settingsOpen: false,
+  guideOpen: false,
+  systemCheck: null,
   ports: [],
   previewUrl: '',
   previewAttached: false,
@@ -673,6 +682,14 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  setGuideOpen: (guideOpen) => set({ guideOpen }),
+
+  loadSystemCheck: async () => {
+    // Probing runs a login shell, which is slow enough to be worth doing once.
+    if (get().systemCheck) return
+    const result = await call('system:check')
+    if (result) set({ systemCheck: result })
+  },
 
   showInPreview: (previewUrl) => set({ previewUrl, previewVisible: true }),
   setPreviewUrl: (previewUrl) => set({ previewUrl })

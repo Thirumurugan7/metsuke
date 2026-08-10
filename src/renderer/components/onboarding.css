@@ -1,0 +1,240 @@
+/*
+ * Welcome screen and guide.
+ *
+ * Kept in its own file, and built entirely from the palette variables, so it follows
+ * whatever theme is active without knowing anything about which one.
+ */
+
+/*
+ * A positioning context for the welcome screen, so it can sit over the editor without
+ * covering the terminal panel below it.
+ */
+.editor-region {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+/* -- welcome -------------------------------------------------------------- */
+
+.welcome {
+  background: var(--bg);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  overflow: auto;
+  padding: 40px 32px;
+  position: absolute;
+  z-index: 4;
+}
+.welcome-inner {
+  margin: auto;
+  max-width: 560px;
+  width: 100%;
+}
+.welcome-title {
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  margin: 0 0 12px;
+}
+.welcome-lede {
+  color: var(--fg-dim);
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0 0 26px;
+}
+
+.welcome-warn {
+  background: #ffffff08;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--modified);
+  border-radius: 9px;
+  margin-bottom: 26px;
+  padding: 14px 16px;
+}
+.welcome-warn b {
+  display: block;
+  margin-bottom: 6px;
+}
+.welcome-warn p {
+  color: var(--fg-dim);
+  font-size: 13.5px;
+  line-height: 1.6;
+  margin: 0 0 6px;
+}
+.welcome-warn-fix {
+  margin-bottom: 0 !important;
+}
+
+.welcome-steps {
+  counter-reset: step;
+  list-style: none;
+  margin: 0 0 28px;
+  padding: 0;
+}
+.welcome-steps li {
+  color: var(--fg-dim);
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 0 0 16px 34px;
+  position: relative;
+}
+.welcome-steps li::before {
+  background: #ffffff0f;
+  border-radius: 50%;
+  color: var(--accent);
+  content: counter(step);
+  counter-increment: step;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  height: 22px;
+  left: 0;
+  line-height: 22px;
+  position: absolute;
+  text-align: center;
+  top: 0;
+  width: 22px;
+}
+.welcome-steps b {
+  color: var(--fg);
+}
+
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.welcome-env {
+  border-top: 1px solid var(--border);
+  color: var(--fg-dim);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 8px;
+  margin: 26px 0 0;
+  padding-top: 16px;
+}
+.welcome-env .ok {
+  color: var(--untracked);
+}
+.welcome-env .missing {
+  color: var(--modified);
+}
+.welcome-env .sep {
+  color: var(--fg-dim);
+}
+
+/* -- guide ---------------------------------------------------------------- */
+
+.guide-overlay {
+  z-index: 88;
+}
+.guide {
+  background: var(--bg-bar);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: 0 24px 70px #000a;
+  display: flex;
+  flex-direction: column;
+  left: 50%;
+  max-height: 78vh;
+  max-width: 94vw;
+  position: absolute;
+  top: 9%;
+  transform: translateX(-50%);
+  width: 760px;
+}
+.guide-head {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 13px 16px;
+}
+.guide-head h2 {
+  font-size: 15px;
+  margin: 0;
+}
+.guide-body {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  min-height: 0;
+}
+.guide-nav {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: auto;
+  padding: 10px 8px;
+}
+.guide-nav button {
+  border-radius: 6px;
+  color: var(--fg-dim);
+  font-size: 13.5px;
+  padding: 7px 10px;
+  text-align: left;
+}
+.guide-nav button:hover {
+  color: var(--fg);
+}
+.guide-nav button.on {
+  background: #ffffff14;
+  color: var(--fg);
+}
+.guide-content {
+  overflow: auto;
+  padding: 18px 22px 26px;
+}
+.guide-content h3 {
+  font-size: 17px;
+  font-weight: 620;
+  margin: 0 0 12px;
+}
+.guide-content p {
+  color: var(--fg-dim);
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 0 0 12px;
+}
+.guide-content b {
+  color: var(--fg);
+}
+.guide-note {
+  border-left: 2px solid var(--border);
+  color: var(--fg-dim);
+  font-size: 13.5px !important;
+  padding-left: 12px;
+}
+
+.guide-keys {
+  border-collapse: collapse;
+  width: 100%;
+}
+.guide-keys td {
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-size: 13.5px;
+  padding: 7px 4px;
+}
+.guide-keys tr:last-child td {
+  border-bottom: none;
+}
+.guide-keys td:first-child {
+  width: 110px;
+}
+
+@media (max-width: 700px) {
+  .guide-body {
+    grid-template-columns: 1fr;
+  }
+  .guide-nav {
+    border-bottom: 1px solid var(--border);
+    border-right: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

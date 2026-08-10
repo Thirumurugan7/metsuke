@@ -15,6 +15,7 @@ import { AutomationService } from './services/AutomationService'
 import { NotificationService } from './services/NotificationService'
 import { AlertWindow } from './AlertWindow'
 import { GitError } from './services/GitService'
+import { systemCheck, clearSystemCheck } from './services/systemCheck'
 
 /** Long-lived services, independent of which folder is open. */
 export interface AppServices {
@@ -149,7 +150,13 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
     return openFolder(result.filePaths[0])
   })
 
-  handle('workspace:openPath', (root) => openFolder(root))
+  // Re-probe on an explicit open: someone who just installed Claude should not have to
+  // restart the editor to be told it worked.
+  handle('system:check', () => systemCheck())
+  handle('workspace:openPath', (root) => {
+    clearSystemCheck()
+    return openFolder(root)
+  })
   handle('workspace:current', () => services.workspace?.info ?? null)
   handle('workspace:close', async () => {
     await services.workspace?.dispose()

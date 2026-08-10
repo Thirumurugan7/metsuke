@@ -24,6 +24,7 @@ export function StatusBar({
     runProjectCheck,
     runUiAudit,
     setSettingsOpen,
+    setGuideOpen,
     notificationLog
   } = useStore()
 
@@ -104,6 +105,11 @@ export function StatusBar({
       <button className="status-item" onClick={() => setSidebar('ports')} title="Show listening ports">
         <span aria-hidden="true">⚓</span>
         {ports.length} port{ports.length === 1 ? '' : 's'}
+      </button>
+
+      <button className="status-item" onClick={() => setGuideOpen(true)} title="How to use this">
+        <span aria-hidden="true">?</span>
+        Guide
       </button>
 
       <button
