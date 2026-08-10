@@ -12,6 +12,7 @@ import { Splitter } from './components/Splitter'
 import { QuickOpen } from './components/QuickOpen'
 import { Toasts } from './components/Toasts'
 import { ElementComment } from './components/ElementComment'
+import { Adaptation } from './components/Adaptation'
 import { NotificationSettings } from './components/NotificationSettings'
 
 const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
@@ -259,6 +260,7 @@ export function App(): JSX.Element {
       </div>
 
       <StatusBar cursor={cursor} />
+      <Adaptation />
       <ElementComment />
       <QuickOpen />
       <NotificationSettings />

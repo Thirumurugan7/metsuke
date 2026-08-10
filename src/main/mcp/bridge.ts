@@ -18,6 +18,12 @@ export class ControlBridge {
   #server: http.Server | null = null
   #port = 0
   #onHook: ((kind: string, body: string) => Promise<void>) | null = null
+  /**
+   * Tools Claude has already reached for. The first use of one is the interesting
+   * moment; the hundredth click is not.
+   */
+  readonly #adapted = new Set<string>()
+  #onAdapt: ((skill: string) => void) | null = null
 
   constructor(automation: AutomationService) {
     this.#automation = automation
@@ -89,10 +95,30 @@ export class ControlBridge {
     this.#onHook = handler
   }
 
+  /** Called the first time each distinct tool is used. */
+  onAdapt(handler: (skill: string) => void): void {
+    this.#onAdapt = handler
+  }
+
+  /**
+   * Forget what has been adapted to. Called when the workspace changes, since a new
+   * project is a new thing to learn.
+   */
+  resetAdaptations(): void {
+    this.#adapted.clear()
+  }
+
   /** Map a tool name onto AutomationService. The MCP layer owns schemas; this owns behaviour. */
   async #dispatch(tool: string, args: Record<string, any>): Promise<unknown> {
     const a = this.#automation
     const target = (): Target => ({ ref: args.ref, selector: args.selector, x: args.x, y: args.y })
+
+    // Announced before the call runs, not after: a tool that throws was still reached
+    // for, and the interesting fact is that Claude tried something new.
+    if (!this.#adapted.has(tool)) {
+      this.#adapted.add(tool)
+      this.#onAdapt?.(tool)
+    }
 
     switch (tool) {
       case 'preview_navigate':

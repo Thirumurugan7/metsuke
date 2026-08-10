@@ -29,6 +29,8 @@ export interface AppServices {
   mcpConfigPath: string | null
   /** Path to the generated hook settings handed to the embedded `claude`. */
   hookSettingsPath: string | null
+  /** Forget which capabilities have been used, so a new folder can be adapted to afresh. */
+  resetAdaptations: () => void
 }
 
 /**
@@ -123,6 +125,8 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
     await services.workspace?.dispose()
     const context = await WorkspaceContext.open(root)
     services.workspace = context
+    // A different project is a different thing to adapt to.
+    services.resetAdaptations()
 
     context.watcher.start((paths) => {
       emit('files:changed', paths)
@@ -295,6 +299,8 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
     services.terminals.write(sessionId, described)
     // Separate write so the text is fully buffered before submission.
     services.terminals.write(sessionId, '\r')
+
+    emit('adapt:fired', { skill: 'your instruction', at: Date.now() })
   })
 
   handle('preview:register', (id) => services.automation.attach(id))

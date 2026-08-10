@@ -23,7 +23,8 @@ const services: AppServices = {
   alerts: new AlertWindow(),
   workspace: null,
   mcpConfigPath: null,
-  hookSettingsPath: null
+  hookSettingsPath: null,
+  resetAdaptations: () => bridge.resetAdaptations()
 }
 
 const bridge = new ControlBridge(services.automation)
@@ -150,6 +151,9 @@ app.whenReady().then(async () => {
       else window.flashFrame(true)
     }
   })
+
+  // Claude reaching for a capability it has not used yet is the moment the wheel turns.
+  bridge.onAdapt((skill) => window?.webContents.send('adapt:fired', { skill, at: Date.now() }))
 
   registerIpc(services, () => window)
   createWindow()

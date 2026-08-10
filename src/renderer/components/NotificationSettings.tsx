@@ -127,6 +127,22 @@ export function NotificationSettings(): JSX.Element | null {
             <label className="settings-row">
               <input
                 type="checkbox"
+                checked={s.adaptation}
+                onChange={(e) => void updateNotifySettings({ adaptation: e.target.checked })}
+              />
+              <span>
+                Mark adaptations
+                <small>
+                  A faint wheel and a low tone the first time Claude reaches for a capability,
+                  or when you hand it a definitive instruction. Never more than once every few
+                  seconds, and skipped entirely if your system asks for reduced motion.
+                </small>
+              </span>
+            </label>
+
+            <label className="settings-row">
+              <input
+                type="checkbox"
                 checked={s.system}
                 onChange={(e) => void updateNotifySettings({ system: e.target.checked })}
               />

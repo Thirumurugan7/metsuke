@@ -150,6 +150,11 @@ export interface SoundChoice {
 export interface NotificationSettings {
   /** In-app modal over whatever you are doing. */
   modal: boolean
+  /**
+   * The adaptation flourish: a faint wheel and a low tone the first time Claude
+   * exercises a capability, or when you hand it a definitive instruction.
+   */
+  adaptation: boolean
   /** Raise and focus the editor window when a modal fires. */
   focusWindow: boolean
   /** Native OS notification centre. */
@@ -158,6 +163,17 @@ export interface NotificationSettings {
   telegram: { enabled: boolean; chatId: string; /** Write-only; never read back. */ botToken: string }
   /** Which events notify at all. */
   events: Record<NotifyEvent, boolean>
+}
+
+/**
+ * A moment worth marking: Claude reached for something it had not used yet, or you
+ * pointed it at something new.
+ */
+export interface Adaptation {
+  /** What was adapted to, e.g. a tool name or "project check". */
+  skill: string
+  /** Epoch milliseconds. */
+  at: number
 }
 
 export interface NotificationPayload {
@@ -319,6 +335,8 @@ export interface EventChannels {
   /** The user clicked an element while the picker was active. */
   'preview:elementPicked': [element: PickedElement]
   'preview:console': [message: ConsoleMessage]
+  /** Claude exercised a capability for the first time this session. */
+  'adapt:fired': [adaptation: Adaptation]
   /** A background operation failed with no invoke to attach the error to. */
   'app:error': [message: string]
 }
@@ -392,5 +410,6 @@ export const EVENT_CHANNELS = [
   'notify:fired',
   'alert:payload',
   'notify:goto',
+  'adapt:fired',
   'app:error'
 ] as const satisfies readonly EventChannel[]

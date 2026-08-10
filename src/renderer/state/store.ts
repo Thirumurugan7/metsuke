@@ -7,6 +7,7 @@ import type {
   NotificationSettings,
   InvokeChannel,
   InvokeChannels,
+  Adaptation,
   PickedElement,
   PortInfo,
   Workspace
@@ -181,6 +182,10 @@ Do not edit, create, or delete any files. This is an inspection: tell me what yo
 
 const AUTO_CHECK_KEY = 'open-claude.autoCheck'
 
+/** Minimum quiet period between flourishes, so a burst of new tools plays once. */
+const ADAPT_GAP_MS = 12_000
+let lastAdaptAt = 0
+
 let terminalSeq = 0
 const nextTerminalId = (): string => `t${++terminalSeq}`
 
@@ -264,6 +269,10 @@ interface State {
   previewUrl: string
   /** True once the CDP debugger is attached, i.e. Claude can drive the page. */
   previewAttached: boolean
+
+  // -- adaptation -----------------------------------------------------------
+  /** The flourish currently playing, if any. */
+  adaptation: Adaptation | null
   /** Preview fills the whole window, for looking at a real layout. */
   previewFullscreen: boolean
   /** Chromium's element picker is armed in the preview. */
@@ -288,6 +297,9 @@ interface State {
   setPanelSize: (panel: 'sidebar' | 'preview' | 'terminal', px: number) => void
   setQuickOpen: (open: boolean) => void
   setPreviewAttached: (attached: boolean) => void
+  /** Mark an adaptation. Ignored while one is playing, or if it is turned off. */
+  triggerAdaptation: (skill: string) => void
+  clearAdaptation: () => void
   togglePreviewFullscreen: () => void
   startInspect: () => Promise<void>
   stopInspect: () => Promise<void>
@@ -358,6 +370,7 @@ export const useStore = create<State>((set, get) => ({
   ports: [],
   previewUrl: '',
   previewAttached: false,
+  adaptation: null,
   previewFullscreen: false,
   inspecting: false,
   pickedElement: null,
@@ -506,6 +519,23 @@ export const useStore = create<State>((set, get) => ({
   setQuickOpen: (quickOpen) => set({ quickOpen }),
   setPreviewAttached: (previewAttached) => set({ previewAttached }),
 
+  triggerAdaptation: (skill) => {
+    // Off by setting, or the user has asked the OS for less movement.
+    if (get().notifySettings?.adaptation === false) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+
+    // One at a time, and never twice in quick succession: Claude often reaches for
+    // several new tools in a row, and five wheels back to back is noise, not ceremony.
+    const now = Date.now()
+    if (get().adaptation) return
+    if (now - lastAdaptAt < ADAPT_GAP_MS) return
+
+    lastAdaptAt = now
+    set({ adaptation: { skill, at: now } })
+  },
+
+  clearAdaptation: () => set({ adaptation: null }),
+
   togglePreviewFullscreen: () =>
     set((s) => ({ previewFullscreen: !s.previewFullscreen, previewVisible: true })),
 
@@ -602,12 +632,14 @@ export const useStore = create<State>((set, get) => ({
   runProjectCheck: () => {
     if (!get().workspace) return get().setError('Open a folder before running a project check')
     get().addTerminal('claude', { prompt: PROJECT_CHECK_PROMPT, title: 'project check' })
+    get().triggerAdaptation('the whole project')
   },
 
   runUiAudit: () => {
     if (!get().workspace) return get().setError('Open a folder before testing the UI')
     set({ previewVisible: true })
     get().addTerminal('claude', { prompt: UI_AUDIT_PROMPT, title: 'UI audit' })
+    get().triggerAdaptation('every screen you have')
   },
 
   // -- notifications --------------------------------------------------------
@@ -695,6 +727,10 @@ export function wireEvents(): () => void {
     // Picking an element also ends inspect mode: Chromium exits it after one click.
     window.api.on('preview:elementPicked', (element) =>
       useStore.setState({ pickedElement: element, inspecting: false })
+    ),
+
+    window.api.on('adapt:fired', (adaptation) =>
+      useStore.getState().triggerAdaptation(adaptation.skill)
     ),
 
     window.api.on('git:changed', (git) => useStore.setState({ git })),

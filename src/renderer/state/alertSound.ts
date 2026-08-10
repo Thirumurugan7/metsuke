@@ -9,6 +9,10 @@
 
 let cached: { path: string | null; url: string } | null = null
 
+/** When the alert last made a noise, so other sounds can stay out of its way. */
+let playedAt = 0
+export const alertSoundPlayedAt = (): number => playedAt
+
 /** Built-in chime: a rising two-note figure, deliberately short and not alarming. */
 function playBuiltInChime(volume: number): void {
   const context = new AudioContext()
@@ -40,6 +44,7 @@ export async function playAlertSound(
   volume: number,
   fetchSound: () => Promise<{ mimeType: string; base64: string } | null>
 ): Promise<void> {
+  playedAt = Date.now()
   if (!soundPath) return playBuiltInChime(volume)
 
   try {

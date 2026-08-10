@@ -6,6 +6,7 @@ import { escapeMarkdown } from './hookEvent'
 
 const DEFAULTS: NotificationSettings = {
   modal: true,
+  adaptation: true,
   focusWindow: false,
   system: true,
   sound: { enabled: true, path: null, volume: 0.7 },
@@ -56,6 +57,11 @@ export class NotificationService {
   /** Whether the floating pop-up should be shown at all. */
   get popup(): boolean {
     return this.#settings.modal
+  }
+
+  /** Whether the adaptation flourish should play at all. */
+  get adaptation(): boolean {
+    return this.#settings.adaptation
   }
 
   /** Whether an alert should take focus rather than appearing quietly beside your work. */
