@@ -28,8 +28,25 @@ const LAST_FOLDER_KEY = 'open-claude.lastFolder'
  * Adopt a freshly opened workspace: clear everything scoped to the previous folder,
  * then load the root and git status. Shared by the picker and the startup restore.
  */
-async function adopt(workspace: Workspace): Promise<void> {
+async function adopt(workspace: Workspace, opts: { check: boolean }): Promise<void> {
+  if (adopting) return
+  adopting = true
+  try {
+    await adoptInner(workspace, opts)
+  } finally {
+    adopting = false
+  }
+}
+
+async function adoptInner(workspace: Workspace, opts: { check: boolean }): Promise<void> {
   localStorage.setItem(LAST_FOLDER_KEY, workspace.root)
+
+  // Terminals are bound to the old folder's cwd, so kill them rather than leaving
+  // sessions pointed somewhere the UI no longer shows.
+  for (const tab of useStore.getState().terminals) {
+    if (tab.sessionId) void call('terminal:kill', tab.sessionId)
+  }
+
   useStore.setState({
     workspace,
     tree: {},
@@ -39,13 +56,71 @@ async function adopt(workspace: Workspace): Promise<void> {
     dirty: new Set(),
     externalEdit: null,
     git: null,
-    diffPath: null
+    diffPath: null,
+    terminals: [],
+    activeTerminal: null
   })
+
   await useStore.getState().loadDir('')
   await useStore.getState().refreshGit()
+
+  // Opening a folder starts a Claude session. When you opened it deliberately and
+  // auto-check is on, that session begins by walking the project end to end and
+  // reporting back; either way you can keep talking to it afterwards.
+  //
+  // Restoring the last folder at launch deliberately skips the check: it is not an
+  // action you just took, and re-running a full inspection on every app start would
+  // cost real tokens for no new information. "Run project check" is one click away.
+  const { autoCheck, addTerminal } = useStore.getState()
+  addTerminal('claude', opts.check && autoCheck ? { prompt: PROJECT_CHECK_PROMPT } : {})
 }
 
 export type SidebarView = 'explorer' | 'git' | 'search' | 'ports'
+
+export type TerminalKind = 'claude' | 'shell'
+
+export interface TerminalTab {
+  /** Stable local id, kept across a restart of the underlying process. */
+  id: string
+  kind: TerminalKind
+  title: string
+  /** Backend pty id; null before the first spawn and after the process exits. */
+  sessionId: string | null
+  exitCode: number | null
+  /** Initial message handed to `claude` when the session starts. */
+  prompt?: string
+}
+
+/**
+ * What the editor asks Claude to do the moment you open a folder.
+ *
+ * Deliberately read-only: this runs unattended, so it inspects and reports rather than
+ * editing. Anything it wants to change, it proposes and you approve in the same session.
+ */
+export const PROJECT_CHECK_PROMPT = `You have just been opened in this folder by the Open Claude editor. Do an end-to-end check of the project and report what you find.
+
+1. Work out what this project is and how it runs — package.json scripts, Makefile, README, whatever applies.
+2. Start its dev server in the background if it has one.
+3. Once a port is listening, load it with preview_navigate.
+4. Use preview_snapshot to find the interactive elements, then walk the main user flows with preview_click and preview_type — navigation, forms, sign-in, whatever this app actually has.
+5. After each step, check preview_console and preview_network for errors and failed requests.
+6. Report back: what you ran, which flows worked, and every broken or suspicious thing you found, quoting the console or network evidence.
+
+Do not edit, create, or delete any files during this check — inspect only, and tell me what you would change instead.`
+
+const AUTO_CHECK_KEY = 'open-claude.autoCheck'
+
+let terminalSeq = 0
+const nextTerminalId = (): string => `t${++terminalSeq}`
+
+/**
+ * Guards folder adoption against running twice.
+ *
+ * React StrictMode double-invokes mount effects in development, so the startup restore
+ * fired twice and adopted the folder twice — leaving two duplicate Claude sessions.
+ * The same would happen on a rapid double-click of Open Folder.
+ */
+let adopting = false
 
 export interface OpenFile {
   path: string
@@ -101,6 +176,12 @@ interface State {
   /** Path whose diff is showing in the editor area, if any. */
   diffPath: string | null
 
+  // -- terminals ------------------------------------------------------------
+  terminals: TerminalTab[]
+  activeTerminal: string | null
+  /** Seed the first Claude session of a folder with the end-to-end check prompt. */
+  autoCheck: boolean
+
   // -- preview --------------------------------------------------------------
   ports: PortInfo[]
   previewUrl: string
@@ -124,6 +205,19 @@ interface State {
   setPanelSize: (panel: 'sidebar' | 'preview' | 'terminal', px: number) => void
   setQuickOpen: (open: boolean) => void
   setPreviewAttached: (attached: boolean) => void
+
+  // -- terminals ------------------------------------------------------------
+  /** Open a new terminal tab and focus it. Returns its local id. */
+  addTerminal: (kind: TerminalKind, opts?: { prompt?: string; title?: string }) => string
+  closeTerminal: (id: string) => void
+  setActiveTerminal: (id: string) => void
+  /** Kill and respawn a tab's process, keeping the tab in place. */
+  restartTerminal: (id: string) => void
+  attachSession: (id: string, sessionId: string) => void
+  markTerminalExited: (sessionId: string, exitCode: number) => void
+  setAutoCheck: (on: boolean) => void
+  /** Start a fresh Claude session seeded with the project-check prompt. */
+  runProjectCheck: () => void
   /** Load a URL into the preview, revealing the panel if it is collapsed. */
   showInPreview: (url: string) => void
   setPreviewUrl: (url: string) => void
@@ -159,6 +253,9 @@ export const useStore = create<State>((set, get) => ({
   quickOpen: false,
   git: null,
   diffPath: null,
+  terminals: [],
+  activeTerminal: null,
+  autoCheck: localStorage.getItem(AUTO_CHECK_KEY) !== 'off',
   ports: [],
   previewUrl: '',
   previewAttached: false,
@@ -178,7 +275,7 @@ export const useStore = create<State>((set, get) => ({
   openFolder: async () => {
     const workspace = await call('workspace:open')
     if (!workspace) return
-    await adopt(workspace)
+    await adopt(workspace, { check: true })
   },
 
   restoreLastFolder: async () => {
@@ -192,7 +289,7 @@ export const useStore = create<State>((set, get) => ({
       localStorage.removeItem(LAST_FOLDER_KEY)
       return
     }
-    await adopt(result.value)
+    await adopt(result.value, { check: false })
   },
 
   loadDir: async (dir) => {
@@ -306,6 +403,72 @@ export const useStore = create<State>((set, get) => ({
 
   setQuickOpen: (quickOpen) => set({ quickOpen }),
   setPreviewAttached: (previewAttached) => set({ previewAttached }),
+
+  // -- terminals ------------------------------------------------------------
+
+  addTerminal: (kind, opts = {}) => {
+    const id = nextTerminalId()
+    const sameKind = get().terminals.filter((t) => t.kind === kind).length
+    const tab: TerminalTab = {
+      id,
+      kind,
+      // "claude", "claude 2", "claude 3"… so tabs stay tellable apart at a glance.
+      title: opts.title ?? (sameKind === 0 ? kind : `${kind} ${sameKind + 1}`),
+      sessionId: null,
+      exitCode: null,
+      prompt: opts.prompt
+    }
+    set((s) => ({ terminals: [...s.terminals, tab], activeTerminal: id, terminalVisible: true }))
+    return id
+  },
+
+  closeTerminal: (id) => {
+    const tab = get().terminals.find((t) => t.id === id)
+    if (tab?.sessionId) void call('terminal:kill', tab.sessionId)
+
+    set((s) => {
+      const terminals = s.terminals.filter((t) => t.id !== id)
+      // Focus the neighbour rather than blanking the panel.
+      const activeTerminal =
+        s.activeTerminal === id ? (terminals.at(-1)?.id ?? null) : s.activeTerminal
+      return { terminals, activeTerminal }
+    })
+  },
+
+  setActiveTerminal: (activeTerminal) => set({ activeTerminal }),
+
+  restartTerminal: (id) => {
+    const tab = get().terminals.find((t) => t.id === id)
+    if (tab?.sessionId) void call('terminal:kill', tab.sessionId)
+    // Clearing sessionId is the signal the instance watches to spawn again.
+    set((s) => ({
+      terminals: s.terminals.map((t) =>
+        t.id === id ? { ...t, sessionId: null, exitCode: null } : t
+      )
+    }))
+  },
+
+  attachSession: (id, sessionId) =>
+    set((s) => ({
+      terminals: s.terminals.map((t) => (t.id === id ? { ...t, sessionId, exitCode: null } : t))
+    })),
+
+  markTerminalExited: (sessionId, exitCode) =>
+    set((s) => ({
+      terminals: s.terminals.map((t) =>
+        t.sessionId === sessionId ? { ...t, sessionId: null, exitCode } : t
+      )
+    })),
+
+  setAutoCheck: (autoCheck) => {
+    localStorage.setItem(AUTO_CHECK_KEY, autoCheck ? 'on' : 'off')
+    set({ autoCheck })
+  },
+
+  runProjectCheck: () => {
+    if (!get().workspace) return get().setError('Open a folder before running a project check')
+    get().addTerminal('claude', { prompt: PROJECT_CHECK_PROMPT, title: 'project check' })
+  },
 
   showInPreview: (previewUrl) => set({ previewUrl, previewVisible: true }),
   setPreviewUrl: (previewUrl) => set({ previewUrl })

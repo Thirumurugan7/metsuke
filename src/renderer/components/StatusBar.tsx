@@ -17,9 +17,11 @@ export function StatusBar({
     dirty,
     previewUrl,
     previewAttached,
+    terminals,
     setSidebar,
     togglePanel,
-    openFolder
+    openFolder,
+    runProjectCheck
   } = useStore()
 
   const changes = git?.files.length ?? 0
@@ -57,6 +59,17 @@ export function StatusBar({
         </span>
       )}
 
+      {workspace && (
+        <button
+          className="status-item"
+          onClick={runProjectCheck}
+          title="Start a Claude session that walks this project end to end and reports back (read-only)"
+        >
+          <span aria-hidden="true">✓</span>
+          Check project
+        </button>
+      )}
+
       <span className="status-spacer" />
 
       {cursor && (
@@ -64,6 +77,15 @@ export function StatusBar({
           Ln {cursor.line}, Col {cursor.column}
         </span>
       )}
+
+      <button
+        className="status-item"
+        onClick={() => togglePanel('terminal')}
+        title="Show terminals"
+      >
+        <span aria-hidden="true">▤</span>
+        {terminals.length} terminal{terminals.length === 1 ? '' : 's'}
+      </button>
 
       <button className="status-item" onClick={() => setSidebar('ports')} title="Show listening ports">
         <span aria-hidden="true">⚓</span>

@@ -997,12 +997,104 @@ body.resizing .monaco-container {
 .terminal-bar button {
   font-size: 11px;
 }
-.terminal-title {
+.terminal-tabs {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+}
+.terminal-tab {
+  align-items: center;
+  border-radius: 4px;
   color: var(--fg-dim);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  margin-right: 6px;
-  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  gap: 5px;
+  font-size: 11.5px;
+  padding: 2px 4px 2px 7px;
+  white-space: nowrap;
+}
+.terminal-tab:hover {
+  background: #ffffff0d;
+}
+.terminal-tab.active {
+  background: #ffffff1a;
+  color: var(--fg);
+}
+/* Colour-codes what is running: a Claude session, a plain shell, or a dead process. */
+.terminal-dot {
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 6px;
+  width: 6px;
+}
+.terminal-dot.claude {
+  background: var(--accent);
+}
+.terminal-dot.shell {
+  background: var(--fg-dim);
+}
+.terminal-dot.dead {
+  background: var(--removed);
+}
+.terminal-tab-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.terminal-actions {
+  display: flex;
+  flex: 0 0 auto;
+}
+.terminal-new {
+  position: relative;
+}
+.terminal-menu {
+  background: var(--bg-bar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  bottom: calc(100% + 4px);
+  box-shadow: 0 8px 24px #0009;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 4px;
+  position: absolute;
+  right: 0;
+  z-index: 40;
+}
+.terminal-menu button {
+  padding: 5px 10px;
+  text-align: left;
+}
+.terminal-toggle {
+  align-items: center;
+  color: var(--fg-dim);
+  cursor: pointer;
+  display: flex;
+  font-size: 11.5px;
+  gap: 6px;
+  padding: 5px 10px;
+}
+
+.terminal-instance {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.terminal-instance.hidden {
+  display: none;
+}
+.terminal-exited {
+  align-items: center;
+  background: #4a1f1f;
+  display: flex;
+  font-size: 11.5px;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 3px 8px;
 }
 .terminal-hint {
   color: var(--fg-dim);
@@ -1018,7 +1110,8 @@ body.resizing .monaco-container {
   position: relative;
 }
 .terminal-host {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   padding: 4px 6px;
 }
 .terminal-overlay {

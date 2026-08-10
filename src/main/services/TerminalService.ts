@@ -96,8 +96,20 @@ export class TerminalService {
     return [...this.#sessions.values()].map((s) => s.proc.pid)
   }
 
-  disposeAll(): void {
+  /**
+   * Kill every session but keep the stream handlers wired.
+   *
+   * This is what a renderer reload needs: the ptys it owned must die, but `listen` is
+   * called once at startup, so dropping the handlers here would leave the *next*
+   * renderer with terminals that never emit output.
+   */
+  killAll(): void {
     for (const id of [...this.#sessions.keys()]) this.kill(id)
+  }
+
+  /** Full teardown for app shutdown: kill everything and drop the handlers. */
+  disposeAll(): void {
+    this.killAll()
     this.#onData = null
     this.#onExit = null
   }

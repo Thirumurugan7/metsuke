@@ -46,6 +46,16 @@ function createWindow(): void {
 
   window.on('ready-to-show', () => window?.show())
 
+  /**
+   * Terminals belong to the renderer session that opened them. A reload — or an HMR
+   * full refresh, or a renderer crash — throws that session away without running React
+   * cleanup, so the ptys were surviving as orphans: seven live `claude` processes
+   * accumulated behind a UI showing one tab. Killing them as the frame starts loading
+   * happens before the new renderer spawns its own.
+   */
+  window.webContents.on('did-start-loading', () => services.terminals.killAll())
+  window.webContents.on('render-process-gone', () => services.terminals.killAll())
+
   // Links that would replace the editor open in the user's real browser instead.
   window.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url)

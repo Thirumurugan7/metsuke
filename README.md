@@ -38,7 +38,24 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`.
 - **Ports** — every listening port on the machine, with the ones started from the
   built-in terminal flagged and sorted first. Click one to load it in the preview.
 - **Preview** — an embedded browser pane pointed at your dev server.
-- **Terminal** — a real pty. The default session runs `claude` in the open folder.
+- **Terminals** — real ptys, as many as you want. Tabs along the panel, `＋ New` for
+  another Claude session or a plain shell, middle-click or `×` to close, restart in
+  place when a process exits. Switching tabs never kills a session.
+
+## The project check
+
+Opening a folder starts a Claude session that first walks the project end to end and
+reports back: it works out how the project runs, starts the dev server, loads the port
+in the preview, clicks through the main flows, and checks the console and network after
+each step. Then you keep talking to that same session.
+
+The check is **read-only** — it is told not to edit, create, or delete anything, only to
+report what it would change. It runs when you deliberately open a folder, not when the
+editor restores your last folder at launch, so starting the app does not spend tokens
+re-inspecting a project you already know about.
+
+Turn it off under `＋ New → Check project on open`, or run it any time from
+`✓ Check project` in the status bar.
 
 ## How Claude drives the preview
 
