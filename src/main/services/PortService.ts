@@ -133,16 +133,30 @@ export class PortService {
     return false
   }
 
+  /**
+   * pid -> parent pid for every process, used to tell our dev servers and our own
+   * processes from everyone else's. `ps` does not exist on Windows, so that branch
+   * asks PowerShell instead; a failure on either just means every port reports
+   * ours=false rather than breaking the panel.
+   */
   static async #parentMap(): Promise<Map<number, number>> {
     const map = new Map<number, number>()
     try {
-      const { stdout } = await exec('ps', ['-eo', 'pid=,ppid='])
+      const { stdout } =
+        process.platform === 'win32'
+          ? await exec('powershell.exe', [
+              '-NoProfile',
+              '-Command',
+              'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }'
+            ])
+          : await exec('ps', ['-eo', 'pid=,ppid='])
+
       for (const line of stdout.split('\n')) {
         const [pid, ppid] = line.trim().split(/\s+/).map(Number)
         if (Number.isFinite(pid) && Number.isFinite(ppid)) map.set(pid, ppid)
       }
     } catch {
-      // No ps: every port simply reports ours=false.
+      // No process table available: every port simply reports ours=false.
     }
     return map
   }

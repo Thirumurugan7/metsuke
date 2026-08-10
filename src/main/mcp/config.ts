@@ -18,10 +18,24 @@ import type { ControlBridge } from './bridge'
  * lands on disk in the settings.
  */
 export async function writeHookSettings(): Promise<string> {
+  /*
+   * Hook commands run through the platform's shell, so the variable syntax and the
+   * null device differ. On Windows this is cmd.exe (%VAR%, NUL); everywhere else it is
+   * a POSIX shell ($VAR, /dev/null). Getting this wrong does not error — the hook just
+   * posts to a nonsense URL and notifications silently never arrive.
+   *
+   * curl ships with Windows 10 1803+ and with macOS and every mainstream Linux.
+   */
+  const windows = process.platform === 'win32'
+  const url = windows ? '%OPEN_CLAUDE_CONTROL_URL%' : '$OPEN_CLAUDE_CONTROL_URL'
+  const token = windows ? '%OPEN_CLAUDE_CONTROL_TOKEN%' : '$OPEN_CLAUDE_CONTROL_TOKEN'
+  const quiet = windows ? '>NUL 2>&1' : '>/dev/null 2>&1'
+
   const post = (kind: string): string =>
-    `curl -sS -m 5 -X POST "$OPEN_CLAUDE_CONTROL_URL/notify?kind=${kind}" ` +
-    `-H "authorization: Bearer $OPEN_CLAUDE_CONTROL_TOKEN" ` +
-    `-H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true`
+    `curl -sS -m 5 -X POST "${url}/notify?kind=${kind}" ` +
+    `-H "authorization: Bearer ${token}" ` +
+    `-H "content-type: application/json" --data-binary @- ${quiet}` +
+    (windows ? '' : ' || true')
 
   const settings = {
     hooks: {

@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open Claude — the editor built around Claude Code</title>
+    <meta
+      name="description"
+      content="A VS Code-style editor built around Claude Code. Watch Claude work: live file tree, git diffs, and a browser preview Claude can drive itself to test your UI end to end."
+    />
+    <meta property="og:title" content="Open Claude" />
+    <meta property="og:description" content="The editor built around Claude Code." />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+
+  <body>
+    <header class="nav">
+      <div class="wrap nav-inner">
+        <a class="brand" href="/">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <rect width="100" height="100" rx="24" fill="#141417" />
+            <path
+              d="M32 30 L54 50 L32 70"
+              fill="none"
+              stroke="url(#g)"
+              stroke-width="10"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <line x1="59" y1="70" x2="74" y2="70" stroke="#f2f4f8" stroke-width="10" stroke-linecap="round" />
+            <defs>
+              <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#0a84ff" />
+                <stop offset="1" stop-color="#4ec9b0" />
+              </linearGradient>
+            </defs>
+          </svg>
+          Open Claude
+        </a>
+
+        <nav class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#download">Download</a>
+          <a href="https://github.com/OWNER/REPO" rel="noopener">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="wrap">
+          <span class="eyebrow"><b>Open source</b> · macOS, Windows, Linux</span>
+
+          <h1>The editor built around<br /><span class="grad">Claude Code</span></h1>
+
+          <p class="lede">
+            Watch Claude work. A live file tree, real git diffs, and a browser preview that Claude
+            drives itself — clicking through your app, reading the console, and telling you what
+            broke.
+          </p>
+
+          <div class="download">
+            <div class="download-row">
+              <a class="btn btn-primary" id="primary-download" href="#download">
+                <span id="primary-icon">↓</span>
+                <span id="primary-label">Download</span>
+              </a>
+              <a class="btn btn-ghost" href="https://github.com/OWNER/REPO" rel="noopener">
+                View source
+              </a>
+            </div>
+            <p class="other-platforms" id="other-platforms">
+              Also for <a href="#download">macOS</a>, <a href="#download">Windows</a> and
+              <a href="#download">Linux</a>
+            </p>
+          </div>
+
+          <div class="shot">
+            <div class="mock" role="img" aria-label="Screenshot of the Open Claude editor">
+              <div class="mock-bar">
+                <span class="dot" style="background: #ff5f57"></span>
+                <span class="dot" style="background: #febc2e"></span>
+                <span class="dot" style="background: #28c840"></span>
+                <span class="mock-title">Open Claude — my-app</span>
+              </div>
+
+              <div class="mock-body">
+                <div class="mock-rail">
+                  <span class="on"><i>▤</i>Files</span>
+                  <span><i>⑂</i>Git</span>
+                  <span><i>⌕</i>Search</span>
+                  <span><i>⚓</i>Ports</span>
+                </div>
+
+                <div class="mock-side">
+                  <div>▾ src</div>
+                  <div>&nbsp;&nbsp;▾ components</div>
+                  <div>&nbsp;&nbsp;&nbsp;&nbsp;Signup.tsx <span class="m">M</span></div>
+                  <div>&nbsp;&nbsp;&nbsp;&nbsp;Button.tsx</div>
+                  <div>&nbsp;&nbsp;App.tsx <span class="m">M</span></div>
+                  <div>&nbsp;&nbsp;api.ts</div>
+                  <div>package.json</div>
+                </div>
+
+                <div class="mock-editor">
+                  <div><span class="c">// Signup.tsx</span></div>
+                  <div><span class="k">export function</span> <span class="f">Signup</span>() {</div>
+                  <div>&nbsp;&nbsp;<span class="k">const</span> [email, setEmail] = <span class="f">useState</span>(<span class="s">''</span>)</div>
+                  <div>&nbsp;&nbsp;<span class="k">return</span> (</div>
+                  <div>&nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="n">form</span> onSubmit={submit}&gt;</div>
+                  <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="n">input</span> value={email} /&gt;</div>
+                  <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;<span class="n">button</span>&gt;Create account&lt;/<span class="n">button</span>&gt;</div>
+                  <div>&nbsp;&nbsp;&nbsp;&nbsp;&lt;/<span class="n">form</span>&gt;</div>
+                  <div>&nbsp;&nbsp;)</div>
+                  <div>}</div>
+                </div>
+
+                <div class="mock-preview">
+                  <div class="mock-url">localhost:3000 · ● Claude can drive this page</div>
+                  <div class="mock-page">
+                    <strong>Create account</strong>
+                    <div style="margin-top: 8px; color: #666">Email address</div>
+                    <div style="border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px">
+                      ada@example.com
+                    </div>
+                    <div class="btn-fake">Create account</div>
+                  </div>
+                </div>
+
+                <div class="mock-term">
+                  <div><span class="p">›</span> claude</div>
+                  <div><span class="d">⏺ preview_fill — filled 4 fields</span></div>
+                  <div><span class="d">⏺ preview_state — form rejected: "You must accept the terms"</span></div>
+                  <div><span class="d">⏺ 1 console error on /checkout</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>Everything you need to watch an agent work</h2>
+            <p>The editor and the agent share one window, one project, and one browser.</p>
+          </div>
+
+          <div class="grid">
+            <div class="card">
+              <h3><i>◫</i> A preview Claude can drive</h3>
+              <p>
+                An embedded browser pointed at your dev server. Claude navigates, clicks, types and
+                screenshots it through the DevTools Protocol — real trusted input, not
+                <code>.click()</code> — so it tests what you actually ship.
+              </p>
+            </div>
+
+            <div class="card">
+              <h3><i>⌖</i> Point at what's wrong</h3>
+              <p>
+                Click any element in the preview and write a note. It reaches Claude with the exact
+                CSS selector attached, so it never has to guess which button you meant.
+              </p>
+            </div>
+
+            <div class="card">
+              <h3><i>⑂</i> Real git, not a summary</h3>
+              <p>
+                Status, staged and unstaged diffs, branches, push and pull, history. It shells out to
+                <code>git</code>, so your hooks, credential helpers and SSH config behave exactly as
+                they do in your terminal.
+              </p>
+            </div>
+
+            <div class="card">
+              <h3><i>▤</i> Terminals that survive</h3>
+              <p>
+                As many Claude sessions and shells as you want, in tabs. Reloading the window
+                reattaches to the running processes and replays their scrollback instead of starting
+                over.
+              </p>
+            </div>
+
+            <div class="card">
+              <h3><i>🔔</i> Told when Claude needs you</h3>
+              <p>
+                Permission requests and idle waits reach you through a pop-up that floats above every
+                app, an OS notification, a sound, or a Telegram message to your phone.
+              </p>
+            </div>
+
+            <div class="card">
+              <h3><i>⚓</i> Ports, found for you</h3>
+              <p>
+                Dev servers you start appear automatically, flagged and sorted first. System daemons
+                and the editor's own ports are filtered out so you never preview a database by
+                mistake.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>How the preview works</h2>
+            <p>
+              Claude gets browser tools natively — no extension, no configuration, no per-action
+              approval prompts.
+            </p>
+          </div>
+
+          <div class="steps">
+            <div class="step">
+              <h3>Open a folder</h3>
+              <p>
+                A Claude session starts in it, already wired to the preview. Optionally it begins by
+                walking the whole project and reporting what it found.
+              </p>
+            </div>
+            <div class="step">
+              <h3>Claude edits</h3>
+              <p>
+                The tree and git panel update as it works. Files you have open refresh in place
+                without losing your cursor.
+              </p>
+            </div>
+            <div class="step">
+              <h3>Claude tests</h3>
+              <p>
+                It loads your dev server in the preview, fills forms, walks each flow, and reads the
+                console and network after every step.
+              </p>
+            </div>
+            <div class="step">
+              <h3>You get a report</h3>
+              <p>
+                Screens visited, flows passed and failed, and every problem with the console or
+                network evidence behind it.
+              </p>
+            </div>
+          </div>
+
+          <div class="flow">claude (your terminal)  →  <b>MCP server</b>  →  loopback bridge  →  Electron main  →  <b>CDP</b>  →  preview pane</div>
+
+          <div class="note">
+            <b>The preview is isolated.</b> It runs in its own session with an empty cookie jar,
+            holds none of your logins, and cannot reach the editor or your filesystem. That isolation
+            is exactly what makes it safe to hand Claude unrestricted control of it.
+          </div>
+        </div>
+      </section>
+
+      <section id="download">
+        <div class="wrap">
+          <div class="section-head">
+            <h2>Download</h2>
+            <p>Free and open source. Version <span id="version">—</span>.</p>
+          </div>
+
+          <div class="dl-table" id="dl-table">
+            <div class="dl-row" data-os="mac">
+              <div class="dl-os"><i>⌘</i> macOS</div>
+              <div class="dl-meta">Apple silicon &amp; Intel · .dmg</div>
+              <div class="dl-actions">
+                <a class="btn btn-ghost btn-sm" data-asset="dmg-arm64">Apple silicon</a>
+                <a class="btn btn-ghost btn-sm" data-asset="dmg-x64">Intel</a>
+              </div>
+            </div>
+
+            <div class="dl-row" data-os="windows">
+              <div class="dl-os"><i>⊞</i> Windows</div>
+              <div class="dl-meta">64-bit · installer .exe</div>
+              <div class="dl-actions">
+                <a class="btn btn-ghost btn-sm" data-asset="exe">Download installer</a>
+              </div>
+            </div>
+
+            <div class="dl-row" data-os="linux">
+              <div class="dl-os"><i>🐧</i> Linux</div>
+              <div class="dl-meta">64-bit · AppImage or .deb</div>
+              <div class="dl-actions">
+                <a class="btn btn-ghost btn-sm" data-asset="appimage">AppImage</a>
+                <a class="btn btn-ghost btn-sm" data-asset="deb">.deb</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="note">
+            <b>Builds are not code-signed yet.</b> On macOS, right-click the app and choose Open the
+            first time, or run <code>xattr -dr com.apple.quarantine "/Applications/Open Claude.app"</code>.
+            On Windows, SmartScreen may warn — choose More info, then Run anyway. On Linux, make the
+            AppImage executable with <code>chmod +x</code>.
+          </div>
+
+          <div class="note" style="border-left-color: var(--accent)">
+            <b>You'll need Claude Code installed</b> and on your <code>PATH</code> — the editor runs
+            the real <code>claude</code> CLI in its terminal. Everything else works without it.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap foot-inner">
+        <span>Open Claude — MIT licensed</span>
+        <div class="foot-links">
+          <a href="https://github.com/OWNER/REPO" rel="noopener">GitHub</a>
+          <a href="https://github.com/OWNER/REPO/releases" rel="noopener">Releases</a>
+          <a href="https://github.com/OWNER/REPO/issues" rel="noopener">Issues</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="download.js"></script>
+  </body>
+</html>

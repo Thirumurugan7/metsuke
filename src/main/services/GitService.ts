@@ -208,13 +208,16 @@ export class GitService {
       // Probably untracked, so `git diff` has nothing to say about it. Diffing against
       // /dev/null renders the whole file as additions. `--no-index` exits 1 whenever
       // the files differ, which is the expected case here, so tolerate the exit code.
+      // The null device differs by platform, and `--no-index` hands the path to the
+      // filesystem rather than resolving it through git's MSYS layer.
+      const nullDevice = process.platform === 'win32' ? 'NUL' : '/dev/null'
       patch = await this.#gitTolerant([
         'diff',
         '--no-color',
         '--no-ext-diff',
         '--no-index',
         '--',
-        '/dev/null',
+        nullDevice,
         filePath
       ])
     }

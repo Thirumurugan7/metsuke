@@ -14,6 +14,29 @@ npm run dev     # launches the app with hot reload
 
 Other scripts: `npm test`, `npm run typecheck`, `npm run build`.
 
+## Installing it
+
+Builds for macOS, Windows and Linux come from `npm run dist:{mac,win,linux}` via
+electron-builder, producing a `.dmg`, an NSIS `.exe`, and an `.AppImage` plus `.deb`.
+
+**They must be built on the platform they target.** node-pty is a native module
+compiled against Electron's headers, so a Mac cannot produce a working Windows or Linux
+binary. `.github/workflows/release.yml` runs the three builds on a matrix of runners and
+attaches the artifacts to a GitHub Release when you push a `v*` tag:
+
+```bash
+npm version minor && git push --follow-tags
+```
+
+`npm run dist:dir` builds an unpacked app for the current platform, which is the fast
+way to check packaging without waiting for installers.
+
+Builds are unsigned. macOS quarantines a downloaded unsigned app — right-click → Open,
+or `xattr -dr com.apple.quarantine "/Applications/Open Claude.app"`. Windows SmartScreen
+warns once. The download page says all of this.
+
+The landing page lives in `site/` — see `site/README.md`.
+
 ## Keyboard shortcuts
 
 `⌘` on macOS, `Ctrl` elsewhere.
@@ -42,6 +65,14 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`.
 - **Preview** — an embedded browser pane pointed at your dev server, with back/forward,
   reload, and an address bar that takes a bare port number. A page that fails to load
   says why rather than showing a blank pane. `⛶` fills the window; Escape comes back.
+- **Terminals** — real ptys, as many as you want. Tabs along the panel, `＋ New` for
+  another Claude session or a plain shell, middle-click or `×` to close, restart in
+  place when a process exits. Switching tabs never kills a session.
+
+  Sessions belong to the app, not to the window. A reload — including an HMR refresh
+  while hacking on the editor itself, or a renderer crash — reattaches to the running
+  ptys and replays their scrollback rather than starting over. A session ends when you
+  close its tab, when you open a different folder, or when you quit.
 
 ## Point at something and say what is wrong
 
@@ -59,14 +90,6 @@ make this button green and larger
 Claude does not have to guess which button you meant. Selectors stop at the first `id`
 and skip framework-hashed class names (`css-1x2y3z`, `sc-…`), so they stay meaningful
 across rebuilds.
-- **Terminals** — real ptys, as many as you want. Tabs along the panel, `＋ New` for
-  another Claude session or a plain shell, middle-click or `×` to close, restart in
-  place when a process exits. Switching tabs never kills a session.
-
-  Sessions belong to the app, not to the window. A reload — including an HMR refresh
-  while hacking on the editor itself, or a renderer crash — reattaches to the running
-  ptys and replays their scrollback rather than starting over. A session ends when you
-  close its tab, when you open a different folder, or when you quit.
 
 ## Notifications
 

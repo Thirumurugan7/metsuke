@@ -34,6 +34,9 @@ self.MonacoEnvironment = {
   }
 }
 
+// Lets the stylesheet adapt to platform chrome, e.g. the macOS traffic lights.
+document.body.classList.add(`is-${window.api.platform === 'darwin' ? 'mac' : window.api.platform === 'win32' ? 'win' : 'linux'}`)
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

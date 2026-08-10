@@ -1,0 +1,72 @@
+appId: dev.openclaude.app
+productName: Open Claude
+copyright: Copyright © 2026
+
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - out/**
+  - package.json
+  # node_modules is deliberately NOT excluded. electron-vite marks runtime deps as
+  # external, so out/main/index.js still `require`s node-pty at run time — excluding
+  # node_modules produced an app that launched fine and then could not open a single
+  # terminal. electron-builder prunes devDependencies on its own.
+
+asarUnpack:
+  # A native module cannot be dlopen'd from inside an asar, so node-pty's compiled
+  # binding has to sit on the real filesystem.
+  - '**/node_modules/node-pty/**'
+
+npmRebuild: true
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  # Unsigned builds still run, but Gatekeeper quarantines a downloaded app unless the
+  # user clears it; the download page explains that rather than leaving people stuck.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Open Claude
+
+linux:
+  category: Development
+  synopsis: A VS Code-style editor built around Claude Code
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  desktop:
+    entry:
+      Name: Open Claude
+      Comment: A VS Code-style editor built around Claude Code
+      Categories: Development;IDE;
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+publish:
+  provider: github
+  releaseType: release

@@ -120,7 +120,12 @@ select:focus {
   display: flex;
   flex: 0 0 38px;
   gap: 10px;
-  padding: 0 12px 0 78px; /* room for the macOS traffic lights */
+  /* The inset traffic lights only exist on macOS; padding for them elsewhere is just
+     a dead gap at the left of the title bar. */
+  padding: 0 12px;
+}
+body.is-mac .title-bar {
+  padding-left: 78px;
 }
 .app-name {
   font-weight: 700;
