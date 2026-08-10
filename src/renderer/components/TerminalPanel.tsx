@@ -14,14 +14,44 @@ import { call, useStore, type TerminalTab } from '../state/store'
 export function TerminalPanel(): JSX.Element {
   const { terminals, activeTerminal, workspace, autoCheck, addTerminal, closeTerminal, setActiveTerminal, setAutoCheck, runProjectCheck } =
     useStore()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const newButton = useRef<HTMLButtonElement>(null)
+  /**
+   * Fixed-position anchor for the menu.
+   *
+   * The menu opens upward, out of the terminal panel — and the panel is clipped with
+   * `overflow: hidden`, so an absolutely-positioned menu was drawn entirely outside its
+   * clipping container: invisible and not even hit-testable. Positioning it fixed,
+   * against viewport coordinates taken from the button, escapes every ancestor's
+   * overflow.
+   */
+  const [menu, setMenu] = useState<{ right: number; bottom?: number; top?: number } | null>(null)
 
   useEffect(() => {
-    if (!menuOpen) return
-    const close = (): void => setMenuOpen(false)
+    if (!menu) return
+    const close = (): void => setMenu(null)
     window.addEventListener('click', close)
-    return () => window.removeEventListener('click', close)
-  }, [menuOpen])
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('resize', close)
+    }
+  }, [menu])
+
+  const toggleMenu = (): void => {
+    if (menu) return setMenu(null)
+    const rect = newButton.current?.getBoundingClientRect()
+    if (!rect) return
+    const right = window.innerWidth - rect.right
+    // Normally opens upward. If the terminal has been dragged tall enough that there is
+    // no room above, drop it downward instead rather than clipping at the viewport edge.
+    const MENU_HEIGHT = 150
+    setMenu(
+      rect.top >= MENU_HEIGHT
+        ? // Pinning the bottom means the menu's height need not be known in advance.
+          { right, bottom: window.innerHeight - rect.top + 4 }
+        : { right, top: rect.bottom + 4 }
+    )
+  }
 
   return (
     <div className="terminal-panel">
@@ -59,24 +89,31 @@ export function TerminalPanel(): JSX.Element {
         <div className="terminal-actions">
           <div className="terminal-new">
             <button
+              ref={newButton}
               className="labelled"
               disabled={!workspace}
               title="Open another terminal"
               aria-label="New terminal"
+              aria-expanded={menu !== null}
               onClick={(e) => {
                 e.stopPropagation()
-                setMenuOpen((v) => !v)
+                toggleMenu()
               }}
             >
               ＋ New ▾
             </button>
-            {menuOpen && (
-              <div className="terminal-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+            {menu && (
+              <div
+                className="terminal-menu"
+                role="menu"
+                style={{ right: menu.right, bottom: menu.bottom }}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   role="menuitem"
                   onClick={() => {
                     addTerminal('claude')
-                    setMenuOpen(false)
+                    setMenu(null)
                   }}
                 >
                   Claude session
@@ -85,7 +122,7 @@ export function TerminalPanel(): JSX.Element {
                   role="menuitem"
                   onClick={() => {
                     addTerminal('shell')
-                    setMenuOpen(false)
+                    setMenu(null)
                   }}
                 >
                   Shell
@@ -95,7 +132,7 @@ export function TerminalPanel(): JSX.Element {
                   role="menuitem"
                   onClick={() => {
                     runProjectCheck()
-                    setMenuOpen(false)
+                    setMenu(null)
                   }}
                 >
                   Run project check
