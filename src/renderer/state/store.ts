@@ -514,6 +514,11 @@ if (import.meta.env.DEV) {
 
 /** Subscribe to the main process's push events. Called once at startup. */
 export function wireEvents(): () => void {
+  // The ports event only fires when the list *changes*, and the first scan happens
+  // before the renderer exists — so without an initial fetch the Ports panel sat empty
+  // until something happened to start or stop a server.
+  void call('ports:list').then((ports) => ports && useStore.setState({ ports }))
+
   const unsubscribers = [
     window.api.on('files:changed', (paths) => {
       const { tree, loadDir, openFiles } = useStore.getState()

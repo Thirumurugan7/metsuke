@@ -1,20 +1,33 @@
+import { useState } from 'react'
 import { useStore } from '../state/store'
 
 /**
- * Listening ports, extracted from the preview panel so the sidebar view and the
- * preview footer share one implementation instead of two divergent copies.
+ * Listening ports, extracted from the preview panel so the sidebar view and the preview
+ * footer share one implementation instead of two divergent copies.
+ *
+ * System ports are hidden by default. The raw list on a normal machine is mostly the
+ * OS, background daemons, and the editor's own processes — and picking one of those
+ * loads a blank pane, which reads as the preview being broken.
  */
 export function PortsPanel({ compact = false }: { compact?: boolean }): JSX.Element {
   const { ports, previewUrl, showInPreview } = useStore()
+  const [showAll, setShowAll] = useState(false)
 
-  if (ports.length === 0) {
+  const interesting = ports.filter((p) => !p.system)
+  const hidden = ports.length - interesting.length
+  const shown = showAll ? ports : interesting
+
+  if (shown.length === 0) {
     return (
       <div className={compact ? 'ports-empty' : 'panel-empty'}>
-        <p>No servers listening</p>
+        <p>No dev servers listening</p>
         {!compact && (
-          <p className="hint">
-            Start a dev server in the terminal and it will appear here automatically.
-          </p>
+          <p className="hint">Start one in the terminal and it will appear here automatically.</p>
+        )}
+        {hidden > 0 && (
+          <button className="labelled" onClick={() => setShowAll(true)}>
+            Show {hidden} system port{hidden === 1 ? '' : 's'}
+          </button>
         )}
       </div>
     )
@@ -22,15 +35,17 @@ export function PortsPanel({ compact = false }: { compact?: boolean }): JSX.Elem
 
   return (
     <div className="port-list">
-      {ports.map((port) => {
+      {shown.map((port) => {
         const url = `http://localhost:${port.port}`
         const active = previewUrl.startsWith(url)
         return (
           <button
             key={port.port}
-            className={`port-row${port.ours ? ' ours' : ''}${active ? ' active' : ''}`}
+            className={`port-row${port.ours ? ' ours' : ''}${active ? ' active' : ''}${port.system ? ' system' : ''}`}
             onClick={() => showInPreview(url)}
-            title={`Open ${url} in the preview${port.pid ? ` · pid ${port.pid}` : ''}`}
+            title={`Open ${url} in the preview${port.pid ? ` · pid ${port.pid}` : ''}${
+              port.system ? ' · not a web server, this will probably be blank' : ''
+            }`}
           >
             <span className="port-number">{port.port}</span>
             <span className="port-process">{port.process ?? 'unknown process'}</span>
@@ -41,6 +56,12 @@ export function PortsPanel({ compact = false }: { compact?: boolean }): JSX.Elem
           </button>
         )
       })}
+
+      {hidden > 0 && (
+        <button className="port-toggle" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? 'Hide system ports' : `Show ${hidden} system port${hidden === 1 ? '' : 's'}`}
+        </button>
+      )}
     </div>
   )
 }

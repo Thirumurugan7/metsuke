@@ -101,6 +101,12 @@ export interface PortInfo {
   pid: number | null
   /** True when the listening process is a descendant of a terminal we spawned. */
   ours: boolean
+  /**
+   * True for ports that are not somebody's dev server: the editor's own processes, and
+   * known daemons that do not serve web pages. Hidden by default — opening one shows a
+   * blank pane, which reads as the preview being broken.
+   */
+  system: boolean
 }
 
 export interface TerminalSpawnOptions {

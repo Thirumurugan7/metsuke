@@ -35,9 +35,13 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`.
   Claude refresh in place without losing your cursor.
 - **Source control** — full git client: status, staged/unstaged diffs, stage, discard,
   commit, branch switching, push/pull, and history.
-- **Ports** — every listening port on the machine, with the ones started from the
-  built-in terminal flagged and sorted first. Click one to load it in the preview.
-- **Preview** — an embedded browser pane pointed at your dev server.
+- **Ports** — dev servers you can preview, with the ones started from the built-in
+  terminal flagged and sorted first. Click one to load it. System daemons, databases,
+  and the editor's own ports are filtered out by default (they only ever load a blank
+  page); "Show N system ports" reveals them.
+- **Preview** — an embedded browser pane pointed at your dev server, with back/forward,
+  reload, and an address bar that takes a bare port number. A page that fails to load
+  says why rather than showing a blank pane.
 - **Terminals** — real ptys, as many as you want. Tabs along the panel, `＋ New` for
   another Claude session or a plain shell, middle-click or `×` to close, restart in
   place when a process exits. Switching tabs never kills a session.

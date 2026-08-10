@@ -15,6 +15,30 @@ interface WebviewElement extends HTMLElement {
   getURL(): string
 }
 
+/**
+ * Plain-English cause for the Chromium error codes the preview actually hits. The codes
+ * here were observed, not guessed: pointing the preview at Postgres reports -324, not
+ * the connection-reset code you might expect.
+ */
+function explain(code: number): string {
+  switch (code) {
+    case -102: // ERR_CONNECTION_REFUSED
+      return ' — nothing is listening on that port. Is the dev server still running?'
+    case -324: // ERR_EMPTY_RESPONSE
+    case -101: // ERR_CONNECTION_RESET
+    case -100: // ERR_CONNECTION_CLOSED
+      return ' — something is listening, but it is not serving web pages. Databases and system daemons listen on ports too.'
+    case -337: // ERR_SSL_PROTOCOL_ERROR
+      return ' — that port speaks HTTPS, or something that is not HTTP. Try the other scheme.'
+    case -105: // ERR_NAME_NOT_RESOLVED
+      return ' — that host name could not be resolved.'
+    case -7: // ERR_TIMED_OUT
+      return ' — the server accepted the connection but never replied.'
+    default:
+      return ''
+  }
+}
+
 /** Turn "3000", "localhost:3000", or a full URL into something loadable. */
 function normaliseUrl(raw: string): string {
   const trimmed = raw.trim()
@@ -28,6 +52,14 @@ export function Preview(): JSX.Element {
   const { previewUrl, previewAttached, setPreviewUrl, setPreviewAttached, ports } = useStore()
   const [input, setInput] = useState(previewUrl)
   const [loading, setLoading] = useState(false)
+  /**
+   * A failed load used to leave the pane completely blank — no error, no hint. Pointing
+   * the preview at anything that is not an HTTP server (a database port, say) looked
+   * exactly like the preview being broken.
+   */
+  const [failure, setFailure] = useState<{ code: number; description: string; url: string } | null>(
+    null
+  )
 
   // Keep the address bar in step when the URL changes from elsewhere — clicking a port
   // used to load a new page while the bar kept showing the old address.
@@ -42,7 +74,10 @@ export function Preview(): JSX.Element {
     const onReady = (): void => {
       void call('preview:register', element.getWebContentsId()).then(() => setPreviewAttached(true))
     }
-    const onStart = (): void => setLoading(true)
+    const onStart = (): void => {
+      setLoading(true)
+      setFailure(null)
+    }
     const onStop = (): void => {
       setLoading(false)
       const current = element.getURL()
@@ -50,14 +85,35 @@ export function Preview(): JSX.Element {
     }
     const onDestroyed = (): void => setPreviewAttached(false)
 
+    const onFail = (e: Event): void => {
+      const detail = e as Event & {
+        errorCode: number
+        errorDescription: string
+        validatedURL: string
+        isMainFrame: boolean
+      }
+      // Sub-resources fail all the time on a page that is otherwise fine; only a failed
+      // main frame means there is nothing to look at. -3 is ERR_ABORTED, which is what
+      // a superseded navigation reports — not a real failure.
+      if (!detail.isMainFrame || detail.errorCode === -3) return
+      setLoading(false)
+      setFailure({
+        code: detail.errorCode,
+        description: detail.errorDescription || 'Could not load the page',
+        url: detail.validatedURL
+      })
+    }
+
     element.addEventListener('dom-ready', onReady)
     element.addEventListener('did-start-loading', onStart)
     element.addEventListener('did-stop-loading', onStop)
+    element.addEventListener('did-fail-load', onFail)
     element.addEventListener('destroyed', onDestroyed)
     return () => {
       element.removeEventListener('dom-ready', onReady)
       element.removeEventListener('did-start-loading', onStart)
       element.removeEventListener('did-stop-loading', onStop)
+      element.removeEventListener('did-fail-load', onFail)
       element.removeEventListener('destroyed', onDestroyed)
     }
   }, [previewUrl, setPreviewAttached])
@@ -114,6 +170,24 @@ export function Preview(): JSX.Element {
       </div>
 
       <div className="preview-body">
+        {failure && (
+          <div className="preview-error" role="alert">
+            <p className="empty-title">Could not load this page</p>
+            <p className="preview-error-url">{failure.url}</p>
+            <p className="hint">
+              {failure.description} ({failure.code}){explain(failure.code)}
+            </p>
+            <div className="preview-error-actions">
+              <button className="primary" onClick={() => view.current?.reload()}>
+                Retry
+              </button>
+              <button className="labelled" onClick={() => setFailure(null)}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
         {previewUrl ? (
           <webview
             ref={view as never}

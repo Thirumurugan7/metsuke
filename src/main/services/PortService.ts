@@ -8,6 +8,33 @@ const exec = promisify(execFile)
 const MIN_PORT = 1024
 
 /**
+ * Processes that listen on a port but never serve a web page. Clicking one in the
+ * preview gives a blank pane, so they are marked system and hidden by default rather
+ * than sitting in the list looking like candidates.
+ */
+const NON_WEB_PROCESSES = [
+  'controlcenter',
+  'rapportd',
+  'sharingd',
+  'identityservicesd',
+  'remoted',
+  'mongod',
+  'postgres',
+  'mysqld',
+  'redis-server',
+  'memcached',
+  'language_server',
+  'sshd',
+  'cupsd'
+]
+
+function isNonWeb(name: string | null): boolean {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return NON_WEB_PROCESSES.some((n) => lower.includes(n))
+}
+
+/**
  * Discovers TCP ports that are listening on this machine, so the UI can offer each one
  * as a one-click preview target.
  *
@@ -56,24 +83,43 @@ export class PortService {
       process.platform === 'win32' ? await PortService.#listWindows() : await PortService.#listUnix()
 
     const ourPids = new Set(this.#ourPids())
-    const parents = ourPids.size > 0 ? await PortService.#parentMap() : new Map<number, number>()
+    // Always needed now: the editor's own ports must be identified even when no
+    // terminal is running.
+    const parents = await PortService.#parentMap()
+
+    // The editor itself listens on several ports — Electron's helpers, and in dev the
+    // Vite server and the debug port. Listing them invites the user to preview the
+    // editor rather than their project.
+    const selfChain = new Set<number>()
+    for (let pid = process.pid, hops = 0; pid > 1 && hops < 64; hops++) {
+      selfChain.add(pid)
+      pid = parents.get(pid) ?? 0
+    }
+    const isSelf = (pid: number): boolean =>
+      selfChain.has(pid) || PortService.#isDescendant(pid, new Set([process.pid]), parents)
 
     const seen = new Map<number, PortInfo>()
     for (const { port, pid, process: name } of listeners) {
       if (port < MIN_PORT) continue
       // Servers commonly bind both IPv4 and IPv6; collapse to one entry per port.
       if (seen.has(port)) continue
+
+      const ours = pid !== null && PortService.#isDescendant(pid, ourPids, parents)
       seen.set(port, {
         port,
         pid,
         process: name,
-        ours: pid !== null && PortService.#isDescendant(pid, ourPids, parents)
+        ours,
+        // A port we started from a terminal is always a candidate, whatever it is.
+        system: !ours && ((pid !== null && isSelf(pid)) || isNonWeb(name))
       })
     }
 
-    return [...seen.values()].sort((a, b) =>
-      a.ours === b.ours ? a.port - b.port : a.ours ? -1 : 1
-    )
+    return [...seen.values()].sort((a, b) => {
+      if (a.ours !== b.ours) return a.ours ? -1 : 1
+      if (a.system !== b.system) return a.system ? 1 : -1
+      return a.port - b.port
+    })
   }
 
   /** Walk the process tree upward looking for one of our pty processes. */
