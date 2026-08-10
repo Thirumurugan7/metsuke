@@ -25,22 +25,55 @@ export function Adaptation(): JSX.Element | null {
     if (!adaptation) return
 
     setLeaving(false)
-    const element = video.current
-    if (element) {
-      /*
-       * Muted has to be set on the element itself, not left to the JSX attribute.
-       * React assigns it as a property and it does not reliably land before play() is
-       * called, so Chromium sees an unmuted autoplay, refuses it, and the wheel sits
-       * frozen on frame zero. Setting it here is what actually makes it move.
-       */
+    let cancelled = false
+
+    /*
+     * Getting this to actually move took three fixes, all of which fail silently.
+     *
+     * 1. Muted has to be set on the element, not left to the JSX attribute. React
+     *    assigns it as a property and it does not reliably land before play(), so
+     *    Chromium sees an unmuted autoplay and refuses.
+     * 2. Seeking a freshly mounted element aborts a play() issued in the same tick, so
+     *    wait for data before touching currentTime.
+     * 3. Chromium defers playback for a window that is not visible, which is the normal
+     *    case here: the flourish fires while you are looking at your browser, not at
+     *    the editor. play() resolves and the video stays paused, so it needs a retry.
+     *
+     * Every one of these leaves the wheel frozen on frame zero rather than throwing.
+     */
+    const start = async (): Promise<void> => {
+      const element = video.current
+      if (!element) return
+
       element.muted = true
       element.playbackRate = RATE
-      element.currentTime = 0
-      void element.play().catch(() => {
-        // Still refused: the caption and the tone carry the moment on their own.
+
+      if (element.readyState < 2) {
+        await new Promise<void>((resolve) => {
+          const done = (): void => resolve()
+          element.addEventListener('loadeddata', done, { once: true })
+          setTimeout(done, 600)
+        })
+      }
+      if (cancelled) return
+
+      try {
+        element.currentTime = 0
+      } catch {
+        // Not seekable yet. Playing from wherever it is beats not playing at all.
+      }
+
+      await element.play().catch(() => {})
+      if (cancelled || !element.paused) return
+
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      if (cancelled) return
+      await element.play().catch(() => {
+        // Still refused. The caption and the tone carry the moment on their own.
       })
     }
 
+    void start()
     void playAdaptSound()
 
     // Fade before unmounting, so it dissolves rather than blinking out.
@@ -51,6 +84,7 @@ export function Adaptation(): JSX.Element | null {
     }, VISIBLE_MS)
 
     return () => {
+      cancelled = true
       clearTimeout(fade)
       clearTimeout(done)
     }

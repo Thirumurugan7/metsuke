@@ -138,6 +138,22 @@ export function NotificationSettings(): JSX.Element | null {
                   seconds, and skipped entirely if your system asks for reduced motion.
                 </small>
               </span>
+              {/*
+                type="button" because this sits inside a <label>: without it the button
+                submits, and a stray activation would toggle the checkbox it is next to.
+              */}
+              <button
+                type="button"
+                className="labelled"
+                title="Play the wheel now, ignoring the setting and the cooldown"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  useStore.getState().testAdaptation()
+                }}
+              >
+                Test
+              </button>
             </label>
 
             <label className="settings-row">

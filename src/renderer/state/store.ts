@@ -299,6 +299,8 @@ interface State {
   setPreviewAttached: (attached: boolean) => void
   /** Mark an adaptation. Ignored while one is playing, or if it is turned off. */
   triggerAdaptation: (skill: string) => void
+  /** Play it on demand, ignoring the settings and the gap. For the Test button. */
+  testAdaptation: () => void
   clearAdaptation: () => void
   togglePreviewFullscreen: () => void
   startInspect: () => Promise<void>
@@ -532,6 +534,22 @@ export const useStore = create<State>((set, get) => ({
 
     lastAdaptAt = now
     set({ adaptation: { skill, at: now } })
+  },
+
+  /*
+   * Deliberately ignores both the setting and the twelve second gap.
+   *
+   * Pressing Test and getting nothing back, because the real thing happens to have
+   * fired recently or because you are testing before switching the feature on, reads as
+   * broken rather than as suppressed. It still refuses to stack on one already playing,
+   * which would only look wrong. Reduced motion is honoured for the automatic trigger
+   * but not here, since pressing the button is an explicit request to see it.
+   */
+  testAdaptation: () => {
+    if (get().adaptation) return
+    const now = Date.now()
+    lastAdaptAt = now
+    set({ adaptation: { skill: 'this very button', at: now } })
   },
 
   clearAdaptation: () => set({ adaptation: null }),
