@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 /**
  * A draggable divider between two panels.
  *
- * Pointer capture keeps the drag alive when the cursor moves over the Monaco editor or
- * the preview webview — without it, those swallow the pointer and the divider sticks
- * mid-drag.
+ * The listeners are registered once for the component's lifetime and read `onResize`
+ * through a ref. They used to be re-registered whenever `onResize` changed identity —
+ * and since the parent passes an inline arrow, that was every render, including the
+ * re-render caused by the resize itself. The teardown reset the drag flag, so a drag
+ * died a few pixels in: a 120px drag moved 30px.
  */
 export function Splitter({
   orientation,
@@ -20,28 +22,34 @@ export function Splitter({
   const dragging = useRef(false)
   const handle = useRef<HTMLDivElement>(null)
 
-  const onPointerMove = useCallback(
-    (e: PointerEvent) => {
-      if (!dragging.current) return
-      e.preventDefault()
-      onResize(orientation === 'vertical' ? e.clientX : e.clientY)
-    },
-    [onResize, orientation]
-  )
+  // Always the latest callback, without making the listener effect depend on it.
+  const latest = useRef(onResize)
+  latest.current = onResize
 
   useEffect(() => {
+    const onPointerMove = (e: PointerEvent): void => {
+      if (!dragging.current) return
+      e.preventDefault()
+      latest.current(orientation === 'vertical' ? e.clientX : e.clientY)
+    }
+
     const stop = (): void => {
+      if (!dragging.current) return
       dragging.current = false
       document.body.classList.remove('resizing')
     }
+
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+
     return () => {
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
       stop()
     }
-  }, [onPointerMove])
+  }, [orientation])
 
   return (
     <div
@@ -52,9 +60,15 @@ export function Splitter({
       aria-label={label}
       tabIndex={0}
       onPointerDown={(e) => {
+        e.preventDefault()
         dragging.current = true
-        handle.current?.setPointerCapture(e.pointerId)
-        // Suppresses text selection and pointer events on iframes for the whole drag.
+        // Keeps the drag alive over the Monaco editor and the preview webview, which
+        // would otherwise swallow the pointer. Synthetic pointers may not be capturable.
+        try {
+          handle.current?.setPointerCapture(e.pointerId)
+        } catch {
+          /* capture is an optimisation, not a requirement */
+        }
         document.body.classList.add('resizing')
       }}
       // Keyboard resizing, so the layout is not mouse-only.

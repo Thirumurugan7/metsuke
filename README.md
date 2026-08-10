@@ -104,3 +104,15 @@ In dev, Open Claude exposes its own window over CDP on port 9222 (override with
 `OPEN_CLAUDE_DEBUG_PORT`). That means the same trick the preview pane gives you for
 your project works on the editor itself — you can screenshot it, query its DOM, and
 drive it while building. `http://127.0.0.1:9222/json/list` lists the target.
+
+The store is also exposed as `window.__store` in dev, so state can be read directly
+(`__store.getState().sidebarWidth`) instead of inferred from pixels.
+
+Two things worth knowing when testing the UI this way:
+
+- **Presence is not visibility.** `querySelector(el).click()` succeeds on an element
+  that is clipped, off-screen, or covered — which is exactly how a menu that never
+  appeared once passed its test. Check `document.elementFromPoint` at the element's
+  centre resolves back to it.
+- **Measure coordinates in the same step you use them.** Layout shifts between CDP
+  connections, and a drag aimed at a stale position silently hits the panel behind.

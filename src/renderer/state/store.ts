@@ -474,6 +474,13 @@ export const useStore = create<State>((set, get) => ({
   setPreviewUrl: (previewUrl) => set({ previewUrl })
 }))
 
+// In dev, expose the store for inspection from devtools or over CDP. The editor can
+// drive its own UI for testing (see the debug port in src/main/index.ts); being able to
+// read state directly turns "the panel looks wrong" into an actual number.
+if (import.meta.env.DEV) {
+  ;(window as unknown as { __store: typeof useStore }).__store = useStore
+}
+
 /** Subscribe to the main process's push events. Called once at startup. */
 export function wireEvents(): () => void {
   const unsubscribers = [

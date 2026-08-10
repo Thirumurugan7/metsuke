@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore, wireEvents, type SidebarView } from './state/store'
 import { Explorer } from './components/Explorer'
 import { GitPanel } from './components/GitPanel'
@@ -51,6 +51,23 @@ export function App(): JSX.Element {
   } = useStore()
 
   const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null)
+
+  /*
+   * Panel sizes are derived from real geometry rather than hardcoded offsets. The
+   * sidebar used to be computed as `x - 48` for the activity bar, which silently went
+   * 20px wrong the moment that bar grew to 68px to fit its labels.
+   */
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const activityRef = useRef<HTMLElement>(null)
+
+  const resizeSidebar = (x: number): void =>
+    setPanelSize('sidebar', x - (activityRef.current?.getBoundingClientRect().right ?? 0))
+
+  const resizeTerminal = (y: number): void =>
+    setPanelSize('terminal', (bodyRef.current?.getBoundingClientRect().bottom ?? window.innerHeight) - y)
+
+  const resizePreview = (x: number): void =>
+    setPanelSize('preview', (bodyRef.current?.getBoundingClientRect().right ?? window.innerWidth) - x)
 
   useEffect(() => wireEvents(), [])
   useEffect(() => {
@@ -142,8 +159,8 @@ export function App(): JSX.Element {
         </div>
       </header>
 
-      <div className="body">
-        <nav className="activity-bar" aria-label="Views">
+      <div className="body" ref={bodyRef}>
+        <nav className="activity-bar" aria-label="Views" ref={activityRef}>
           {VIEWS.map((view) => (
             <button
               key={view.id}
@@ -187,7 +204,7 @@ export function App(): JSX.Element {
             <Splitter
               orientation="vertical"
               label="Resize sidebar"
-              onResize={(x) => setPanelSize('sidebar', x - 48)}
+              onResize={resizeSidebar}
             />
           </>
         )}
@@ -206,7 +223,7 @@ export function App(): JSX.Element {
               <Splitter
                 orientation="horizontal"
                 label="Resize terminal"
-                onResize={(y) => setPanelSize('terminal', window.innerHeight - y - 22)}
+                onResize={resizeTerminal}
               />
             )}
             <div
@@ -222,7 +239,7 @@ export function App(): JSX.Element {
             <Splitter
               orientation="vertical"
               label="Resize preview"
-              onResize={(x) => setPanelSize('preview', window.innerWidth - x)}
+              onResize={resizePreview}
             />
           )}
           <div

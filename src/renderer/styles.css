@@ -252,8 +252,12 @@ select:focus {
 .sidebar {
   background: var(--bg-alt);
   display: flex;
+  /* Hold the dragged width: the default flex-shrink let it collapse below the size the
+     store had recorded, so measured and stored widths drifted apart. */
+  flex: 0 0 auto;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
 }
 .sidebar-header {
   align-items: center;
