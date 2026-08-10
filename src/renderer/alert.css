@@ -1,3 +1,17 @@
+:root {
+  --bg-bar: #262628;
+  --border: #3c3c3c;
+  --fg: #cccccc;
+  --fg-dim: #9b9b9b;
+  --accent: #0a84ff;
+  --accent-hover: #3d9dff;
+  --on-accent: #ffffff;
+  --added: #4ec9b0;
+  --modified: #e2c08d;
+  --hover: rgba(255, 255, 255, 0.08);
+  --hover-strong: rgba(255, 255, 255, 0.14);
+}
+
 /*
  * The floating alert. Its window is transparent, so the card paints its own background
  * and rounded corners; the body must stay fully transparent or the whole rectangle
@@ -21,7 +35,7 @@ body,
 }
 
 body {
-  color: #cccccc;
+  color: var(--fg);
   font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   /* The window itself is draggable, but not the buttons (see .alert-actions). */
   -webkit-app-region: drag;
@@ -29,9 +43,9 @@ body {
 }
 
 .alert-card {
-  background: #262628;
-  border: 1px solid #3c3c3c;
-  border-left: 4px solid #0a84ff;
+  background: var(--bg-bar);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
   border-radius: 12px;
   display: flex;
   gap: 12px;
@@ -39,10 +53,10 @@ body {
   padding: 14px 16px;
 }
 .alert-permission {
-  border-left-color: #e2c08d;
+  border-left-color: var(--modified);
 }
 .alert-finished {
-  border-left-color: #4ec9b0;
+  border-left-color: var(--added);
 }
 
 .alert-icon {
@@ -64,7 +78,7 @@ body {
 }
 
 .alert-message {
-  color: #9b9b9b;
+  color: var(--fg-dim);
   flex: 1;
   font-size: 12px;
   line-height: 1.45;
@@ -85,7 +99,7 @@ body {
 }
 
 button {
-  background: #ffffff14;
+  background: var(--hover);
   border: none;
   border-radius: 5px;
   color: inherit;
@@ -95,17 +109,17 @@ button {
   padding: 5px 11px;
 }
 button:hover {
-  background: #ffffff24;
+  background: var(--hover-strong);
 }
 button.primary {
-  background: #0a84ff;
-  color: #fff;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 button.primary:hover {
-  background: #3d9dff;
+  background: var(--accent-hover);
 }
 button:focus-visible {
-  outline: 2px solid #0a84ff;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -113,7 +127,7 @@ button:focus-visible {
   -webkit-app-region: no-drag;
   align-self: flex-start;
   background: transparent;
-  color: #8b8b8b;
+  color: var(--fg-dim);
   font-size: 15px;
   line-height: 1;
   padding: 2px 5px;

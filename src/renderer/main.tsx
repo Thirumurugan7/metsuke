@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import './styles.css'
+import { bootstrapTheme } from './theme/apply'
 
 // Monaco ships its language services as web workers. Vite needs the URLs resolved at
 // build time, so they are wired up explicitly rather than through Monaco's default
@@ -33,6 +34,12 @@ self.MonacoEnvironment = {
     }
   }
 }
+
+/*
+ * Before anything renders. The stylesheet ships a dark fallback, so applying the stored
+ * palette after the first paint would flash dark on the way into a light theme.
+ */
+bootstrapTheme()
 
 // Lets the stylesheet adapt to platform chrome, e.g. the macOS traffic lights.
 document.body.classList.add(`is-${window.api.platform === 'darwin' ? 'mac' : window.api.platform === 'win32' ? 'win' : 'linux'}`)

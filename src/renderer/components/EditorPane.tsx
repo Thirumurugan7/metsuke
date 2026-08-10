@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as monaco from 'monaco-editor'
 import { useStore } from '../state/store'
+import { getTheme, monacoThemeName, onThemeChange, applyMonacoTheme } from '../theme/apply'
 import { DiffView } from './DiffView'
 
 /** Monaco's language ids for the extensions this editor is likely to meet. */
@@ -51,7 +52,7 @@ export function EditorPane({
     if (!container.current) return
 
     const instance = monaco.editor.create(container.current, {
-      theme: 'vs-dark',
+      theme: monacoThemeName(getTheme()),
       automaticLayout: true,
       fontSize: 13,
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
@@ -119,6 +120,12 @@ export function EditorPane({
         : null
     )
   }, [activePath, diffPath, onCursorChange])
+
+  /*
+   * Monaco keeps its own theme registry, so a CSS variable change does nothing to it.
+   * Without this the editor stays dark inside a light chrome, which looks broken.
+   */
+  useEffect(() => onThemeChange((theme) => applyMonacoTheme(theme)), [])
 
   // Dispose models for tabs that were closed, so they do not leak.
   useEffect(() => {

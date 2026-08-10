@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { call, useStore, type TerminalTab } from '../state/store'
+import { getTheme, onThemeChange, xtermTheme } from '../theme/apply'
 
 /**
  * Multiple real ptys, one per tab.
@@ -210,7 +211,7 @@ function TerminalInstance({ tab, visible }: { tab: TerminalTab; visible: boolean
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
       cursorBlink: true,
       scrollback: 10_000,
-      theme: { background: '#1a1a1a', foreground: '#d4d4d4' }
+      theme: xtermTheme(getTheme())
     })
     const fitAddon = new FitAddon()
     terminal.loadAddon(fitAddon)
@@ -245,11 +246,25 @@ function TerminalInstance({ tab, visible }: { tab: TerminalTab; visible: boolean
       if (session.current) void call('terminal:write', session.current, data)
     })
 
+    /*
+     * xterm holds its own palette, including the sixteen ANSI colours, so it has to be
+     * repainted explicitly when the theme changes.
+     *
+     * It has to be a partial assignment to `options`. Mutating `terminal.options.theme`
+     * directly is silently discarded, because the getter hands back a copy: measured it
+     * reading straight back as the old value. Spreading the whole options object instead
+     * throws, since `cols` and `rows` are constructor-only.
+     */
+    const offTheme = onThemeChange((theme) => {
+      terminal.options = { theme: xtermTheme(theme) }
+    })
+
     const observer = new ResizeObserver(() => safeFit())
     observer.observe(host.current)
 
     return () => {
       observer.disconnect()
+      offTheme()
       offData()
       offExit()
       // Deliberately does not kill the pty. The session belongs to the app, not to this

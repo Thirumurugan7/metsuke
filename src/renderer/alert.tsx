@@ -1,7 +1,11 @@
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './alert.css'
+import { bootstrapTheme } from './theme/apply'
 import type { NotificationPayload, NotifyEvent } from '@shared/ipc'
+
+// Same origin as the main window, so the stored choice is already there to read.
+bootstrapTheme()
 
 const ICONS: Record<NotifyEvent, string> = {
   permission: '🔐',

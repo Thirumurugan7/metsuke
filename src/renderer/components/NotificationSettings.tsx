@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { call, useStore } from '../state/store'
+import { ThemePicker } from '../theme/ThemePicker'
 import type { NotifyEvent } from '@shared/ipc'
 
 const EVENTS: Array<{ id: NotifyEvent; label: string; help: string }> = [
@@ -57,17 +58,22 @@ export function NotificationSettings(): JSX.Element | null {
       <div
         className="settings-modal"
         role="dialog"
-        aria-label="Notification settings"
+        aria-label="Settings"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="settings-header">
-          <h2>Notifications</h2>
+          <h2>Settings</h2>
           <button className="icon-only" aria-label="Close settings" onClick={() => setSettingsOpen(false)}>
             ×
           </button>
         </header>
 
         <div className="settings-body">
+          <section>
+            <h3>Theme</h3>
+            <ThemePicker />
+          </section>
+
           <section>
             <h3>Notify me when…</h3>
             {EVENTS.map((event) => (

@@ -1,18 +1,44 @@
-/* A dark theme in the VS Code idiom: same greys, same density, same affordances. */
+/*
+ * Layout, density and affordances. Colour comes from custom properties written onto
+ * :root by src/renderer/theme at boot, before first paint.
+ *
+ * The values below are a dark fallback for the case where that never runs. Nothing in
+ * this file may hardcode a colour that assumes a dark ground: a white wash over dark is
+ * invisible over light, which is the single thing that makes most light modes unusable.
+ */
 :root {
   --bg: #1e1e1e;
   --bg-alt: #252526;
   --bg-deep: #1a1a1a;
   --bg-bar: #323233;
   --border: #3c3c3c;
-  --fg: #cccccc;
-  --fg-dim: #8b8b8b;
+  --fg: #d4d4d4;
+  --fg-dim: #9d9d9d;
   --accent: #0a84ff;
   --accent-hover: #3d9dff;
+  --on-accent: #ffffff;
   --added: #4ec9b0;
   --removed: #f14c4c;
   --modified: #e2c08d;
   --untracked: #73c991;
+  --conflict: #e5c07b;
+  --hover: rgba(255, 255, 255, 0.05);
+  --hover-strong: rgba(255, 255, 255, 0.1);
+  --hover-hard: rgba(255, 255, 255, 0.13);
+  --sunken: rgba(255, 255, 255, 0.06);
+  --input-bg: #3c3c3c;
+  --input-border: rgba(255, 255, 255, 0.09);
+  --shadow: rgba(0, 0, 0, 0.55);
+  --shadow-strong: rgba(0, 0, 0, 0.72);
+  --scrim: rgba(0, 0, 0, 0.42);
+  --diff-add-bg: #1d3a2a;
+  --diff-add-fg: #b5e8c9;
+  --diff-del-bg: #4a1f1f;
+  --diff-del-fg: #f0b0b0;
+  --danger-bg: #5a1d1d;
+  --danger-border: #8a3a3a;
+  --danger-fg: #ffb4b4;
+  --preview-ground: #ffffff;
   --row: 22px;
 }
 
@@ -45,14 +71,14 @@ button {
   border-radius: 3px;
 }
 button:hover:not(:disabled) {
-  background: #ffffff18;
+  background: var(--hover-strong);
 }
 button:disabled {
   opacity: 0.4;
   cursor: default;
 }
 button.active {
-  background: #ffffff20;
+  background: var(--hover-hard);
 }
 /* Every control is reachable and visibly focusable by keyboard. */
 button:focus-visible,
@@ -78,21 +104,21 @@ button.icon-only {
 }
 button.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   padding: 5px 10px;
 }
 button.primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
 button.danger:hover:not(:disabled) {
-  background: #7a2a2a;
+  background: var(--danger-border);
 }
 
 input,
 textarea,
 select {
-  background: #3c3c3c;
-  border: 1px solid #ffffff14;
+  background: var(--input-bg);
+  border: 1px solid var(--sunken);
   border-radius: 3px;
   color: var(--fg);
   font: inherit;
@@ -163,16 +189,16 @@ body.is-mac .title-bar {
 }
 .toast {
   align-items: flex-start;
-  background: #5a1d1d;
-  border: 1px solid #8a3a3a;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
   border-radius: 6px;
-  box-shadow: 0 6px 20px #0008;
+  box-shadow: 0 6px 20px var(--shadow);
   display: flex;
   gap: 10px;
   padding: 9px 10px;
 }
 .toast-icon {
-  color: #ffb4b4;
+  color: var(--danger-fg);
 }
 .toast-message {
   flex: 1;
@@ -218,7 +244,7 @@ body.is-mac .title-bar {
   position: relative;
 }
 .activity-item.active {
-  background: #ffffff10;
+  background: var(--hover);
   border-left-color: var(--accent);
   color: var(--fg);
 }
@@ -243,7 +269,7 @@ body.is-mac .title-bar {
 .activity-item .dot {
   background: var(--accent);
   border-radius: 8px;
-  color: #fff;
+  color: var(--on-accent);
   font-size: 9px;
   line-height: 14px;
   min-width: 14px;
@@ -368,10 +394,10 @@ body.resizing .monaco-container {
   white-space: nowrap;
 }
 .tree-row:hover {
-  background: #ffffff0d;
+  background: var(--hover);
 }
 .tree-row.active {
-  background: #ffffff1a;
+  background: var(--hover-strong);
 }
 .tree-caret {
   color: var(--fg-dim);
@@ -402,7 +428,7 @@ body.resizing .monaco-container {
   color: var(--removed);
 }
 .badge-conflict {
-  color: #e5c07b;
+  color: var(--conflict);
 }
 
 .panel-empty {
@@ -460,7 +486,7 @@ body.resizing .monaco-container {
   background: var(--bg-bar);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px #0009;
+  box-shadow: 0 8px 24px var(--shadow);
   display: flex;
   flex-direction: column;
   min-width: 170px;
@@ -481,7 +507,7 @@ body.resizing .monaco-container {
 /* -- quick open ----------------------------------------------------------- */
 
 .overlay {
-  background: #0006;
+  background: var(--scrim);
   inset: 0;
   position: fixed;
   z-index: 80;
@@ -490,7 +516,7 @@ body.resizing .monaco-container {
   background: var(--bg-bar);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 16px 48px #000a;
+  box-shadow: 0 16px 48px var(--shadow-strong);
   display: flex;
   flex-direction: column;
   left: 50%;
@@ -526,10 +552,10 @@ body.resizing .monaco-container {
 }
 .quick-open-row.selected {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .quick-open-row.selected .quick-open-dir {
-  color: #ffffffc0;
+  color: color-mix(in srgb, var(--on-accent) 75%, transparent);
 }
 .quick-open-dir {
   color: var(--fg-dim);
@@ -574,7 +600,7 @@ body.resizing .monaco-container {
   background: var(--bg-bar);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 18px 50px #000a;
+  box-shadow: 0 18px 50px var(--shadow-strong);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -608,7 +634,7 @@ body.resizing .monaco-container {
   white-space: nowrap;
 }
 .comment-text {
-  background: #ffffff0d;
+  background: var(--hover);
   border-radius: 6px;
   color: var(--fg-dim);
   font-size: 12px;
@@ -730,7 +756,7 @@ body.resizing .monaco-container {
   border: 1px solid var(--border);
   border-left: 4px solid var(--accent);
   border-radius: 10px;
-  box-shadow: 0 20px 60px #000b;
+  box-shadow: 0 20px 60px var(--shadow-strong);
   display: flex;
   gap: 14px;
   left: 50%;
@@ -780,7 +806,7 @@ body.resizing .monaco-container {
   background: var(--bg-bar);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 20px 60px #000b;
+  box-shadow: 0 20px 60px var(--shadow-strong);
   display: flex;
   flex-direction: column;
   left: 50%;
@@ -859,9 +885,9 @@ body.resizing .monaco-container {
   min-width: 0;
 }
 .settings-result {
-  background: #1d3a2a;
+  background: var(--diff-add-bg);
   border-radius: 6px;
-  color: #b5e8c9;
+  color: var(--diff-add-fg);
   font-size: 12px;
   margin: 14px 0 0;
   padding: 8px 10px;
@@ -932,7 +958,7 @@ body.resizing .monaco-container {
   color: var(--fg);
 }
 .tab-kind {
-  background: #ffffff1a;
+  background: var(--hover-strong);
   border-radius: 3px;
   font-size: 9.5px;
   letter-spacing: 0.04em;
@@ -1004,12 +1030,12 @@ body.resizing .monaco-container {
   white-space: pre;
 }
 .diff-add {
-  background: #1d3a2a;
-  color: #b5e8c9;
+  background: var(--diff-add-bg);
+  color: var(--diff-add-fg);
 }
 .diff-del {
-  background: #4a1f1f;
-  color: #f0b0b0;
+  background: var(--diff-del-bg);
+  color: var(--diff-del-fg);
 }
 .diff-hunk {
   color: var(--accent);
@@ -1069,7 +1095,7 @@ body.resizing .monaco-container {
   text-transform: uppercase;
 }
 .count {
-  background: #ffffff1a;
+  background: var(--hover-strong);
   border-radius: 8px;
   padding: 0 5px;
 }
@@ -1081,7 +1107,7 @@ body.resizing .monaco-container {
   padding: 0 8px;
 }
 .git-row:hover {
-  background: #ffffff0d;
+  background: var(--hover);
 }
 .git-path {
   display: flex;
@@ -1126,7 +1152,7 @@ body.resizing .monaco-container {
   color: var(--removed);
 }
 .letter-conflicted {
-  color: #e5c07b;
+  color: var(--conflict);
 }
 .log-row {
   display: flex;
@@ -1189,7 +1215,7 @@ body.resizing .monaco-container {
   white-space: nowrap;
 }
 .search-hit:hover {
-  background: #ffffff0d;
+  background: var(--hover);
 }
 .search-line {
   color: var(--fg-dim);
@@ -1245,7 +1271,7 @@ body.resizing .monaco-container {
   color: var(--untracked);
 }
 .preview-body {
-  background: #fff;
+  background: var(--preview-ground);
   flex: 1;
   min-height: 0;
   position: relative;
@@ -1322,10 +1348,10 @@ body.resizing .monaco-container {
   width: 100%;
 }
 .port-row:hover {
-  background: #ffffff0d;
+  background: var(--hover);
 }
 .port-row.active {
-  background: #ffffff14;
+  background: var(--sunken);
 }
 .port-number {
   color: var(--accent);
@@ -1340,7 +1366,7 @@ body.resizing .monaco-container {
   white-space: nowrap;
 }
 .port-badge {
-  background: #ffffff1a;
+  background: var(--hover-strong);
   border-radius: 8px;
   color: var(--untracked);
   font-size: 10px;
@@ -1389,10 +1415,10 @@ body.resizing .monaco-container {
   white-space: nowrap;
 }
 .terminal-tab:hover {
-  background: #ffffff0d;
+  background: var(--hover);
 }
 .terminal-tab.active {
-  background: #ffffff1a;
+  background: var(--hover-strong);
   color: var(--fg);
 }
 /* Colour-codes what is running: a Claude session, a plain shell, or a dead process. */
@@ -1434,7 +1460,7 @@ body.resizing .monaco-container {
   background: var(--bg-bar);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px #0009;
+  box-shadow: 0 8px 24px var(--shadow);
   display: flex;
   flex-direction: column;
   min-width: 190px;
@@ -1466,7 +1492,7 @@ body.resizing .monaco-container {
 }
 .terminal-exited {
   align-items: center;
-  background: #4a1f1f;
+  background: var(--diff-del-bg);
   display: flex;
   font-size: 11.5px;
   gap: 10px;
@@ -1504,4 +1530,115 @@ body.resizing .monaco-container {
 }
 .terminal-overlay p {
   margin: 0;
+}
+
+/* -- theme picker ---------------------------------------------------------- */
+
+.theme-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.theme-group-label {
+  color: var(--fg-dim);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+.theme-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.theme-option {
+  align-items: center;
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  text-align: left;
+}
+.theme-option:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.theme-option.active {
+  background: var(--hover-strong);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* A miniature of the editor rather than a flat colour chip: you can see the ground,
+   the chrome, the accent and the syntax hues before you commit to a theme. */
+.theme-swatch {
+  border: 1px solid;
+  border-radius: 5px;
+  flex: 0 0 auto;
+  height: 38px;
+  overflow: hidden;
+  position: relative;
+  width: 56px;
+}
+.theme-swatch-bar {
+  height: 7px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+.theme-swatch-side {
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  top: 7px;
+  width: 15px;
+}
+.theme-swatch-code {
+  bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  left: 20px;
+  position: absolute;
+  top: 12px;
+}
+.theme-swatch-code i {
+  border-radius: 1px;
+  display: block;
+  height: 3px;
+}
+.theme-swatch-code i:nth-child(1) {
+  width: 22px;
+}
+.theme-swatch-code i:nth-child(2) {
+  width: 14px;
+}
+.theme-swatch-code i:nth-child(3) {
+  width: 18px;
+}
+.theme-swatch-accent {
+  border-radius: 2px;
+  bottom: 5px;
+  height: 6px;
+  position: absolute;
+  right: 5px;
+  width: 12px;
+}
+
+.theme-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.theme-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.theme-blurb {
+  color: var(--fg-dim);
+  font-size: 11px;
+  line-height: 1.35;
 }
