@@ -49,7 +49,18 @@ function normaliseUrl(raw: string): string {
 
 export function Preview(): JSX.Element {
   const view = useRef<WebviewElement | null>(null)
-  const { previewUrl, previewAttached, setPreviewUrl, setPreviewAttached, ports } = useStore()
+  const {
+    previewUrl,
+    previewAttached,
+    previewFullscreen,
+    inspecting,
+    setPreviewUrl,
+    setPreviewAttached,
+    togglePreviewFullscreen,
+    startInspect,
+    stopInspect,
+    ports
+  } = useStore()
   const [input, setInput] = useState(previewUrl)
   const [loading, setLoading] = useState(false)
   /**
@@ -118,6 +129,17 @@ export function Preview(): JSX.Element {
     }
   }, [previewUrl, setPreviewAttached])
 
+  useEffect(() => {
+    if (!previewFullscreen && !inspecting) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return
+      if (inspecting) void stopInspect()
+      else if (previewFullscreen) togglePreviewFullscreen()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [previewFullscreen, inspecting, stopInspect, togglePreviewFullscreen])
+
   const go = (raw: string): void => {
     if (!raw.trim()) return
     setPreviewUrl(normaliseUrl(raw))
@@ -166,6 +188,30 @@ export function Preview(): JSX.Element {
         />
         <button className="labelled" title="Load this address" onClick={() => go(input)}>
           Go
+        </button>
+
+        <button
+          className={`labelled${inspecting ? ' active' : ''}`}
+          disabled={!previewUrl}
+          aria-pressed={inspecting}
+          title={
+            inspecting
+              ? 'Click an element in the preview — or press Escape to cancel'
+              : 'Pick an element in the page and send Claude a note about it'
+          }
+          onClick={() => void (inspecting ? stopInspect() : startInspect())}
+        >
+          <span aria-hidden="true">⌖</span> {inspecting ? 'Picking…' : 'Select'}
+        </button>
+
+        <button
+          className="icon-only"
+          aria-pressed={previewFullscreen}
+          title={previewFullscreen ? 'Exit full screen (Esc)' : 'Full screen preview'}
+          aria-label={previewFullscreen ? 'Exit full screen' : 'Full screen preview'}
+          onClick={togglePreviewFullscreen}
+        >
+          {previewFullscreen ? '⤡' : '⛶'}
         </button>
       </div>
 

@@ -170,6 +170,17 @@ export interface NotificationPayload {
   timestamp: number
 }
 
+/** An element the user picked in the preview with the element picker. */
+export interface PickedElement {
+  selector: string
+  tag: string
+  id: string | null
+  classes: string[]
+  text: string
+  html: string
+  rect: { x: number; y: number; width: number; height: number }
+}
+
 export interface ConsoleMessage {
   level: 'log' | 'debug' | 'info' | 'warning' | 'error'
   text: string
@@ -275,6 +286,17 @@ export interface InvokeChannels {
   'preview:console': { args: [opts: { pattern?: string; limit?: number }]; result: ConsoleMessage[] }
   'preview:network': { args: [opts: { limit?: number }]; result: NetworkRequest[] }
   'preview:clear': { args: []; result: void }
+  /** Turn Chromium's element picker on in the preview. */
+  'preview:inspectStart': { args: []; result: void }
+  'preview:inspectStop': { args: []; result: void }
+  /**
+   * Send a comment about a picked element to a Claude session, by typing it into that
+   * terminal exactly as the user would.
+   */
+  'preview:comment': {
+    args: [sessionId: string, element: PickedElement, comment: string, url: string]
+    result: void
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -294,6 +316,8 @@ export interface EventChannels {
   /** Main renderer: focus the Claude terminal that asked for attention. */
   'notify:goto': [sessionId: string | null]
   'preview:navigated': [url: string]
+  /** The user clicked an element while the picker was active. */
+  'preview:elementPicked': [element: PickedElement]
   'preview:console': [message: ConsoleMessage]
   /** A background operation failed with no invoke to attach the error to. */
   'app:error': [message: string]
@@ -350,7 +374,10 @@ export const INVOKE_CHANNELS = [
   'preview:reload',
   'preview:console',
   'preview:network',
-  'preview:clear'
+  'preview:clear',
+  'preview:inspectStart',
+  'preview:inspectStop',
+  'preview:comment'
 ] as const satisfies readonly InvokeChannel[]
 
 export const EVENT_CHANNELS = [
@@ -361,6 +388,7 @@ export const EVENT_CHANNELS = [
   'terminal:exit',
   'preview:navigated',
   'preview:console',
+  'preview:elementPicked',
   'notify:fired',
   'alert:payload',
   'notify:goto',

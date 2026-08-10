@@ -11,6 +11,7 @@ import { StatusBar } from './components/StatusBar'
 import { Splitter } from './components/Splitter'
 import { QuickOpen } from './components/QuickOpen'
 import { Toasts } from './components/Toasts'
+import { ElementComment } from './components/ElementComment'
 import { NotificationSettings } from './components/NotificationSettings'
 
 const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
@@ -39,6 +40,7 @@ export function App(): JSX.Element {
     sidebarWidth,
     previewWidth,
     terminalHeight,
+    previewFullscreen,
     git,
     ports,
     dirty,
@@ -163,7 +165,7 @@ export function App(): JSX.Element {
         </div>
       </header>
 
-      <div className="body" ref={bodyRef}>
+      <div className={`body${previewFullscreen ? ' preview-fullscreen' : ''}`} ref={bodyRef}>
         <nav className="activity-bar" aria-label="Views" ref={activityRef}>
           {VIEWS.map((view) => (
             <button
@@ -257,6 +259,7 @@ export function App(): JSX.Element {
       </div>
 
       <StatusBar cursor={cursor} />
+      <ElementComment />
       <QuickOpen />
       <NotificationSettings />
       <Toasts />

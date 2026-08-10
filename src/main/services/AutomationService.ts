@@ -35,6 +35,68 @@ export class AutomationError extends Error {
   }
 }
 
+/** What the user picked when clicking an element in the preview. */
+export interface PickedElement {
+  /** CSS selector that resolves to this element, computed in the page. */
+  selector: string
+  tag: string
+  id: string | null
+  classes: string[]
+  /** Visible text, trimmed and truncated. */
+  text: string
+  /** Opening tag only — enough to recognise the element without a wall of markup. */
+  html: string
+  rect: { x: number; y: number; width: number; height: number }
+}
+
+/**
+ * Builds a selector for the picked element, in the page.
+ *
+ * Walks up ancestors accumulating tag + stable classes, stopping early at an id.
+ * Framework-generated hashed class names (emotion, styled-components, Angular) are
+ * skipped: they change between builds, so a selector containing them is worthless to
+ * anyone reading it later.
+ */
+const DESCRIBE_FN = `function () {
+  const el = this
+  const stableClasses = (node) =>
+    [...node.classList].filter((c) => !/^(css-|sc-|ng-|_|emotion-)/.test(c) && !/[0-9a-f]{6,}/.test(c))
+
+  const part = (node) => {
+    if (node.id) return '#' + CSS.escape(node.id)
+    let out = node.tagName.toLowerCase()
+    const cls = stableClasses(node).slice(0, 2)
+    if (cls.length) out += '.' + cls.map((c) => CSS.escape(c)).join('.')
+    const parent = node.parentElement
+    if (parent) {
+      const sameTag = [...parent.children].filter((c) => c.tagName === node.tagName)
+      if (sameTag.length > 1) out += ':nth-of-type(' + (sameTag.indexOf(node) + 1) + ')'
+    }
+    return out
+  }
+
+  const parts = []
+  let node = el
+  while (node && node.nodeType === 1 && node.tagName !== 'BODY' && parts.length < 6) {
+    const p = part(node)
+    parts.unshift(p)
+    if (p.startsWith('#')) break
+    node = node.parentElement
+  }
+
+  const rect = el.getBoundingClientRect()
+  const open = el.outerHTML.slice(0, el.outerHTML.indexOf('>') + 1)
+  return {
+    selector: parts.join(' > '),
+    tag: el.tagName.toLowerCase(),
+    id: el.id || null,
+    classes: [...el.classList],
+    text: (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 200),
+    html: open.slice(0, 300),
+    rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+  }
+}`
+
 /**
  * Full Chrome DevTools Protocol control over the preview webview.
  *
@@ -56,12 +118,56 @@ export class AutomationService {
   #onConsole: ((m: ConsoleMessage) => void) | null = null
   #onNavigate: ((url: string) => void) | null = null
 
+  #onPick: ((element: PickedElement) => void) | null = null
+
   listen(handlers: {
     onConsole?: (m: ConsoleMessage) => void
     onNavigate?: (url: string) => void
+    onPick?: (element: PickedElement) => void
   }): void {
     this.#onConsole = handlers.onConsole ?? null
     this.#onNavigate = handlers.onNavigate ?? null
+    this.#onPick = handlers.onPick ?? null
+  }
+
+  /**
+   * Turn on Chromium's own element picker in the preview: hovering highlights, clicking
+   * selects. This is the inspector's crosshair, so the highlight and hit-testing are
+   * exactly what devtools does rather than an overlay we would have to maintain.
+   */
+  async startInspect(): Promise<void> {
+    await this.#send('DOM.enable').catch(() => {})
+    await this.#send('Overlay.enable').catch(() => {})
+    await this.#send('Overlay.setInspectMode', {
+      mode: 'searchForNode',
+      highlightConfig: {
+        showInfo: true,
+        contentColor: { r: 10, g: 132, b: 255, a: 0.3 },
+        paddingColor: { r: 78, g: 201, b: 176, a: 0.25 },
+        marginColor: { r: 226, g: 192, b: 141, a: 0.25 }
+      }
+    })
+  }
+
+  async stopInspect(): Promise<void> {
+    await this.#send('Overlay.setInspectMode', { mode: 'none', highlightConfig: {} }).catch(() => {})
+    await this.#send('Overlay.hideHighlight').catch(() => {})
+  }
+
+  /** Resolve a picked node into something worth showing a human. */
+  async #describe(backendNodeId: number): Promise<PickedElement> {
+    const { object } = await this.#send<{ object: { objectId: string } }>('DOM.resolveNode', {
+      backendNodeId
+    })
+    const result = await this.#send<any>('Runtime.callFunctionOn', {
+      objectId: object.objectId,
+      functionDeclaration: DESCRIBE_FN,
+      returnByValue: true
+    })
+    if (result.exceptionDetails) {
+      throw new AutomationError(result.exceptionDetails.exception?.description ?? 'Could not read element')
+    }
+    return result.result.value as PickedElement
   }
 
   get attached(): boolean {
@@ -193,6 +299,15 @@ export class AutomationService {
 
       case 'Page.frameNavigated':
         if (!params.frame?.parentId) this.#onNavigate?.(params.frame?.url ?? '')
+        break
+
+      // The user clicked an element while the picker was active. Chromium leaves inspect
+      // mode by itself at this point, so the renderer is told to untoggle too.
+      case 'Overlay.inspectNodeRequested':
+        void this.#describe(params.backendNodeId)
+          .then((element) => this.#onPick?.(element))
+          .catch(() => {})
+          .finally(() => void this.stopInspect())
         break
     }
   }

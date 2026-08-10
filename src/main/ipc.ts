@@ -31,6 +31,26 @@ export interface AppServices {
   hookSettingsPath: string | null
 }
 
+/**
+ * Appended to the system prompt of every Claude session the editor starts.
+ *
+ * Without this, Claude reaches for the Chrome extension out of habit and drives a
+ * browser the user is not looking at.
+ */
+const EDITOR_SYSTEM_PROMPT = [
+  'You are running inside the Open Claude editor, in a terminal beside a live preview pane.',
+  '',
+  'To look at or interact with a web page, use the preview_* tools (preview_navigate,',
+  'preview_snapshot, preview_click, preview_type, preview_screenshot, preview_console,',
+  'preview_network, preview_wait_for). They drive the editor\'s preview pane, which is the',
+  'browser the user can actually see. Do not use the Chrome extension tools — they control a',
+  'separate window the user is not watching, and they are disabled in this session.',
+  '',
+  'When the user refers to "the preview", "the page", or something they can see on screen,',
+  'they mean the preview pane. If the user sends a message tagged [preview element], they',
+  'clicked that element in the preview and the CSS selector is exact — use it directly.'
+].join('\n')
+
 type Handler<C extends InvokeChannel> = (
   ...args: InvokeChannels[C]['args']
 ) => Promise<InvokeChannels[C]['result']> | InvokeChannels[C]['result']
@@ -141,6 +161,9 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
       if (services.mcpConfigPath) flags.push('--mcp-config', services.mcpConfigPath)
       // Hooks are what tell the editor Claude wants permission or has gone idle.
       if (services.hookSettingsPath) flags.push('--settings', services.hookSettingsPath)
+      // Denying the Chrome tools stops the wrong browser being used; this says what to
+      // use instead, so Claude does not simply conclude it cannot see a browser.
+      flags.push('--append-system-prompt', EDITOR_SYSTEM_PROMPT)
       spawnOpts.args = [...flags, ...(spawnOpts.args ?? [])]
     }
 
@@ -210,7 +233,33 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
 
   services.automation.listen({
     onConsole: (message) => emit('preview:console', message),
-    onNavigate: (url) => emit('preview:navigated', url)
+    onNavigate: (url) => emit('preview:navigated', url),
+    onPick: (element) => emit('preview:elementPicked', element)
+  })
+
+  handle('preview:inspectStart', () => services.automation.startInspect())
+  handle('preview:inspectStop', () => services.automation.stopInspect())
+
+  handle('preview:comment', (sessionId, element, comment, url) => {
+    /*
+     * Typed into the pty exactly as the user would type it, so it lands in whatever
+     * Claude is doing — a fresh prompt, or mid-conversation — with no special protocol.
+     *
+     * Flattened to a single line: a newline inside the text would submit the message
+     * early and leave the rest as a second, meaningless prompt.
+     */
+    const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim()
+
+    const described = [
+      `[preview element] ${oneLine(element.selector)}`,
+      element.text ? ` — text: "${oneLine(element.text).slice(0, 120)}"` : '',
+      url ? ` — on ${url}` : '',
+      `. ${oneLine(comment)}`
+    ].join('')
+
+    services.terminals.write(sessionId, described)
+    // Separate write so the text is fully buffered before submission.
+    services.terminals.write(sessionId, '\r')
   })
 
   handle('preview:register', (id) => services.automation.attach(id))

@@ -41,7 +41,24 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`.
   page); "Show N system ports" reveals them.
 - **Preview** — an embedded browser pane pointed at your dev server, with back/forward,
   reload, and an address bar that takes a bare port number. A page that fails to load
-  says why rather than showing a blank pane.
+  says why rather than showing a blank pane. `⛶` fills the window; Escape comes back.
+
+## Point at something and say what is wrong
+
+Hit **Select** in the preview toolbar and click any element on the page. Chromium's own
+inspector crosshair highlights as you hover, so hit-testing is exactly what devtools
+does. A comment box opens with the element's selector and text; write what should
+change, press `⌘Enter`, and it goes to the Claude terminal as a message with the exact
+selector attached:
+
+```
+[preview element] #save-btn — text: "Save changes" — on http://localhost:3000.
+make this button green and larger
+```
+
+Claude does not have to guess which button you meant. Selectors stop at the first `id`
+and skip framework-hashed class names (`css-1x2y3z`, `sc-…`), so they stay meaningful
+across rebuilds.
 - **Terminals** — real ptys, as many as you want. Tabs along the panel, `＋ New` for
   another Claude session or a plain shell, middle-click or `×` to close, restart in
   place when a process exits. Switching tabs never kills a session.
@@ -113,6 +130,12 @@ friends as native tools — no configuration, no per-action approval prompts.
 
 Input is synthesised through CDP rather than JavaScript, so events are trusted and
 drive real handlers, focus, and native form behaviour.
+
+Sessions started by the editor have the Chrome extension tools **denied** and are told,
+via an appended system prompt, to use `preview_*` instead. Otherwise Claude reaches for
+the extension out of habit and drives a browser window you are not looking at, leaving
+the preview pane empty and its console and network output somewhere you cannot see. Your
+own `claude` in a normal terminal is untouched.
 
 ```
 claude (pty)  →  MCP stdio server  →  loopback bridge  →  Electron main  →  CDP  →  preview

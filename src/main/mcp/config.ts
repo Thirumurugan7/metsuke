@@ -27,6 +27,19 @@ export async function writeHookSettings(): Promise<string> {
     hooks: {
       Notification: [{ matcher: '', hooks: [{ type: 'command', command: post('notification') }] }],
       Stop: [{ matcher: '', hooks: [{ type: 'command', command: post('stop') }] }]
+    },
+    /*
+     * Claude reaches for the Chrome extension by default, which drives the user's own
+     * browser in a separate window — the editor's preview then sits there showing
+     * nothing, and none of the console, network, or screenshot output lands in the pane
+     * you are looking at. Denying those tools inside this session leaves preview_* as
+     * the way to drive a browser, which is the whole point of the preview pane.
+     *
+     * This applies only to sessions started by the editor; your own `claude` in a normal
+     * terminal is untouched.
+     */
+    permissions: {
+      deny: ['mcp__claude-in-chrome']
     }
   }
 

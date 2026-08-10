@@ -7,6 +7,7 @@ import type {
   NotificationSettings,
   InvokeChannel,
   InvokeChannels,
+  PickedElement,
   PortInfo,
   Workspace
 } from '@shared/ipc'
@@ -219,6 +220,12 @@ interface State {
   previewUrl: string
   /** True once the CDP debugger is attached, i.e. Claude can drive the page. */
   previewAttached: boolean
+  /** Preview fills the whole window, for looking at a real layout. */
+  previewFullscreen: boolean
+  /** Chromium's element picker is armed in the preview. */
+  inspecting: boolean
+  /** The element the user picked, awaiting a comment. */
+  pickedElement: PickedElement | null
 
   setError: (error: string | null) => void
   dismissToast: (id: number) => void
@@ -237,6 +244,12 @@ interface State {
   setPanelSize: (panel: 'sidebar' | 'preview' | 'terminal', px: number) => void
   setQuickOpen: (open: boolean) => void
   setPreviewAttached: (attached: boolean) => void
+  togglePreviewFullscreen: () => void
+  startInspect: () => Promise<void>
+  stopInspect: () => Promise<void>
+  clearPickedElement: () => void
+  /** Send a comment about the picked element to the active Claude session. */
+  sendElementComment: (comment: string) => Promise<void>
 
   // -- terminals ------------------------------------------------------------
   /** Open a new terminal tab and focus it. Returns its local id. */
@@ -299,6 +312,9 @@ export const useStore = create<State>((set, get) => ({
   ports: [],
   previewUrl: '',
   previewAttached: false,
+  previewFullscreen: false,
+  inspecting: false,
+  pickedElement: null,
 
   setError: (error) =>
     set((s) =>
@@ -443,6 +459,38 @@ export const useStore = create<State>((set, get) => ({
 
   setQuickOpen: (quickOpen) => set({ quickOpen }),
   setPreviewAttached: (previewAttached) => set({ previewAttached }),
+
+  togglePreviewFullscreen: () =>
+    set((s) => ({ previewFullscreen: !s.previewFullscreen, previewVisible: true })),
+
+  startInspect: async () => {
+    if (!get().previewUrl) return get().setError('Load a page in the preview first')
+    set({ inspecting: true, previewVisible: true })
+    if ((await call('preview:inspectStart')) === null) set({ inspecting: false })
+  },
+
+  stopInspect: async () => {
+    set({ inspecting: false })
+    await call('preview:inspectStop')
+  },
+
+  clearPickedElement: () => set({ pickedElement: null }),
+
+  sendElementComment: async (comment) => {
+    const { pickedElement, terminals, previewUrl } = get()
+    if (!pickedElement) return
+
+    // Prefer a live Claude session; a shell would just print the text back at you.
+    const target = terminals.find((t) => t.kind === 'claude' && t.sessionId)
+    if (!target?.sessionId) {
+      return get().setError('No Claude session is running — start one in the terminal panel')
+    }
+
+    if ((await call('preview:comment', target.sessionId, pickedElement, comment, previewUrl)) === null) {
+      return
+    }
+    set({ pickedElement: null, activeTerminal: target.id, terminalVisible: true })
+  },
 
   // -- terminals ------------------------------------------------------------
 
@@ -591,6 +639,11 @@ export function wireEvents(): () => void {
       if (tab) setActiveTerminal(tab.id)
       if (!terminalVisible) togglePanel('terminal')
     }),
+
+    // Picking an element also ends inspect mode: Chromium exits it after one click.
+    window.api.on('preview:elementPicked', (element) =>
+      useStore.setState({ pickedElement: element, inspecting: false })
+    ),
 
     window.api.on('git:changed', (git) => useStore.setState({ git })),
     window.api.on('ports:changed', (ports) => useStore.setState({ ports })),
