@@ -5,8 +5,10 @@ import { registerIpc, type AppServices } from './ipc'
 import { TerminalService } from './services/TerminalService'
 import { PortService } from './services/PortService'
 import { AutomationService } from './services/AutomationService'
+import { NotificationService } from './services/NotificationService'
+import { classifyHook } from './services/hookEvent'
 import { ControlBridge } from './mcp/bridge'
-import { writeMcpConfig } from './mcp/config'
+import { writeMcpConfig, writeHookSettings } from './mcp/config'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -16,8 +18,10 @@ const services: AppServices = {
   terminals: new TerminalService(),
   ports: new PortService(),
   automation: new AutomationService(),
+  notifications: new NotificationService(),
   workspace: null,
-  mcpConfigPath: null
+  mcpConfigPath: null,
+  hookSettingsPath: null
 }
 
 const bridge = new ControlBridge(services.automation)
@@ -45,6 +49,8 @@ function createWindow(): void {
   })
 
   window.on('ready-to-show', () => window?.show())
+  // Clear the attention cue once the user actually looks at the window.
+  window.on('focus', () => window?.flashFrame(false))
 
   /**
    * Terminals belong to the renderer session that opened them. A reload — or an HMR
@@ -106,6 +112,47 @@ app.whenReady().then(async () => {
 
   await bridge.start()
   services.mcpConfigPath = await writeMcpConfig(bridge)
+  services.hookSettingsPath = await writeHookSettings()
+  await services.notifications.load()
+
+  // Hooks reach the bridge using these, so they must be in the pty's environment
+  // before any `claude` session starts.
+  services.terminals.setEnv({
+    OPEN_CLAUDE_CONTROL_URL: `http://127.0.0.1:${bridge.port}`,
+    OPEN_CLAUDE_CONTROL_TOKEN: bridge.token
+  })
+
+  bridge.onHook(async (kind, body) => {
+    let hook: { message?: string; session_id?: string } = {}
+    try {
+      hook = JSON.parse(body)
+    } catch {
+      // A hook with an unreadable body is still worth surfacing.
+    }
+
+    const message = hook.message ?? ''
+    await services.notifications.fire(
+      classifyHook(kind, message),
+      message,
+      hook.session_id ?? null
+    )
+
+    if (!window || window.isFocused()) return
+
+    if (services.notifications.focusWindow) {
+      // Opt-in, because taking focus from whatever the user is doing is intrusive.
+      if (window.isMinimized()) window.restore()
+      window.show()
+      window.focus()
+      if (process.platform === 'darwin') app.dock?.bounce('critical')
+      return
+    }
+
+    // Otherwise just draw the eye. flashFrame is the taskbar equivalent elsewhere.
+    if (process.platform === 'darwin') app.dock?.bounce('informational')
+    else window.flashFrame(true)
+  })
+
   registerIpc(services, () => window)
   createWindow()
 

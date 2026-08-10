@@ -17,6 +17,7 @@ export class ControlBridge {
   readonly #token = randomBytes(32).toString('hex')
   #server: http.Server | null = null
   #port = 0
+  #onHook: ((kind: string, body: string) => Promise<void>) | null = null
 
   constructor(automation: AutomationService) {
     this.#automation = automation
@@ -50,10 +51,24 @@ export class ControlBridge {
     }
 
     if (req.headers.authorization !== `Bearer ${this.#token}`) return send(401, { error: 'Unauthorized' })
-    if (req.method !== 'POST' || req.url !== '/call') return send(404, { error: 'Not found' })
+    if (req.method !== 'POST') return send(404, { error: 'Not found' })
+
+    const url = new URL(req.url ?? '/', 'http://127.0.0.1')
 
     let raw = ''
     for await (const chunk of req) raw += chunk
+
+    // Claude Code's hooks POST here. The body is the hook's own stdin payload.
+    if (url.pathname === '/notify') {
+      try {
+        await this.#onHook?.(url.searchParams.get('kind') ?? 'notification', raw)
+      } catch {
+        // A failed notification must never break the hook, which would stall Claude.
+      }
+      return send(200, { ok: true })
+    }
+
+    if (url.pathname !== '/call') return send(404, { error: 'Not found' })
 
     let call: { tool: string; args: Record<string, any> }
     try {
@@ -67,6 +82,11 @@ export class ControlBridge {
     } catch (e) {
       send(200, { error: e instanceof Error ? e.message : String(e) })
     }
+  }
+
+  /** Called for every Claude Code hook delivery, with the raw JSON body. */
+  onHook(handler: (kind: string, body: string) => Promise<void>): void {
+    this.#onHook = handler
   }
 
   /** Map a tool name onto AutomationService. The MCP layer owns schemas; this owns behaviour. */

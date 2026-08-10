@@ -42,6 +42,36 @@ Other scripts: `npm test`, `npm run typecheck`, `npm run build`.
   another Claude session or a plain shell, middle-click or `×` to close, restart in
   place when a process exits. Switching tabs never kills a session.
 
+## Notifications
+
+When Claude wants something — permission to run a tool, or your input after sitting
+idle — the editor tells you, through whatever channels you turn on:
+
+| Channel | What it does |
+|---|---|
+| **Pop-up** | A modal over whatever you are doing, wherever you are in the window. Optionally raises the window over other apps. |
+| **System** | Your OS notification centre. On macOS, allow it once under System Settings → Notifications. |
+| **Sound** | A built-in chime, or any audio file you pick. Volume adjustable. |
+| **Telegram** | A message to your phone. Create a bot with @BotFather, get your chat ID from @userinfobot. |
+
+Configure them from `🔔 Alerts` in the status bar. Each channel has a **Test** button,
+because a notification you find out is broken when you miss one is worse than none.
+
+You choose which events notify: permission requests and idle waits are on by default,
+"finished a turn" is off because it is noisy.
+
+### How it knows
+
+Not by scraping terminal output. The editor generates a Claude Code settings file with
+`Notification` and `Stop` hooks pointing at its own loopback control bridge, and passes
+it to the embedded `claude` via `--settings`. Claude Code fires those hooks itself, so
+the signal is structured and reliable rather than a guess at what the TUI drew.
+
+The bridge URL and token reach the hooks through the pty's environment, so the token is
+never written into the settings file. The Telegram bot token is stored via Electron's
+`safeStorage` (encrypted at rest where the OS supports it), is never sent back to the
+UI, and the settings panel treats it as write-only.
+
 ## The project check
 
 Opening a folder starts a Claude session that first walks the project end to end and

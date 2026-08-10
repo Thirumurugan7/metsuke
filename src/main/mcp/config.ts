@@ -5,6 +5,38 @@ import { fileURLToPath } from 'node:url'
 import type { ControlBridge } from './bridge'
 
 /**
+ * Settings handed to the embedded `claude` via --settings, wiring its hooks back to the
+ * editor's control bridge.
+ *
+ * Hooks are how the editor knows Claude wants something. Claude Code fires
+ * `Notification` when it needs permission to run a tool or has been idle waiting on
+ * you, and `Stop` when it finishes a turn. Each hook receives its JSON payload on
+ * stdin, which the command below forwards verbatim.
+ *
+ * The URL and token come from the environment rather than being baked into the file:
+ * the pty that runs `claude` carries them (see TerminalService), so the token never
+ * lands on disk in the settings.
+ */
+export async function writeHookSettings(): Promise<string> {
+  const post = (kind: string): string =>
+    `curl -sS -m 5 -X POST "$OPEN_CLAUDE_CONTROL_URL/notify?kind=${kind}" ` +
+    `-H "authorization: Bearer $OPEN_CLAUDE_CONTROL_TOKEN" ` +
+    `-H 'content-type: application/json' --data-binary @- >/dev/null 2>&1 || true`
+
+  const settings = {
+    hooks: {
+      Notification: [{ matcher: '', hooks: [{ type: 'command', command: post('notification') }] }],
+      Stop: [{ matcher: '', hooks: [{ type: 'command', command: post('stop') }] }]
+    }
+  }
+
+  const settingsPath = path.join(app.getPath('userData'), 'claude-hooks.json')
+  await fs.mkdir(path.dirname(settingsPath), { recursive: true })
+  await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf8')
+  return settingsPath
+}
+
+/**
  * Writes the MCP config that the embedded `claude` is launched with.
  *
  * It lives in the app's own data directory rather than in the user's repo, so opening

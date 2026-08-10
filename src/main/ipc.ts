@@ -12,6 +12,7 @@ import { WorkspaceContext } from './workspace'
 import { TerminalService } from './services/TerminalService'
 import { PortService } from './services/PortService'
 import { AutomationService } from './services/AutomationService'
+import { NotificationService } from './services/NotificationService'
 import { GitError } from './services/GitService'
 
 /** Long-lived services, independent of which folder is open. */
@@ -19,10 +20,13 @@ export interface AppServices {
   terminals: TerminalService
   ports: PortService
   automation: AutomationService
+  notifications: NotificationService
   /** The currently open folder, or null. */
   workspace: WorkspaceContext | null
   /** Path to the generated MCP config handed to the embedded `claude`. */
   mcpConfigPath: string | null
+  /** Path to the generated hook settings handed to the embedded `claude`. */
+  hookSettingsPath: string | null
 }
 
 type Handler<C extends InvokeChannel> = (
@@ -130,8 +134,12 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
     // A `claude` session gets the preview tools wired in automatically — that is the
     // whole point of the editor, and asking the user to configure MCP by hand would
     // defeat it. Any other command is spawned untouched.
-    if (spawnOpts.command === 'claude' && services.mcpConfigPath) {
-      spawnOpts.args = ['--mcp-config', services.mcpConfigPath, ...(spawnOpts.args ?? [])]
+    if (spawnOpts.command === 'claude') {
+      const flags: string[] = []
+      if (services.mcpConfigPath) flags.push('--mcp-config', services.mcpConfigPath)
+      // Hooks are what tell the editor Claude wants permission or has gone idle.
+      if (services.hookSettingsPath) flags.push('--settings', services.hookSettingsPath)
+      spawnOpts.args = [...flags, ...(spawnOpts.args ?? [])]
     }
 
     return services.terminals.spawn(spawnOpts)
@@ -148,6 +156,29 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
     (ports) => emit('ports:changed', ports)
   )
   handle('ports:list', () => services.ports.list())
+
+  // -- notifications --------------------------------------------------------
+
+  services.notifications.listen((payload) => emit('notify:fired', payload))
+
+  handle('notify:get', () => services.notifications.read())
+  handle('notify:set', (settings) => services.notifications.update(settings))
+  handle('notify:test', (channel) => services.notifications.test(channel))
+  handle('notify:sound', () => services.notifications.soundData())
+
+  handle('notify:pickSound', async () => {
+    const window = getWindow()
+    const result = await dialog.showOpenDialog(window ?? undefined!, {
+      title: 'Choose an alert sound',
+      properties: ['openFile'],
+      filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] }]
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+
+    const path = result.filePaths[0]
+    await services.notifications.update({ sound: { enabled: true, path, volume: 0.7 } })
+    return path
+  })
 
   // -- preview automation ---------------------------------------------------
 

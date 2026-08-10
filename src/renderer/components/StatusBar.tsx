@@ -21,7 +21,9 @@ export function StatusBar({
     setSidebar,
     togglePanel,
     openFolder,
-    runProjectCheck
+    runProjectCheck,
+    setSettingsOpen,
+    notificationLog
   } = useStore()
 
   const changes = git?.files.length ?? 0
@@ -90,6 +92,20 @@ export function StatusBar({
       <button className="status-item" onClick={() => setSidebar('ports')} title="Show listening ports">
         <span aria-hidden="true">⚓</span>
         {ports.length} port{ports.length === 1 ? '' : 's'}
+      </button>
+
+      <button
+        className="status-item"
+        onClick={() => setSettingsOpen(true)}
+        title={
+          notificationLog.length > 0
+            ? `Notification settings — last alert: ${notificationLog[0].title}`
+            : 'Notification settings'
+        }
+      >
+        <span aria-hidden="true">🔔</span>
+        Alerts
+        {notificationLog.length > 0 && <span className="status-count">{notificationLog.length}</span>}
       </button>
 
       <button

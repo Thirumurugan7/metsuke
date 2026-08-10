@@ -11,6 +11,8 @@ import { StatusBar } from './components/StatusBar'
 import { Splitter } from './components/Splitter'
 import { QuickOpen } from './components/QuickOpen'
 import { Toasts } from './components/Toasts'
+import { NotificationModal } from './components/NotificationModal'
+import { NotificationSettings } from './components/NotificationSettings'
 
 const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
 
@@ -72,6 +74,9 @@ export function App(): JSX.Element {
   useEffect(() => wireEvents(), [])
   useEffect(() => {
     void useStore.getState().restoreLastFolder()
+    // Loaded up front so a notification arriving before the settings panel is ever
+    // opened still knows which channels the user wants.
+    void useStore.getState().loadNotifySettings()
   }, [])
 
   // Keep the OS window title in step, with the standard dirty marker.
@@ -254,6 +259,8 @@ export function App(): JSX.Element {
 
       <StatusBar cursor={cursor} />
       <QuickOpen />
+      <NotificationModal />
+      <NotificationSettings />
       <Toasts />
     </div>
   )

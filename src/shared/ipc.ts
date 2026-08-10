@@ -118,6 +118,46 @@ export interface TerminalSession {
   cwd: string
 }
 
+/** What Claude was doing when it asked for attention. */
+export type NotifyEvent =
+  /** Claude is asking to run a tool and needs approval. */
+  | 'permission'
+  /** Claude has been waiting on you with nothing to do. */
+  | 'idle'
+  /** Claude finished its turn. */
+  | 'finished'
+
+export interface SoundChoice {
+  enabled: boolean
+  /** Absolute path to a user-chosen audio file; null uses the built-in chime. */
+  path: string | null
+  /** 0–1. */
+  volume: number
+}
+
+export interface NotificationSettings {
+  /** In-app modal over whatever you are doing. */
+  modal: boolean
+  /** Raise and focus the editor window when a modal fires. */
+  focusWindow: boolean
+  /** Native OS notification centre. */
+  system: boolean
+  sound: SoundChoice
+  telegram: { enabled: boolean; chatId: string; /** Write-only; never read back. */ botToken: string }
+  /** Which events notify at all. */
+  events: Record<NotifyEvent, boolean>
+}
+
+export interface NotificationPayload {
+  event: NotifyEvent
+  title: string
+  message: string
+  /** Claude Code session that raised it, when known. */
+  sessionId: string | null
+  /** Epoch milliseconds. */
+  timestamp: number
+}
+
 export interface ConsoleMessage {
   level: 'log' | 'debug' | 'info' | 'warning' | 'error'
   text: string
@@ -192,6 +232,17 @@ export interface InvokeChannels {
   // -- ports ----------------------------------------------------------------
   'ports:list': { args: []; result: PortInfo[] }
 
+  // -- notifications --------------------------------------------------------
+  /** Telegram bot token is redacted; `telegramConfigured` says whether one is stored. */
+  'notify:get': { args: []; result: NotificationSettings & { telegramConfigured: boolean } }
+  'notify:set': { args: [settings: Partial<NotificationSettings>]; result: void }
+  /** Fire a sample notification through one channel, to check it is wired up. */
+  'notify:test': { args: [channel: 'modal' | 'system' | 'sound' | 'telegram']; result: string }
+  /** Native file picker for a custom alert sound. Null when cancelled. */
+  'notify:pickSound': { args: []; result: string | null }
+  /** The configured sound as base64, so the renderer can play it under a strict CSP. */
+  'notify:sound': { args: []; result: { mimeType: string; base64: string } | null }
+
   // -- preview automation ---------------------------------------------------
   /**
    * Hand the main process the webContents id of the preview <webview> so
@@ -216,6 +267,7 @@ export interface EventChannels {
   'ports:changed': [ports: PortInfo[]]
   'terminal:data': [id: string, data: string]
   'terminal:exit': [id: string, exitCode: number]
+  'notify:fired': [payload: NotificationPayload]
   'preview:navigated': [url: string]
   'preview:console': [message: ConsoleMessage]
   /** A background operation failed with no invoke to attach the error to. */
@@ -259,6 +311,11 @@ export const INVOKE_CHANNELS = [
   'terminal:kill',
   'terminal:list',
   'ports:list',
+  'notify:get',
+  'notify:set',
+  'notify:test',
+  'notify:pickSound',
+  'notify:sound',
   'preview:register',
   'preview:navigate',
   'preview:reload',
@@ -275,5 +332,6 @@ export const EVENT_CHANNELS = [
   'terminal:exit',
   'preview:navigated',
   'preview:console',
+  'notify:fired',
   'app:error'
 ] as const satisfies readonly EventChannel[]

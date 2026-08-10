@@ -1,7 +1,10 @@
 import { create } from 'zustand'
+import { playAlertSound } from './alertSound'
 import type {
   DirEntry,
   GitStatus,
+  NotificationPayload,
+  NotificationSettings,
   InvokeChannel,
   InvokeChannels,
   PortInfo,
@@ -182,6 +185,14 @@ interface State {
   /** Seed the first Claude session of a folder with the end-to-end check prompt. */
   autoCheck: boolean
 
+  // -- notifications --------------------------------------------------------
+  notifySettings: (NotificationSettings & { telegramConfigured: boolean }) | null
+  /** The alert currently on screen, if any. */
+  activeNotification: NotificationPayload | null
+  /** Most recent alerts, newest first, so you can see what you missed. */
+  notificationLog: NotificationPayload[]
+  settingsOpen: boolean
+
   // -- preview --------------------------------------------------------------
   ports: PortInfo[]
   previewUrl: string
@@ -218,6 +229,12 @@ interface State {
   setAutoCheck: (on: boolean) => void
   /** Start a fresh Claude session seeded with the project-check prompt. */
   runProjectCheck: () => void
+
+  // -- notifications --------------------------------------------------------
+  loadNotifySettings: () => Promise<void>
+  updateNotifySettings: (patch: Partial<NotificationSettings>) => Promise<void>
+  dismissNotification: () => void
+  setSettingsOpen: (open: boolean) => void
   /** Load a URL into the preview, revealing the panel if it is collapsed. */
   showInPreview: (url: string) => void
   setPreviewUrl: (url: string) => void
@@ -256,6 +273,10 @@ export const useStore = create<State>((set, get) => ({
   terminals: [],
   activeTerminal: null,
   autoCheck: localStorage.getItem(AUTO_CHECK_KEY) !== 'off',
+  notifySettings: null,
+  activeNotification: null,
+  notificationLog: [],
+  settingsOpen: false,
   ports: [],
   previewUrl: '',
   previewAttached: false,
@@ -470,6 +491,21 @@ export const useStore = create<State>((set, get) => ({
     get().addTerminal('claude', { prompt: PROJECT_CHECK_PROMPT, title: 'project check' })
   },
 
+  // -- notifications --------------------------------------------------------
+
+  loadNotifySettings: async () => {
+    const settings = await call('notify:get')
+    if (settings) set({ notifySettings: settings })
+  },
+
+  updateNotifySettings: async (patch) => {
+    if ((await call('notify:set', patch)) === null) return
+    await get().loadNotifySettings()
+  },
+
+  dismissNotification: () => set({ activeNotification: null }),
+  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+
   showInPreview: (previewUrl) => set({ previewUrl, previewVisible: true }),
   setPreviewUrl: (previewUrl) => set({ previewUrl })
 }))
@@ -507,6 +543,21 @@ export function wireEvents(): () => void {
             externalEdit: { path: file.path, contents, at: Date.now() }
           }))
         })
+      }
+    }),
+
+    window.api.on('notify:fired', (payload) => {
+      const settings = useStore.getState().notifySettings
+
+      useStore.setState((s) => ({
+        activeNotification: settings?.modal === false ? s.activeNotification : payload,
+        notificationLog: [payload, ...s.notificationLog].slice(0, 50)
+      }))
+
+      if (settings?.sound.enabled !== false) {
+        void playAlertSound(settings?.sound.path ?? null, settings?.sound.volume ?? 0.7, () =>
+          call('notify:sound')
+        )
       }
     }),
 

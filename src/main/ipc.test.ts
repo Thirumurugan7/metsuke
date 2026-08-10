@@ -22,7 +22,16 @@ function makeServices() {
     terminals: { listen: vi.fn(), spawn: vi.fn(), write: vi.fn(), resize: vi.fn(), kill: vi.fn(), list: vi.fn(), pids: () => [] },
     ports: { start: vi.fn(), list: vi.fn() },
     automation: { listen: vi.fn(), attach: vi.fn(), navigate: vi.fn(), reload: vi.fn(), consoleMessages: vi.fn(), networkRequests: vi.fn(), clearBuffers: vi.fn() },
-    workspace: null
+    notifications: {
+      listen: vi.fn(),
+      read: vi.fn(),
+      update: vi.fn(),
+      test: vi.fn(),
+      soundData: vi.fn()
+    },
+    workspace: null,
+    mcpConfigPath: null,
+    hookSettingsPath: null
   } as any
 }
 

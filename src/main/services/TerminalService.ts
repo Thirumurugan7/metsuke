@@ -21,8 +21,19 @@ function defaultShell(): string {
  */
 export class TerminalService {
   readonly #sessions = new Map<string, Session>()
+  /**
+   * Extra environment for every pty. Carries the control-bridge URL and token so that
+   * Claude Code's hooks can call back into the editor — keeping the token out of the
+   * settings file on disk.
+   */
+  #env: Record<string, string> = {}
   #onData: ((id: string, data: string) => void) | null = null
   #onExit: ((id: string, exitCode: number) => void) | null = null
+
+  /** Environment added to every pty this service spawns. */
+  setEnv(env: Record<string, string>): void {
+    this.#env = env
+  }
 
   /** Wire up the streams before spawning anything, so no early output is dropped. */
   listen(handlers: {
@@ -45,6 +56,7 @@ export class TerminalService {
       cwd,
       env: {
         ...(process.env as Record<string, string>),
+        ...this.#env,
         // Tells `claude` and other TUIs they are talking to a capable terminal.
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
