@@ -51,6 +51,40 @@ const EDITOR_SYSTEM_PROMPT = [
   'clicked that element in the preview and the CSS selector is exact — use it directly.'
 ].join('\n')
 
+/**
+ * Chrome-extension tools, denied in editor sessions.
+ *
+ * The settings file already carries a server-level deny rule, but that alone was not
+ * enough in practice — Claude kept reaching for the extension. These go on the command
+ * line as well, and the individual tool names are listed alongside the server-level
+ * pattern because a rule that does not match is silently a no-op.
+ */
+const CHROME_TOOLS = [
+  'mcp__claude-in-chrome',
+  'mcp__claude-in-chrome__navigate',
+  'mcp__claude-in-chrome__computer',
+  'mcp__claude-in-chrome__read_page',
+  'mcp__claude-in-chrome__get_page_text',
+  'mcp__claude-in-chrome__find',
+  'mcp__claude-in-chrome__form_input',
+  'mcp__claude-in-chrome__javascript_tool',
+  'mcp__claude-in-chrome__read_console_messages',
+  'mcp__claude-in-chrome__read_network_requests',
+  'mcp__claude-in-chrome__browser_batch',
+  'mcp__claude-in-chrome__tabs_context_mcp',
+  'mcp__claude-in-chrome__tabs_create_mcp',
+  'mcp__claude-in-chrome__tabs_close_mcp',
+  'mcp__claude-in-chrome__resize_window',
+  'mcp__claude-in-chrome__select_browser',
+  'mcp__claude-in-chrome__switch_browser',
+  'mcp__claude-in-chrome__list_connected_browsers',
+  'mcp__claude-in-chrome__upload_image',
+  'mcp__claude-in-chrome__file_upload',
+  'mcp__claude-in-chrome__gif_creator',
+  'mcp__claude-in-chrome__shortcuts_list',
+  'mcp__claude-in-chrome__shortcuts_execute'
+]
+
 type Handler<C extends InvokeChannel> = (
   ...args: InvokeChannels[C]['args']
 ) => Promise<InvokeChannels[C]['result']> | InvokeChannels[C]['result']
@@ -161,8 +195,9 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
       if (services.mcpConfigPath) flags.push('--mcp-config', services.mcpConfigPath)
       // Hooks are what tell the editor Claude wants permission or has gone idle.
       if (services.hookSettingsPath) flags.push('--settings', services.hookSettingsPath)
-      // Denying the Chrome tools stops the wrong browser being used; this says what to
-      // use instead, so Claude does not simply conclude it cannot see a browser.
+      // Denying the Chrome tools stops the wrong browser being used; the appended prompt
+      // says what to use instead, so Claude does not simply conclude it has no browser.
+      flags.push('--disallowedTools', ...CHROME_TOOLS)
       flags.push('--append-system-prompt', EDITOR_SYSTEM_PROMPT)
       spawnOpts.args = [...flags, ...(spawnOpts.args ?? [])]
     }

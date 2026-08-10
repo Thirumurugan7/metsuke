@@ -130,6 +130,12 @@ export class ControlBridge {
         await a.scroll(Number(args.deltaX ?? 0), Number(args.deltaY ?? 400), args.selector ? target() : undefined)
         return { ok: true }
 
+      case 'preview_state':
+        return a.pageState()
+
+      case 'preview_fill':
+        return { results: await a.fill(args.fields ?? []) }
+
       case 'preview_eval':
         return { value: await a.evaluate(String(args.expression)) }
 

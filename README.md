@@ -105,6 +105,21 @@ never written into the settings file. The Telegram bot token is stored via Elect
 `safeStorage` (encrypted at rest where the OS supports it), is never sent back to the
 UI, and the settings panel treats it as write-only.
 
+## Testing the UI end to end
+
+`⌕ Test UI` in the status bar (or `＋ New → Test UI end to end`) starts a Claude session
+that walks the running app systematically: it builds a checklist of every reachable
+screen, then for each one records the state, fills every form with realistic values and
+submits it, retries with invalid input to check the app actually rejects it, clicks the
+controls that do not submit, and checks console errors and failed requests after every
+interaction. It reports the screens visited, a pass/fail table of flows, and every
+problem with the evidence — and says plainly which parts it could not reach.
+
+The prompt is built around an explicit checklist rather than "go and test it", because
+the usual failure is a model that pokes two buttons, declares success, and never reaches
+the screen that is broken. Like the project check, it is read-only: it reports what it
+would change rather than editing.
+
 ## The project check
 
 Opening a folder starts a Claude session that first walks the project end to end and
@@ -128,14 +143,28 @@ Code as an MCP server that the embedded terminal wires up automatically. Claude 
 `preview_screenshot`, `preview_console`, `preview_network`, `preview_wait_for`, and
 friends as native tools — no configuration, no per-action approval prompts.
 
+Two of them carry the end-to-end testing:
+
+- **`preview_state`** — the whole screen in one call: path, title, headings, every form
+  with each field's label, type, current value, required flag and validation state,
+  select options, loose inputs, buttons, links, open dialogs, on-screen error and status
+  messages, plus console errors and failed requests since the last navigation. Password
+  values are reported as `(set)`, never echoed.
+- **`preview_fill`** — enter values into many fields at once. Text is typed with real key
+  events so controlled React inputs update; checkboxes toggle only when the state must
+  change; selects match an option by value, exact text, or substring. Each field reports
+  its own result, so one bad selector does not hide the other nineteen.
+
 Input is synthesised through CDP rather than JavaScript, so events are trusted and
 drive real handlers, focus, and native form behaviour.
 
-Sessions started by the editor have the Chrome extension tools **denied** and are told,
-via an appended system prompt, to use `preview_*` instead. Otherwise Claude reaches for
-the extension out of habit and drives a browser window you are not looking at, leaving
-the preview pane empty and its console and network output somewhere you cannot see. Your
-own `claude` in a normal terminal is untouched.
+Sessions started by the editor have the Chrome extension tools **denied** — as a
+server-level rule in the settings file *and* as explicit `--disallowedTools` entries on
+the command line, because a permission rule that fails to match is silently a no-op.
+They are also told, via an appended system prompt, to use `preview_*` instead. Otherwise
+Claude reaches for the extension out of habit and drives a browser window you are not
+looking at, leaving the preview pane empty and its console and network output somewhere
+you cannot see. Your own `claude` in a normal terminal is untouched.
 
 ```
 claude (pty)  →  MCP stdio server  →  loopback bridge  →  Electron main  →  CDP  →  preview

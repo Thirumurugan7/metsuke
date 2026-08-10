@@ -12,8 +12,18 @@ import { call, useStore, type TerminalTab } from '../state/store'
  * process outright, so choosing "shell" threw away your Claude session.
  */
 export function TerminalPanel(): JSX.Element {
-  const { terminals, activeTerminal, workspace, autoCheck, addTerminal, closeTerminal, setActiveTerminal, setAutoCheck, runProjectCheck } =
-    useStore()
+  const {
+    terminals,
+    activeTerminal,
+    workspace,
+    autoCheck,
+    addTerminal,
+    closeTerminal,
+    setActiveTerminal,
+    setAutoCheck,
+    runProjectCheck,
+    runUiAudit
+  } = useStore()
   const newButton = useRef<HTMLButtonElement>(null)
   /**
    * Fixed-position anchor for the menu.
@@ -136,6 +146,15 @@ export function TerminalPanel(): JSX.Element {
                   }}
                 >
                   Run project check
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    runUiAudit()
+                    setMenu(null)
+                  }}
+                >
+                  Test UI end to end
                 </button>
                 <label className="terminal-toggle">
                   <input

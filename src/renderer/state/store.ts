@@ -135,6 +135,50 @@ export const PROJECT_CHECK_PROMPT = `You have just been opened in this folder by
 
 Do not edit, create, or delete any files during this check — inspect only, and tell me what you would change instead.`
 
+/**
+ * A systematic end-to-end walk of the running UI.
+ *
+ * Structured as an explicit loop with a written map, because the failure mode of "test
+ * the UI" is a model that pokes the first two buttons, declares success, and never
+ * reaches the screen that is actually broken. Keeping a checklist of screens and only
+ * finishing when it is empty is what makes the coverage real.
+ *
+ * Read-only with respect to the codebase: it reports, it does not edit.
+ */
+export const UI_AUDIT_PROMPT = `Test this project's UI end to end through the editor's preview pane, then give me a written report. Use only the preview_* tools.
+
+Setup
+- Work out how to run the project and start its dev server if it is not already up.
+- preview_navigate to it, then preview_state to see where you landed.
+
+Build a map
+- From preview_state, list every screen you can reach: links, nav items, buttons that open dialogs, and routes you can infer from the router config in the source.
+- Keep this list as an explicit checklist. Add to it whenever you discover a screen you had not seen. You are not finished until every entry is visited.
+
+For each screen
+1. preview_state — record the path, title, headings, and what is on it.
+2. Note every form and control, and what state it starts in.
+3. Exercise the flows:
+   - Fill each form with realistic valid values using preview_fill, submit it, then preview_state again to see what changed — a new screen, a success message, or nothing at all.
+   - Then test it with invalid input: empty required fields, a malformed email, an out-of-range number, an over-long string. Confirm the app rejects them and says why. Silent acceptance of bad input is a bug worth reporting.
+   - Click the buttons that do not submit — toggles, tabs, dialogs, menus. Confirm each visibly does something, and close what you open.
+4. After every interaction check preview_state's consoleErrors and failedRequests.
+5. Use preview_wait_for after anything asynchronous rather than assuming it finished.
+6. Take a preview_screenshot of anything that looks visually wrong.
+
+Watch for
+- Buttons and links that do nothing.
+- Forms that accept invalid input, or reject valid input.
+- Errors thrown to the console during normal use.
+- Requests returning 4xx or 5xx during a flow that should succeed.
+- Dead ends: screens with no way back.
+- Controls with no accessible name, which are also unusable by keyboard.
+
+Report
+Give me: the list of screens visited, a table of flows tested with pass/fail, then every problem found — what you did, what you expected, what happened, and the console or network evidence. Say plainly which parts of the app you could not reach and why.
+
+Do not edit, create, or delete any files. This is an inspection: tell me what you would change instead.`
+
 const AUTO_CHECK_KEY = 'open-claude.autoCheck'
 
 let terminalSeq = 0
@@ -263,6 +307,8 @@ interface State {
   setAutoCheck: (on: boolean) => void
   /** Start a fresh Claude session seeded with the project-check prompt. */
   runProjectCheck: () => void
+  /** Start a Claude session that walks every screen and flow in the running UI. */
+  runUiAudit: () => void
 
   // -- notifications --------------------------------------------------------
   loadNotifySettings: () => Promise<void>
@@ -556,6 +602,12 @@ export const useStore = create<State>((set, get) => ({
   runProjectCheck: () => {
     if (!get().workspace) return get().setError('Open a folder before running a project check')
     get().addTerminal('claude', { prompt: PROJECT_CHECK_PROMPT, title: 'project check' })
+  },
+
+  runUiAudit: () => {
+    if (!get().workspace) return get().setError('Open a folder before testing the UI')
+    set({ previewVisible: true })
+    get().addTerminal('claude', { prompt: UI_AUDIT_PROMPT, title: 'UI audit' })
   },
 
   // -- notifications --------------------------------------------------------

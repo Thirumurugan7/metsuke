@@ -110,6 +110,31 @@ const TOOLS = [
     }
   },
   {
+    name: 'preview_state',
+    description:
+      'Everything about the screen right now, in one call: URL and path, title, headings, visible text, every form with its fields (label, name, type, current value, required, disabled, validation state, select options), loose inputs, buttons, links, open dialogs, on-screen error and status messages, plus console errors and failed requests since the last navigation. Use this to know what page you are on, what you can interact with, what is already filled in, and what the app is complaining about. Prefer it over preview_snapshot when testing a flow.',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'preview_fill',
+    description:
+      'Enter values into several fields at once. Each entry is {selector, value} — take selectors from preview_state. Text fields are typed into with real key events so controlled React inputs update; checkboxes and radios accept "true"/"false" and are only clicked when the state must change; selects match an option by value, exact text, or substring. Returns a per-field result so you can see exactly which field failed rather than guessing.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        fields: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { selector: { type: 'string' }, value: { type: 'string' } },
+            required: ['selector', 'value']
+          }
+        }
+      },
+      required: ['fields']
+    }
+  },
+  {
     name: 'preview_eval',
     description:
       'Evaluate a JavaScript expression in the preview page and return its value. Awaits promises. Use for reading state that is not visible in the accessibility tree.',

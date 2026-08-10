@@ -98,6 +98,144 @@ const DESCRIBE_FN = `function () {
 }`
 
 /**
+ * Reads everything about the current screen that matters for testing a flow: what page
+ * this is, what you could interact with, what is filled in, and what the app is
+ * complaining about.
+ *
+ * One round trip rather than a dozen, because an agent walking twenty screens will
+ * otherwise spend its context on plumbing.
+ */
+const PAGE_STATE_FN = `(function () {
+  const stable = (node) =>
+    [...node.classList].filter((c) => !/^(css-|sc-|ng-|_|emotion-)/.test(c) && !/[0-9a-f]{6,}/.test(c))
+
+  const selectorFor = (el) => {
+    const part = (node) => {
+      if (node.id) return '#' + CSS.escape(node.id)
+      let out = node.tagName.toLowerCase()
+      const cls = stable(node).slice(0, 2)
+      if (cls.length) out += '.' + cls.map((c) => CSS.escape(c)).join('.')
+      const parent = node.parentElement
+      if (parent) {
+        const same = [...parent.children].filter((c) => c.tagName === node.tagName)
+        if (same.length > 1) out += ':nth-of-type(' + (same.indexOf(node) + 1) + ')'
+      }
+      return out
+    }
+    const parts = []
+    let node = el
+    while (node && node.nodeType === 1 && node.tagName !== 'BODY' && parts.length < 6) {
+      const p = part(node)
+      parts.unshift(p)
+      if (p.startsWith('#')) break
+      node = node.parentElement
+    }
+    return parts.join(' > ')
+  }
+
+  const visible = (el) => {
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 && r.height === 0) return false
+    const s = getComputedStyle(el)
+    return s.visibility !== 'hidden' && s.display !== 'none' && s.opacity !== '0'
+  }
+
+  const text = (el) => (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 120)
+
+  // A field's label is whatever a person would call it: <label for>, wrapping label,
+  // aria-label, aria-labelledby, then placeholder or name as a fallback.
+  const labelFor = (el) => {
+    if (el.id) {
+      const l = document.querySelector('label[for="' + CSS.escape(el.id) + '"]')
+      if (l) return text(l)
+    }
+    const wrap = el.closest('label')
+    if (wrap) return text(wrap)
+    if (el.getAttribute('aria-label')) return el.getAttribute('aria-label')
+    const by = el.getAttribute('aria-labelledby')
+    if (by) {
+      const l = document.getElementById(by)
+      if (l) return text(l)
+    }
+    return el.placeholder || el.name || ''
+  }
+
+  const fieldOf = (el) => ({
+    label: labelFor(el),
+    name: el.name || null,
+    type: el.tagName === 'SELECT' ? 'select' : el.tagName === 'TEXTAREA' ? 'textarea' : el.type || 'text',
+    selector: selectorFor(el),
+    // Never report what is actually in a password box.
+    value: el.type === 'password' ? (el.value ? '(set)' : '') : String(el.value ?? '').slice(0, 120),
+    checked: el.type === 'checkbox' || el.type === 'radio' ? el.checked : undefined,
+    required: !!el.required,
+    disabled: !!el.disabled,
+    invalid: el.getAttribute('aria-invalid') === 'true' || (el.checkValidity && !el.checkValidity()),
+    options:
+      el.tagName === 'SELECT' ? [...el.options].slice(0, 25).map((o) => o.value || o.text) : undefined
+  })
+
+  const controls = [...document.querySelectorAll('input, select, textarea')].filter(visible)
+  const inForm = new Set()
+
+  const forms = [...document.querySelectorAll('form')].filter(visible).slice(0, 10).map((f) => {
+    const fields = [...f.querySelectorAll('input, select, textarea')].filter(visible)
+    fields.forEach((x) => inForm.add(x))
+    const submit = f.querySelector('button[type=submit], input[type=submit], button:not([type])')
+    return {
+      selector: selectorFor(f),
+      name: f.getAttribute('name') || f.getAttribute('id') || null,
+      action: f.getAttribute('action') || null,
+      fields: fields.slice(0, 40).map(fieldOf),
+      submit: submit ? { text: text(submit) || 'Submit', selector: selectorFor(submit) } : null
+    }
+  })
+
+  const loose = controls.filter((c) => !inForm.has(c)).slice(0, 40).map(fieldOf)
+
+  const buttons = [...document.querySelectorAll('button, [role=button], input[type=button], input[type=submit]')]
+    .filter(visible)
+    .slice(0, 60)
+    .map((b) => ({ text: text(b) || b.value || '(no label)', selector: selectorFor(b), disabled: !!b.disabled }))
+
+  const links = [...document.querySelectorAll('a[href]')]
+    .filter(visible)
+    .map((a) => ({ text: text(a), href: a.href, selector: selectorFor(a) }))
+    .filter((l) => !l.href.startsWith('javascript:'))
+    .slice(0, 80)
+
+  const dialogs = [...document.querySelectorAll('[role=dialog], [role=alertdialog], dialog[open], [aria-modal=true]')]
+    .filter(visible)
+    .slice(0, 5)
+    .map((d) => ({ selector: selectorFor(d), text: text(d) }))
+
+  // What the app is telling the user is wrong, which is the thing a flow test is
+  // usually looking for.
+  const messages = [...document.querySelectorAll('[role=alert], [role=status], [aria-invalid=true], .error, .invalid, .form-error, .help-block')]
+    .filter(visible)
+    .slice(0, 20)
+    .map((e) => ({ selector: selectorFor(e), text: text(e) }))
+    .filter((m) => m.text)
+
+  const headings = [...document.querySelectorAll('h1, h2, h3')].filter(visible).slice(0, 15).map(text)
+
+  return {
+    url: location.href,
+    path: location.pathname + location.search + location.hash,
+    title: document.title,
+    headings,
+    visibleText: (document.body ? document.body.innerText : '').trim().replace(/\\s+/g, ' ').slice(0, 1500),
+    forms,
+    fields: loose,
+    buttons,
+    links,
+    dialogs,
+    messages,
+    counts: { forms: forms.length, buttons: buttons.length, links: links.length }
+  }
+})()`
+
+/**
  * Full Chrome DevTools Protocol control over the preview webview.
  *
  * This is deliberately unrestricted: no per-action consent, no allowlist, no
@@ -525,15 +663,41 @@ export class AutomationService {
     if (target) {
       await this.click(target)
       if (opts.clear) {
-        await this.#send('Input.dispatchKeyEvent', {
-          type: 'keyDown',
+        /*
+         * Select-all via the `commands` field rather than a synthetic Cmd/Ctrl+A.
+         *
+         * A plain modified key event does not clear the field: Chromium routes that
+         * shortcut through the native menu layer, which a synthesised event never
+         * reaches, so the selection never happened and the new text was appended to the
+         * old — "ada@example.com" + "not-an-email". `commands` asks the editor to run
+         * the editing command directly, which works regardless of platform.
+         */
+        const selectAll = {
           key: 'a',
           code: 'KeyA',
+          windowsVirtualKeyCode: 65,
+          nativeVirtualKeyCode: 65,
           modifiers: process.platform === 'darwin' ? 4 : 2 // Meta on macOS, Control elsewhere
+        }
+        await this.#send('Input.dispatchKeyEvent', {
+          ...selectAll,
+          type: 'keyDown',
+          commands: ['selectAll']
         })
-        await this.#send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'a', code: 'KeyA' })
-        await this.press('Delete')
+        await this.#send('Input.dispatchKeyEvent', { ...selectAll, type: 'keyUp' })
       }
+    }
+
+    // insertText replaces the current selection, so an empty string still clears.
+    if (opts.clear && !text) {
+      await this.#send('Input.dispatchKeyEvent', {
+        type: 'keyDown',
+        key: 'Delete',
+        code: 'Delete',
+        windowsVirtualKeyCode: 46,
+        commands: ['deleteBackward']
+      })
+      await this.#send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Delete', code: 'Delete' })
     }
     if (text) await this.#send('Input.insertText', { text })
   }
@@ -561,6 +725,92 @@ export class AutomationService {
       deltaX,
       deltaY
     })
+  }
+
+  // -------------------------------------------------------------------------
+  // Screen state and form filling
+  // -------------------------------------------------------------------------
+
+  /**
+   * Everything about the current screen, plus the console errors and failed requests
+   * recorded since the last navigation. This is the "what am I looking at" call.
+   */
+  async pageState(): Promise<Record<string, unknown>> {
+    const state = (await this.evaluate(PAGE_STATE_FN)) as Record<string, unknown>
+    return {
+      ...state,
+      consoleErrors: this.consoleMessages({ limit: 25 })
+        .filter((m) => m.level === 'error' || m.level === 'warning')
+        .map((m) => `${m.level}: ${m.text}`.slice(0, 300)),
+      failedRequests: this.networkRequests({ limit: 60 })
+        .filter((r) => r.failed || (r.status !== null && r.status >= 400))
+        .slice(-15)
+        .map((r) => `${r.method} ${r.url} → ${r.failed ? r.errorText : r.status}`.slice(0, 300))
+    }
+  }
+
+  /**
+   * Enter values into fields, choosing the right mechanism per control type.
+   *
+   * Text goes in as real typed input so frameworks with controlled components see the
+   * events they expect; checkboxes and radios are clicked only when the state actually
+   * needs to change; selects are set directly, since a native dropdown has no page-level
+   * UI to drive.
+   */
+  async fill(
+    fields: Array<{ selector: string; value: string }>
+  ): Promise<Array<{ selector: string; ok: boolean; error?: string }>> {
+    const results: Array<{ selector: string; ok: boolean; error?: string }> = []
+
+    for (const field of fields) {
+      const quoted = JSON.stringify(field.selector)
+      try {
+        const kind = await this.evaluate(
+          `(() => { const e = document.querySelector(${quoted});
+             if (!e) return 'missing';
+             if (e.tagName === 'SELECT') return 'select';
+             const t = (e.type || '').toLowerCase();
+             return t === 'checkbox' || t === 'radio' ? t : 'text'; })()`
+        )
+
+        if (kind === 'missing') throw new AutomationError(`No element matches ${field.selector}`)
+
+        if (kind === 'select') {
+          const chosen = await this.evaluate(
+            `(() => { const e = document.querySelector(${quoted});
+               const want = ${JSON.stringify(field.value)};
+               const opt = [...e.options].find(o => o.value === want || o.text === want)
+                 ?? [...e.options].find(o => o.text.toLowerCase().includes(want.toLowerCase()));
+               if (!opt) return false;
+               e.value = opt.value;
+               e.dispatchEvent(new Event('input', { bubbles: true }));
+               e.dispatchEvent(new Event('change', { bubbles: true }));
+               return true; })()`
+          )
+          if (!chosen) throw new AutomationError(`No option matching "${field.value}"`)
+        } else if (kind === 'checkbox' || kind === 'radio') {
+          const want = /^(true|1|yes|on|check(ed)?)$/i.test(field.value.trim())
+          const isChecked = await this.evaluate(
+            `!!document.querySelector(${quoted}).checked`
+          )
+          if (Boolean(isChecked) !== want) await this.click({ selector: field.selector })
+        } else {
+          await this.type({ selector: field.selector }, field.value, { clear: true })
+        }
+
+        results.push({ selector: field.selector, ok: true })
+      } catch (e) {
+        // One bad field must not abandon the rest — the caller wants to know which of
+        // twenty inputs failed, not just that something did.
+        results.push({
+          selector: field.selector,
+          ok: false,
+          error: e instanceof Error ? e.message : String(e)
+        })
+      }
+    }
+
+    return results
   }
 
   // -------------------------------------------------------------------------

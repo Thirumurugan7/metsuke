@@ -22,6 +22,7 @@ export function StatusBar({
     togglePanel,
     openFolder,
     runProjectCheck,
+    runUiAudit,
     setSettingsOpen,
     notificationLog
   } = useStore()
@@ -69,6 +70,17 @@ export function StatusBar({
         >
           <span aria-hidden="true">✓</span>
           Check project
+        </button>
+      )}
+
+      {workspace && (
+        <button
+          className="status-item"
+          onClick={runUiAudit}
+          title="Start a Claude session that walks every screen and flow in the preview and reports what is broken (read-only)"
+        >
+          <span aria-hidden="true">⌕</span>
+          Test UI
         </button>
       )}
 
