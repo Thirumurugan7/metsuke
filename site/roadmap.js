@@ -33,9 +33,10 @@ const TASKS = [
       {
         id: 'claude-missing',
         who: 'me',
+        done: true,
         text: 'Handle a missing claude binary',
         detail:
-          'There is no handling at all today. If Claude Code is not on PATH the pty dies and the user sees a dead terminal with no explanation. This is the single most likely first-run failure.'
+          'Done. The welcome screen probes for it and says plainly if it is absent, noting that everything else still works. The probe runs through a login shell, because a GUI app does not inherit the PATH that nvm or homebrew set up and would otherwise report it missing on machines where the terminal runs it fine.'
       },
       {
         id: 'github-repo',
@@ -179,6 +180,20 @@ const TASKS = [
           '62 unit tests cover git, the path jail, the IPC contract, hook classification and fuzzy matching. Nothing tests the actual UI. Every interface bug this project has had was found by hand, and two of them shipped because I checked the DOM instead of the pixels.'
       },
       {
+        id: 'preview-scroll-hang',
+        who: 'me',
+        text: 'Fix preview_scroll intermittently hanging the bridge',
+        detail:
+          'Noticed while building the adaptation flourish: the call returns an empty body after the curl timeout, then succeeds on a later attempt. Looks like a real intermittent fault in AutomationService.scroll rather than anything to do with that feature.'
+      },
+      {
+        id: 'video-pixel-format',
+        who: 'me',
+        text: 'Re-encode the wheel clip to silence the decoder',
+        detail:
+          'Every playback logs "Unsupported pixel format: -1". Harmless, the video decodes fine at 560x560, but it fills the dev log and makes real errors harder to spot.'
+      },
+      {
         id: 'preview-screenshot-occluded',
         who: 'me',
         text: 'Fix screenshots of a backgrounded window',
@@ -210,9 +225,10 @@ const TASKS = [
       {
         id: 'onboarding',
         who: 'me',
+        done: true,
         text: 'First-run guidance',
         detail:
-          'Nothing tells a new user that Select exists, that ports appear on their own, or that Claude can test the whole app.'
+          'Done. A welcome screen that says what the editor is and gives three steps, plus a guide behind ? Guide written as flows. It also probes for the claude binary through a login shell, so it does not falsely report it missing on a GUI launch.'
       },
       {
         id: 'real-screenshot',
