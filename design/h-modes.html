@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>H · Instances and subagents</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      /*
+       * Variant G assumed one shape of work: a thread is a process. This variant lets a
+       * thread be either a whole claude instance or a subagent running inside one, and
+       * makes the user pick per thread rather than picking for them.
+       *
+       * The two are drawn differently on purpose. An instance is a top-level row with a
+       * branch. A subagent is an indented child of the instance that spawned it, because
+       * that is literally where it lives.
+       */
+      .threads {
+        background: var(--bg-alt);
+        border-right: 1px solid var(--border);
+        flex: 0 0 288px;
+      }
+      .group {
+        color: var(--fg-dim);
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 9px 12px 5px;
+      }
+      .thread {
+        border-bottom: 1px solid #ffffff08;
+        cursor: pointer;
+        display: flex;
+        gap: 9px;
+        padding: 8px 12px;
+      }
+      .thread:hover {
+        background: #ffffff08;
+      }
+      .thread.on {
+        background: #ffffff12;
+      }
+      .thread .dot {
+        flex: 0 0 auto;
+        font-size: 10px;
+        line-height: 1.6;
+      }
+      .thread .dot.run {
+        color: var(--accent-fg);
+      }
+      .thread .dot.wait {
+        color: var(--amber);
+      }
+      .thread .dot.done {
+        color: var(--fg-faint);
+      }
+      .thread .dot.fail {
+        color: var(--red);
+      }
+      .thread .txt {
+        min-width: 0;
+      }
+      .thread .name {
+        display: block;
+        font-size: 12.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .thread .meta {
+        color: var(--fg-faint);
+        display: block;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .thread .meta .add {
+        color: var(--mint);
+      }
+      .thread .meta .del {
+        color: var(--red);
+      }
+      .thread .meta .iso {
+        color: var(--accent-fg);
+      }
+
+      /* A subagent row is a child of the instance above it, and is drawn as one:
+         indented, quieter, hanging off a guide line rather than owning a branch. */
+      .thread.sub {
+        border-bottom: none;
+        padding: 4px 12px 4px 30px;
+        position: relative;
+      }
+      .thread.sub::before {
+        border-left: 1px solid #ffffff1a;
+        content: '';
+        left: 19px;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+      }
+      .thread.sub:last-of-type::before {
+        bottom: 50%;
+      }
+      .thread.sub .name {
+        color: var(--fg-dim);
+        font-size: 12px;
+      }
+      .thread.sub .meta {
+        font-size: 10px;
+      }
+      .thread.sub .dot {
+        font-size: 8px;
+      }
+      .kid-end {
+        color: var(--fg-faint);
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 3px 12px 9px 30px;
+      }
+      /* "Flatten" collapses the children away, which is what variant G could show. */
+      .app.flat .thread.sub,
+      .app.flat .kid-end {
+        display: none;
+      }
+
+      .newthread {
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex: 0 0 auto;
+        gap: 6px;
+        padding: 8px 10px;
+      }
+      .newthread .chip {
+        flex: 1;
+      }
+
+      /* Middle: the thread. */
+      .convo {
+        background: var(--bg);
+        border-right: 1px solid var(--border);
+        flex: 0 0 420px;
+      }
+      .convo-head {
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex: 0 0 38px;
+        gap: 8px;
+        padding: 0 12px;
+      }
+      .convo-head b {
+        font-size: 12.5px;
+        font-weight: 550;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .badge {
+        background: #ffffff12;
+        border-radius: 4px;
+        color: var(--fg-dim);
+        flex: 0 0 auto;
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 1px 6px;
+      }
+      .badge.inst {
+        background: #12314d;
+        color: var(--accent-fg);
+      }
+      .convo-body {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 12px;
+      }
+      .prompt {
+        background: #ffffff0a;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 12.5px;
+        line-height: 1.6;
+        padding: 10px 12px;
+      }
+      .tools {
+        margin: 12px 0;
+      }
+      .tool {
+        align-items: baseline;
+        color: var(--fg-dim);
+        display: flex;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        gap: 8px;
+        padding: 2.5px 0;
+      }
+      .tool i {
+        color: var(--fg-faint);
+        font-style: normal;
+      }
+      .tool .arg {
+        color: var(--accent-fg);
+      }
+      .tool.edit .arg {
+        color: var(--amber);
+      }
+
+      /* A subagent inside the conversation: a bordered block, because the whole point
+         is that its work happened somewhere else and only the report came back. */
+      .agentcard {
+        border: 1px solid var(--border);
+        border-left: 2px solid var(--accent);
+        border-radius: 7px;
+        margin: 10px 0;
+        overflow: hidden;
+      }
+      .agentcard.done {
+        border-left-color: var(--fg-faint);
+      }
+      .ac-head {
+        align-items: center;
+        background: #ffffff08;
+        display: flex;
+        gap: 8px;
+        padding: 7px 10px;
+      }
+      .ac-head b {
+        font-size: 12px;
+        font-weight: 550;
+      }
+      .ac-head .cost {
+        color: var(--fg-faint);
+        font-family: var(--mono);
+        font-size: 10px;
+        margin-left: auto;
+      }
+      .ac-body {
+        padding: 8px 10px;
+      }
+      .ac-body .report {
+        color: var(--fg-dim);
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      /* The line that explains the whole model in six words. */
+      .ac-body .hidden-note {
+        color: var(--fg-faint);
+        font-family: var(--mono);
+        font-size: 10px;
+        margin-top: 7px;
+      }
+      .prose {
+        color: var(--fg-dim);
+        font-size: 12.5px;
+        line-height: 1.65;
+      }
+
+      .composer {
+        border-top: 1px solid var(--border);
+        flex: 0 0 auto;
+        padding: 10px 12px;
+      }
+      .composer .box {
+        background: #ffffff08;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--fg-faint);
+        font-size: 12px;
+        padding: 9px 11px;
+      }
+      /* The choice, put where the work is started rather than buried in settings. */
+      .runas {
+        align-items: center;
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .runas .lbl {
+        color: var(--fg-faint);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      /* The hint is the only thing allowed to wrap, so the control never reflows. */
+      .runas #mode-hint {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: normal;
+      }
+      .seg {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        display: flex;
+        overflow: hidden;
+      }
+      .seg {
+        flex: 0 0 auto;
+      }
+      .seg button {
+        background: none;
+        border: none;
+        color: var(--fg-dim);
+        cursor: pointer;
+        font: inherit;
+        font-size: 11px;
+        padding: 3px 9px;
+        white-space: nowrap;
+      }
+      .seg button.on {
+        background: var(--accent);
+        color: #fff;
+      }
+      .composer .hint {
+        color: var(--fg-faint);
+        font-size: 10.5px;
+        margin-top: 7px;
+      }
+
+      .rightcol {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .crumb {
+        border-bottom: 1px solid var(--border);
+        color: var(--fg-dim);
+        flex: 0 0 26px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        padding: 5px 12px;
+      }
+      .worktree-note {
+        color: var(--accent-fg);
+        margin-left: 8px;
+      }
+
+      /* The sheet that makes the two modes a real decision instead of a hidden default. */
+      .scrim {
+        align-items: center;
+        background: #000000b0;
+        bottom: 0;
+        display: none;
+        justify-content: center;
+        left: 0;
+        position: fixed;
+        right: 0;
+        top: 0;
+        z-index: 40;
+      }
+      .scrim.open {
+        display: flex;
+      }
+      .sheet {
+        background: #17171b;
+        border: 1px solid #2c2c34;
+        border-radius: 12px;
+        box-shadow: 0 24px 70px #000c;
+        padding: 20px;
+        width: 640px;
+      }
+      .sheet h3 {
+        font-size: 15px;
+        margin: 0 0 3px;
+      }
+      .sheet .sub {
+        color: var(--fg-dim);
+        font-size: 12px;
+        margin: 0 0 14px;
+      }
+      .modes {
+        display: flex;
+        gap: 12px;
+      }
+      .mode {
+        background: #1d1d22;
+        border: 1px solid #2c2c34;
+        border-radius: 9px;
+        cursor: pointer;
+        flex: 1;
+        padding: 13px;
+      }
+      .mode.on {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+      }
+      .mode .glyph {
+        color: var(--accent-fg);
+        font-family: var(--mono);
+        font-size: 15px;
+      }
+      .mode h4 {
+        font-size: 13px;
+        margin: 5px 0 6px;
+      }
+      .mode ul {
+        margin: 0;
+        padding-left: 15px;
+      }
+      .mode li {
+        color: var(--fg-dim);
+        font-size: 11.5px;
+        line-height: 1.55;
+        margin-bottom: 3px;
+      }
+      .mode .cost {
+        border-top: 1px solid #2c2c34;
+        color: var(--amber);
+        font-size: 11px;
+        line-height: 1.5;
+        margin-top: 9px;
+        padding-top: 8px;
+      }
+      .sheet-foot {
+        align-items: center;
+        border-top: 1px solid #2c2c34;
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+        padding-top: 13px;
+      }
+      .sheet-foot .opt {
+        color: var(--fg-dim);
+        font-size: 11.5px;
+      }
+      .sheet-foot .right {
+        display: flex;
+        gap: 7px;
+        margin-left: auto;
+      }
+      .box-check {
+        border: 1px solid var(--fg-faint);
+        border-radius: 3px;
+        color: var(--mint);
+        display: inline-block;
+        font-size: 9px;
+        height: 13px;
+        line-height: 12px;
+        margin-right: 5px;
+        text-align: center;
+        width: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <div id="top"></div>
+      <div class="body">
+        <div class="panel threads">
+          <div class="newthread">
+            <button class="chip on" id="open-sheet">＋ New thread</button>
+            <button class="chip ghost">⑂ Worktrees</button>
+          </div>
+          <div class="panel-head">Threads <span class="count">2 running</span></div>
+          <div class="panel-body">
+            <div class="group">my-app</div>
+
+            <div class="thread on">
+              <span class="dot run">●</span>
+              <span class="txt">
+                <span class="name">Ship the new signup flow</span>
+                <span class="meta">◆ instance · <span class="iso">⑂ signup-flow</span> · 12m</span>
+              </span>
+            </div>
+            <div class="thread sub">
+              <span class="dot done">○</span>
+              <span class="txt">
+                <span class="name">↳ Find every hardcoded colour</span>
+                <span class="meta">subagent · 41 files read · returned 380 tok</span>
+              </span>
+            </div>
+            <div class="thread sub">
+              <span class="dot done">○</span>
+              <span class="txt">
+                <span class="name">↳ Check contrast on all 7 themes</span>
+                <span class="meta">subagent · worst 4.95:1 · returned 210 tok</span>
+              </span>
+            </div>
+            <div class="thread sub">
+              <span class="dot run">●</span>
+              <span class="txt">
+                <span class="name">↳ Rewrite the form tests</span>
+                <span class="meta">subagent · running · 2m</span>
+              </span>
+            </div>
+            <div class="kid-end">3 subagents, 630 tokens back into this thread</div>
+
+            <div class="thread">
+              <span class="dot wait">◐</span>
+              <span class="txt">
+                <span class="name">Add rate limiting to /api/coupon</span>
+                <span class="meta">◆ instance · <span class="iso">⑂ coupon-limit</span> · needs permission</span>
+              </span>
+            </div>
+            <div class="thread">
+              <span class="dot fail">●</span>
+              <span class="txt">
+                <span class="name">Migrate tests to vitest</span>
+                <span class="meta">◆ instance · <span class="iso">⑂ vitest-migration</span> · 3 failing</span>
+              </span>
+            </div>
+            <div class="thread">
+              <span class="dot done">○</span>
+              <span class="txt">
+                <span class="name">Fix checkout 500 on empty cart</span>
+                <span class="meta">◆ merged · <span class="add">+23</span> <span class="del">-2</span> · 48m</span>
+              </span>
+            </div>
+
+            <div class="group">marketing-site</div>
+            <div class="thread">
+              <span class="dot run">●</span>
+              <span class="txt">
+                <span class="name">Rewrite the pricing page copy</span>
+                <span class="meta">◆ instance · <span class="iso">⑂ pricing-copy</span> · 12m</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel convo">
+          <div class="convo-head">
+            <b>Ship the new signup flow</b>
+            <span class="badge inst">◆ instance</span>
+            <span class="badge">⑂ signup-flow</span>
+            <span style="color: var(--fg-faint); margin-left: auto">⤢ ⋯</span>
+          </div>
+          <div class="convo-body">
+            <div class="prompt">
+              Green primary button, larger, and the disabled state has to stop looking clickable.
+              Make sure it holds up on every theme, and the tests need rewriting for the new markup.
+            </div>
+
+            <div class="tools">
+              <div class="tool"><i>⌕</i> Read <span class="arg">src/components/Signup.tsx</span></div>
+              <div class="tool edit"><i>✎</i> Edit <span class="arg">Signup.tsx</span> +3 −1</div>
+              <div class="tool edit"><i>✎</i> Edit <span class="arg">theme.css</span> +2</div>
+            </div>
+
+            <div class="agentcard done">
+              <div class="ac-head">
+                <span class="glyph" style="color: var(--fg-faint); font-family: var(--mono)">↳</span>
+                <b>Check contrast on all 7 themes</b>
+                <span class="cost">subagent · 84k tok · 40s</span>
+              </div>
+              <div class="ac-body">
+                <p class="report">
+                  All seven pass at AA. Worst pair is Demon Slayer at 4.95:1 on the muted label,
+                  which clears 4.5 but not by much. Naruto light needed the button text darkened
+                  one step and I made that change.
+                </p>
+                <p class="hidden-note">
+                  read 23 files, ran 4 scripts · none of it entered this thread
+                </p>
+              </div>
+            </div>
+
+            <div class="agentcard">
+              <div class="ac-head">
+                <span class="glyph">↳</span>
+                <b>Rewrite the form tests</b>
+                <span class="cost">running · 2m</span>
+              </div>
+              <div class="ac-body">
+                <p class="report" style="color: var(--fg-faint)">
+                  Working in its own context. You will get a summary, not the transcript.
+                </p>
+              </div>
+            </div>
+
+            <p class="prose">
+              Contrast is fine everywhere. The disabled state was the real problem: it kept the
+              green and only dropped opacity, so it still read as clickable. It is a flat grey now.
+              Tests are being rewritten in the background and I will fold the result back in here.
+            </p>
+          </div>
+          <div class="composer">
+            <div class="box">Reply, or @ a file to bring it in…</div>
+            <div class="runas">
+              <span class="lbl">Run as</span>
+              <span class="seg" id="seg">
+                <button class="on" data-mode="sub">↳ Subagent</button>
+                <button data-mode="inst">◆ New instance</button>
+              </span>
+              <span class="lbl" id="mode-hint">inherits this plan, reports back a summary</span>
+            </div>
+            <div class="hint">⏎ send · ⇧⏎ newline · @ file · / command · ⌥⏎ run as the other mode</div>
+          </div>
+        </div>
+
+        <div class="rightcol">
+          <div class="tabs">
+            <span class="on">Signup.tsx</span><span>theme.css</span><span>⑂ Review 2 files</span>
+          </div>
+          <div class="crumb">
+            src / components / Signup.tsx
+            <span class="worktree-note">in ⑂ signup-flow worktree</span>
+          </div>
+          <div class="panel-body">
+            <pre class="code"><span class="ln">18</span>     &lt;<span class="t">button</span>
+<span class="ln">19</span>       id=<span class="s">"submit"</span>
+<span class="ln">20</span>       className={accepted ? <span class="s">'btn-green btn-lg'</span> : <span class="s">'btn-grey btn-lg'</span>}
+<span class="ln">21</span>       disabled={!accepted}
+<span class="ln">22</span>     &gt;
+<span class="ln">23</span>       Create account
+<span class="ln">24</span>     &lt;/<span class="t">button</span>&gt;</pre>
+          </div>
+          <div id="term" style="flex: 0 0 140px"></div>
+        </div>
+      </div>
+      <div id="status"></div>
+    </div>
+
+    <div class="scrim" id="scrim">
+      <div class="sheet">
+        <h3>New thread</h3>
+        <p class="sub">Two ways to run it. They are not the same thing and the difference matters.</p>
+        <div class="modes">
+          <div class="mode on" data-pick="sub">
+            <div class="glyph">↳</div>
+            <h4>Subagent</h4>
+            <ul>
+              <li>Runs inside the thread you are in now</li>
+              <li>Gets the plan you wrote here, hands back a summary</li>
+              <li>Its file reads and searches never enter your context</li>
+              <li>Best for wide, throwaway work: find every X, check every Y</li>
+            </ul>
+            <div class="cost">
+              It does not share context back. You see the report, not the work. If you need the
+              detail later, it is gone.
+            </div>
+          </div>
+          <div class="mode" data-pick="inst">
+            <div class="glyph">◆</div>
+            <h4>Separate instance</h4>
+            <ul>
+              <li>Its own claude process and its own conversation</li>
+              <li>Its own git worktree and branch, so it cannot touch your files</li>
+              <li>Keeps running when you close the thread, and you can come back</li>
+              <li>Best for work that ends in a branch you review and merge</li>
+            </ul>
+            <div class="cost">
+              It starts cold. It reads CLAUDE.md, not this conversation, so it pays the onboarding
+              cost every time you open one.
+            </div>
+          </div>
+        </div>
+        <div class="sheet-foot">
+          <span class="opt"><span class="box-check">✓</span>Give it its own worktree</span>
+          <span class="opt"><span class="box-check"></span>Remember this as my default</span>
+          <span class="right">
+            <button class="chip ghost" id="close-sheet">Cancel</button>
+            <button class="chip on">Start thread</button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <script src="parts.js"></script>
+    <script>
+      document.getElementById('top').outerHTML = P.titlebar()
+      document.getElementById('term').outerHTML = P.terminal()
+      document.getElementById('status').outerHTML = P.status()
+
+      document.querySelectorAll('.thread').forEach((t) =>
+        t.addEventListener('click', () => {
+          document.querySelector('.thread.on')?.classList.remove('on')
+          t.classList.add('on')
+        })
+      )
+
+      const scrim = document.getElementById('scrim')
+      document.getElementById('open-sheet').addEventListener('click', () => scrim.classList.add('open'))
+      document.getElementById('close-sheet').addEventListener('click', () => scrim.classList.remove('open'))
+      scrim.addEventListener('click', (e) => e.target === scrim && scrim.classList.remove('open'))
+
+      document.querySelectorAll('.mode').forEach((m) =>
+        m.addEventListener('click', () => {
+          document.querySelector('.mode.on')?.classList.remove('on')
+          m.classList.add('on')
+        })
+      )
+
+      // The hint under the picker changes with the choice, so the tradeoff is readable
+      // at the moment of choosing rather than in a docs page nobody opens.
+      const HINTS = {
+        sub: 'inherits this plan, reports back a summary',
+        inst: 'own branch and worktree, starts from CLAUDE.md'
+      }
+      document.querySelectorAll('#seg button').forEach((b) =>
+        b.addEventListener('click', () => {
+          document.querySelector('#seg .on')?.classList.remove('on')
+          b.classList.add('on')
+          document.getElementById('mode-hint').textContent = HINTS[b.dataset.mode]
+        })
+      )
+
+      notes({
+        kicker: 'Variant H · both, and you pick',
+        title: 'Instances and subagents in one list',
+        body: [
+          'Variant G assumed a thread is a process. That is one of two useful shapes, and they solve opposite problems, so this variant ships both and puts the choice where the work starts.',
+          'A <b>separate instance</b> is its own claude process on its own git worktree and branch. Real isolation, survives you closing the thread, ends in something you merge. It starts cold every time.',
+          'A <b>subagent</b> runs inside the thread you are already in. It gets the plan you wrote, does the expensive reading in its own context, and hands back a summary. Cheap for wide work. It does not share context back, which is the part people get backwards: subagents <i>isolate</i> context, they do not pool it.',
+          'Drawing them differently is most of the design. An instance is a top-level row with a branch. A subagent is indented under the instance that spawned it, because that is where it actually lives. In the conversation it is a bordered card with a cost and a report, so it is obvious that the work happened somewhere you cannot scroll to.'
+        ],
+        good: 'The user stops guessing. The list shows what each thread costs and what it can touch, and the picker states the tradeoff at the moment it matters.',
+        bad: 'Two execution models to build and keep working. Worktrees need a node_modules answer, and subagent rows have to be parsed out of the parent stream rather than read off the process table.',
+        toggles: [
+          {
+            label: 'Flatten subagents',
+            apply: (on) => document.getElementById('app').classList.toggle('flat', on)
+          },
+          {
+            label: 'Show the new-thread sheet',
+            apply: (on) => scrim.classList.toggle('open', on)
+          },
+          {
+            label: 'Widen the conversation',
+            apply: (on) => (document.querySelector('.convo').style.flex = on ? '1 1 auto' : '0 0 420px')
+          }
+        ]
+      })
+    </script>
+  </body>
+</html>
