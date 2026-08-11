@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>D · Four columns</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* Wide displays have horizontal room and no vertical room. Everything becomes a column. */
+  .term.vertical { flex: 0 0 330px; }
+  .term.vertical .termlines { font-size: 11px; }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div id="rail"></div>
+    <div id="side"></div>
+    <div id="ed" style="flex:1"></div>
+    <div id="prev"></div>
+    <div id="term"></div>
+  </div>
+  <div id="status"></div>
+</div>
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar()
+document.getElementById('rail').outerHTML = P.rail('files')
+document.getElementById('side').outerHTML = P.tree()
+document.getElementById('ed').outerHTML = P.editor()
+document.getElementById('prev').outerHTML = P.preview()
+document.getElementById('term').outerHTML = P.terminal('vertical')
+document.getElementById('status').outerHTML = P.status()
+notes({
+  kicker: 'Variant D',
+  title: 'Stop stacking, start columning',
+  body: [
+    'The terminal stands up and becomes a column on the right. Nothing is stacked vertically any more.',
+    'Laptops are short and wide. A bottom terminal eats the scarce dimension, and a 190px strip is exactly the height where a Claude session is unreadable.',
+    'As a column it gets 40 or more lines, which is the difference between skimming what the agent did and actually reading it.'
+  ],
+  good: 'Every panel is visible at once with no toggling, and the agent output is finally tall enough to read.',
+  bad: 'Needs roughly 1500px of width. Below that it collapses into variant A anyway.',
+  toggles: [
+    { label: 'Terminal beside the editor', apply: (on) => { const b=document.querySelector('.body'); const t=document.querySelector('.term'); const p=document.querySelector('.preview'); on ? b.insertBefore(t,p) : b.appendChild(t) } },
+    { label: 'Collapse the tree', apply: (on) => document.querySelector('.side').style.display = on ? 'none' : 'flex' }
+  ]
+})
+</script></body></html>

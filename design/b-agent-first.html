@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>B · Agent first</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* The conversation is the spine, so it gets the widest and tallest column. */
+  .term.spine { border-left: none; border-right: 1px solid var(--border); border-top: none; flex: 0 0 420px; }
+  .term.spine .termlines { font-size: 11.5px; }
+  .composer { border-top: 1px solid var(--border); display: flex; flex: 0 0 auto; gap: 8px; padding: 10px; }
+  .composer .box { background: #ffffff0d; border: 1px solid var(--border); border-radius: 8px; color: var(--fg-dim);
+                   flex: 1; font-size: 12px; padding: 9px 11px; }
+  .stack { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+  .stack .editor { border-bottom: 1px solid var(--border); }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div id="rail"></div>
+    <div class="panel term spine" id="spine"></div>
+    <div class="stack">
+      <div id="ed"></div>
+      <div id="prev"></div>
+    </div>
+  </div>
+  <div id="status"></div>
+</div>
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar()
+document.getElementById('rail').outerHTML = P.rail('claude')
+document.getElementById('spine').outerHTML = P.terminal('spine') +
+  '<div class="composer"><div class="box">Ask Claude to change something…</div><button class="chip on">Send</button></div>'
+// The composer must live inside the spine column, so re-parent it after injection.
+{
+  const spine = document.querySelector('.term.spine')
+  const composer = document.querySelector('.app > .body > .composer')
+  if (composer) spine.appendChild(composer)
+}
+document.getElementById('ed').outerHTML = P.editor()
+document.getElementById('prev').outerHTML = P.preview('wide')
+document.querySelector('.preview').style.flex = '0 0 46%'
+document.querySelector('.preview').style.borderLeft = 'none'
+document.getElementById('status').outerHTML = P.status()
+notes({
+  kicker: 'Variant B · my recommendation',
+  title: 'The conversation is the app',
+  body: [
+    'The agent moves from a strip at the bottom to a full-height column on the left, with a real composer under it. Code and preview stack to its right.',
+    'This matches how the tool is actually used. You are mostly reading what Claude did and telling it what to do next, and only occasionally typing code yourself.',
+    'The file tree collapses into the rail, because when an agent is doing the navigating you open files far less often than you think.'
+  ],
+  good: 'The thing you spend most of your attention on gets the most space, and there is finally somewhere obvious to type.',
+  bad: 'It stops looking like VS Code, so it needs a good empty state and it will feel wrong for the first ten minutes.',
+  toggles: [
+    { label: 'Spine on the right', apply: (on) => { const b=document.querySelector('.body'); const s=document.querySelector('.term.spine'); on ? b.appendChild(s) : b.insertBefore(s, b.children[1]) } },
+    { label: 'Widen the preview', apply: (on) => document.querySelector('.preview').style.flex = on ? '1 1 auto' : '0 0 46%' }
+  ]
+})
+</script></body></html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>A · Current layout</title>
+<link rel="stylesheet" href="shared.css"></head>
+<body>
+<div class="app" id="app">
+  <div id="top"></div>
+  <div class="body">
+    <div id="rail"></div>
+    <div id="side"></div>
+    <div class="panel" style="flex:1;min-width:0" id="centre">
+      <div class="panel" style="flex:1;min-height:0" id="ed"></div>
+      <div id="term"></div>
+    </div>
+    <div id="prev"></div>
+  </div>
+  <div id="status"></div>
+</div>
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar()
+document.getElementById('rail').outerHTML = P.rail('files')
+document.getElementById('side').outerHTML = P.tree()
+document.getElementById('ed').outerHTML = P.editor()
+document.getElementById('term').outerHTML = P.terminal()
+document.getElementById('prev').outerHTML = P.preview()
+document.getElementById('status').outerHTML = P.status()
+notes({
+  kicker: 'Variant A · reference',
+  title: 'What you have today',
+  body: [
+    'Code is the centre of gravity. The agent sits in a strip along the bottom and the preview is a narrow column on the right.',
+    'This is VS Code with two extra panels bolted on, which is the safest thing to ship and the least interesting thing to look at.'
+  ],
+  good: 'Nobody has to learn anything. Every muscle memory from VS Code transfers on day one.',
+  bad: 'The two things that make this editor different, the agent and the browser it drives, get the smallest boxes on screen.',
+  toggles: [
+    { label: 'Preview on the left', apply: (on) => { const b=document.querySelector('.body'); const p=document.querySelector('.preview'); on ? b.insertBefore(p, b.children[1]) : b.appendChild(p) } },
+    { label: 'Hide the rail', apply: (on) => document.querySelector('.rail').style.display = on ? 'none' : '' }
+  ]
+})
+</script></body></html>

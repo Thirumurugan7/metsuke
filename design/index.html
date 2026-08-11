@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open Claude · layout explorations</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      body {
+        overflow: auto;
+      }
+      .wrap {
+        margin: 0 auto;
+        max-width: 1080px;
+        padding: 56px 24px 90px;
+      }
+      h1 {
+        font-size: 38px;
+        letter-spacing: -0.03em;
+        margin: 0 0 12px;
+      }
+      .lede {
+        color: var(--fg-dim);
+        font-size: 16px;
+        line-height: 1.65;
+        margin: 0 0 40px;
+        max-width: 660px;
+      }
+      h2 {
+        border-top: 1px solid #26262e;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        margin: 52px 0 20px;
+        padding-top: 22px;
+        text-transform: uppercase;
+        color: var(--fg-dim);
+      }
+      .cards {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      }
+      .card {
+        background: #101014;
+        border: 1px solid #26262e;
+        border-radius: 11px;
+        color: inherit;
+        display: block;
+        overflow: hidden;
+        text-decoration: none;
+        transition: border-color 0.15s;
+      }
+      .card:hover {
+        border-color: #3a3a46;
+      }
+      .thumb {
+        border-bottom: 1px solid #26262e;
+        display: flex;
+        gap: 3px;
+        height: 108px;
+        padding: 10px;
+      }
+      .thumb i {
+        border-radius: 3px;
+        display: block;
+      }
+      .t-rail { background: #323233; flex: 0 0 12px; }
+      .t-side { background: #252526; flex: 0 0 34px; }
+      .t-ed   { background: #1e1e1e; border: 1px solid #303038; flex: 1; }
+      .t-prev { background: #2a2a2e; flex: 0 0 46px; }
+      .t-term { background: #151518; flex: 0 0 30px; }
+      .t-col  { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+      .t-h    { flex: 0 0 24px; }
+      .card-body { padding: 14px 16px 16px; }
+      .card h3 { font-size: 15.5px; margin: 0 0 5px; }
+      .card p { color: var(--fg-dim); font-size: 13px; line-height: 1.55; margin: 0; }
+      .tag {
+        border: 1px solid #2f2f3a;
+        border-radius: 999px;
+        color: var(--accent-fg);
+        font-family: var(--mono);
+        font-size: 10px;
+        margin-bottom: 8px;
+        padding: 2px 8px;
+        display: inline-block;
+      }
+      .tag.pick { border-color: #1e4a3c; color: var(--mint); }
+      ol.ideas, ul.ideas { margin: 0; padding: 0; list-style: none; }
+      .idea {
+        border-left: 2px solid #26262e;
+        margin-bottom: 20px;
+        padding-left: 16px;
+      }
+      .idea b { display: block; font-size: 14.5px; margin-bottom: 4px; }
+      .idea p { color: var(--fg-dim); font-size: 13.5px; line-height: 1.6; margin: 0; }
+      .idea .why { color: var(--fg-faint); font-size: 12.5px; margin-top: 5px; }
+      .note {
+        background: #101014;
+        border: 1px solid #26262e;
+        border-left: 3px solid var(--amber);
+        border-radius: 9px;
+        color: var(--fg-dim);
+        font-size: 13.5px;
+        line-height: 1.6;
+        margin-top: 26px;
+        padding: 14px 18px;
+      }
+      .note b { color: var(--fg); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Layout explorations</h1>
+      <p class="lede">
+        Five arrangements of the same editor. The content in each is identical, so anything that
+        looks different between two of them is a difference of layout rather than of styling. Every
+        page has a notes panel with the tradeoff and a couple of live toggles to push the layout
+        around.
+      </p>
+
+      <div class="cards">
+        <a class="card" href="a-current.html">
+          <div class="thumb">
+            <i class="t-rail"></i><i class="t-side"></i>
+            <span class="t-col"><i class="t-ed" style="flex:1"></i><i class="t-term t-h"></i></span>
+            <i class="t-prev"></i>
+          </div>
+          <div class="card-body">
+            <span class="tag">A · reference</span>
+            <h3>What you have today</h3>
+            <p>Code centre, agent in a bottom strip, preview in a narrow right column.</p>
+          </div>
+        </a>
+
+        <a class="card" href="b-agent-first.html">
+          <div class="thumb">
+            <i class="t-rail"></i><i class="t-term" style="flex:0 0 52px"></i>
+            <span class="t-col"><i class="t-ed" style="flex:1"></i><i class="t-prev" style="flex:1"></i></span>
+          </div>
+          <div class="card-body">
+            <span class="tag pick">B · recommended</span>
+            <h3>The conversation is the app</h3>
+            <p>Agent becomes a full-height column with a real composer. Code and preview stack beside it.</p>
+          </div>
+        </a>
+
+        <a class="card" href="c-stage.html">
+          <div class="thumb" style="flex-direction:column">
+            <i class="t-rail" style="flex:0 0 12px;width:100%"></i>
+            <i class="t-prev" style="flex:1;margin:0 22px"></i>
+            <span style="display:flex;gap:3px;flex:0 0 26px"><i class="t-ed" style="flex:1"></i><i class="t-term" style="flex:0 0 40%"></i></span>
+          </div>
+          <div class="card-body">
+            <span class="tag">C</span>
+            <h3>The running app is the document</h3>
+            <p>Preview centre stage with device sizes. Code and agent drop into a drawer.</p>
+          </div>
+        </a>
+
+        <a class="card" href="d-columns.html">
+          <div class="thumb">
+            <i class="t-rail"></i><i class="t-side"></i><i class="t-ed" style="flex:1"></i>
+            <i class="t-prev"></i><i class="t-term" style="flex:0 0 38px"></i>
+          </div>
+          <div class="card-body">
+            <span class="tag">D</span>
+            <h3>Stop stacking, start columning</h3>
+            <p>The terminal stands up. Nothing stacked, so the agent output is finally tall enough to read.</p>
+          </div>
+        </a>
+
+        <a class="card" href="e-timeline.html">
+          <div class="thumb">
+            <i class="t-rail"></i><i class="t-side" style="flex:0 0 42px;background:#2a2a30"></i>
+            <span class="t-col"><i class="t-ed" style="flex:1"></i><i class="t-term t-h"></i></span>
+            <i class="t-prev"></i>
+          </div>
+          <div class="card-body">
+            <span class="tag pick">E · most distinctive</span>
+            <h3>A feed of what the agent did</h3>
+            <p>The tree becomes a timeline of edits, tool calls and failures. Click one to see that change.</p>
+          </div>
+        </a>
+      </div>
+
+      <h2>Where I would actually go</h2>
+      <div class="idea">
+        <b>B for the shell, E as a view inside it</b>
+        <p>
+          B fixes the real problem, which is that the agent has the smallest box on screen while
+          getting most of your attention. E fixes the second problem, which is that reviewing an
+          agent's work through a file tree is archaeology. They compose: put the timeline where the
+          tree is, and keep the conversation as the spine.
+        </p>
+        <p class="why">
+          C and D are worth having as modes rather than as the default. D in particular is a
+          setting, not a redesign: it is variant A with the terminal rotated.
+        </p>
+      </div>
+
+      <h2>Beyond layout</h2>
+
+      <div class="idea">
+        <b>Diffs should arrive, not be gone looking for</b>
+        <p>
+          When Claude edits a file you are not looking at, nothing tells you. A quiet inline strip
+          at the top of the editor, "3 files changed while you were reading this one", with a click
+          to review, would close the gap without stealing focus.
+        </p>
+      </div>
+
+      <div class="idea">
+        <b>Give the token counter a rate, not just a total</b>
+        <p>
+          561M tokens is a number nobody can feel. Tokens per hour, or the cost of the last task,
+          is a number you can act on. The same panel could mark the moment a session's context is
+          getting long, which is when quality starts to slip.
+        </p>
+      </div>
+
+      <div class="idea">
+        <b>Let the preview element picker write code, not just messages</b>
+        <p>
+          Right now picking an element sends Claude a note. The obvious next step is picking an
+          element and jumping straight to the JSX that renders it. The selector is already exact;
+          the source map is the missing half.
+        </p>
+      </div>
+
+      <div class="idea">
+        <b>Permission prompts belong where your eyes are</b>
+        <p>
+          Approving a tool call currently means finding the terminal and typing. Since the editor
+          already knows a permission was asked, the answer could be two buttons on the floating
+          alert itself, which is the thing you are already looking at.
+        </p>
+      </div>
+
+      <div class="idea">
+        <b>One command palette instead of five menus</b>
+        <p>
+          Open folder, run the project check, test the UI, switch model, change theme and pick a
+          sound live in six different places. A single palette would make every one of them
+          discoverable, and would carry the keyboard shortcut education for free.
+        </p>
+      </div>
+
+      <div class="idea">
+        <b>The empty preview is the best onboarding surface you have</b>
+        <p>
+          Before a dev server exists, that pane is a dead grey rectangle taking a third of the
+          window. It could be showing the two commands that would start one, detected from the
+          project's own package.json.
+        </p>
+      </div>
+
+      <div class="note">
+        <b>These are mockups, not the app.</b> They live in <code>design/</code> and import nothing
+        from <code>src/</code>, so nothing here can affect the editor. The styling is a hand-built
+        copy of the real chrome, close enough to judge layout by and not close enough to trust for
+        pixel decisions.
+      </div>
+    </div>
+  </body>
+</html>

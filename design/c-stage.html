@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>C · Preview as the stage</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .stage { background: #0f0f12; display: flex; flex: 1; justify-content: center;
+           min-height: 0; padding: 18px; }
+  .device { border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 24px 60px #000a;
+            display: flex; flex-direction: column; overflow: hidden; width: 100%; max-width: 760px; }
+  .device.phone { max-width: 380px; }
+  .sizebar { align-items: center; background: var(--bg-bar); border-bottom: 1px solid var(--border);
+             display: flex; flex: 0 0 34px; gap: 6px; padding: 0 10px; }
+  .drawer { border-top: 1px solid var(--border); display: flex; flex: 0 0 210px; min-height: 0; }
+  .drawer .editor { border-right: 1px solid var(--border); }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div id="rail"></div>
+  <div class="body" style="flex-direction:column">
+    <div class="stage">
+      <div class="device" id="device">
+        <div class="sizebar">
+          <button class="chip">📱 Phone</button><button class="chip on">💻 Desktop</button>
+          <span style="color:var(--fg-dim);font-family:var(--mono);font-size:11px;margin-left:8px">localhost:3000</span>
+          <span style="color:var(--mint);font-size:11px;margin-left:auto">● Claude driving</span>
+        </div>
+        <div id="prev"></div>
+      </div>
+    </div>
+    <div class="drawer">
+      <div id="ed" style="flex:1"></div>
+      <div id="term" style="flex:0 0 42%"></div>
+    </div>
+  </div>
+  <div id="status"></div>
+</div>
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar()
+document.getElementById('rail').outerHTML = P.rail('ports', true)
+document.getElementById('prev').outerHTML = P.preview()
+{ const p = document.querySelector('.device .preview'); p.style.border='none'; p.style.flex='1'
+  p.querySelector('.urlbar').remove() }
+document.getElementById('ed').outerHTML = P.editor()
+document.getElementById('term').outerHTML = P.terminal()
+{ const t = document.querySelector('.drawer .term'); t.style.borderTop='none' }
+document.getElementById('status').outerHTML = P.status()
+notes({
+  kicker: 'Variant C',
+  title: 'The running app is the document',
+  body: [
+    'The preview becomes the stage: centred, framed like a device, with viewport sizes along the top. Code and the agent drop into a drawer underneath.',
+    'The rail turns horizontal because a vertical strip earns its width only when the columns beside it are dense.',
+    'This is the layout for the hours where you are looking at the product rather than the source, which for UI work is most of them.'
+  ],
+  good: 'Responsive checking becomes trivial, and screenshots of your own app finally look like your app rather than a slice of it.',
+  bad: 'Anything that is real editing gets cramped. Wrong mode for a refactor.',
+  toggles: [
+    { label: 'Phone viewport', apply: (on) => document.querySelector('.device').classList.toggle('phone', on) },
+    { label: 'Hide the drawer', apply: (on) => document.querySelector('.drawer').style.display = on ? 'none' : 'flex' }
+  ]
+})
+</script></body></html>

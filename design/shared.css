@@ -1,0 +1,552 @@
+/*
+ * Shared chrome for the layout explorations.
+ *
+ * Every variant uses these same pieces: rail, tree, editor, preview, terminal, Claude
+ * panel. Only the arrangement changes, so a difference you see between two variants is
+ * a difference of layout and not of styling.
+ */
+
+:root {
+  --bg: #1e1e1e;
+  --bg-alt: #252526;
+  --bg-deep: #1a1a1a;
+  --bg-bar: #323233;
+  --border: #3c3c3c;
+  --fg: #d4d4d4;
+  --fg-dim: #9b9b9b;
+  --fg-faint: #6e6e78;
+  --accent: #0b6fd4;
+  --accent-fg: #6cb6ff;
+  --mint: #4ec9b0;
+  --amber: #e2c08d;
+  --red: #f14c4c;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: #0c0c0e;
+  color: var(--fg);
+  font: 13px/1.5 var(--ui);
+  overflow: hidden;
+}
+
+/* -- app frame ------------------------------------------------------------ */
+
+.app {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 24px);
+  margin: 12px;
+  overflow: hidden;
+}
+
+.titlebar {
+  align-items: center;
+  background: var(--bg-bar);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex: 0 0 36px;
+  gap: 10px;
+  padding: 0 12px;
+}
+.lights {
+  display: flex;
+  gap: 7px;
+  margin-right: 6px;
+}
+.lights i {
+  border-radius: 50%;
+  height: 11px;
+  width: 11px;
+}
+.app-name {
+  font-weight: 600;
+}
+.title-meta {
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+.title-right {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* -- generic panel chrome -------------------------------------------------- */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.panel-head {
+  align-items: center;
+  color: var(--fg-dim);
+  display: flex;
+  flex: 0 0 30px;
+  font-size: 10.5px;
+  gap: 8px;
+  letter-spacing: 0.08em;
+  padding: 0 10px;
+  text-transform: uppercase;
+}
+.panel-head .count {
+  background: #ffffff18;
+  border-radius: 8px;
+  letter-spacing: 0;
+  padding: 0 6px;
+}
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.chip {
+  background: #ffffff14;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  padding: 3px 9px;
+}
+.chip:hover {
+  color: var(--fg);
+}
+.chip.on {
+  background: var(--accent);
+  color: #fff;
+}
+.chip.ghost {
+  background: none;
+  border-color: var(--border);
+}
+
+/* -- activity rail --------------------------------------------------------- */
+
+.rail {
+  align-items: stretch;
+  background: var(--bg-bar);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex: 0 0 66px;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+}
+.rail.horizontal {
+  border-bottom: 1px solid var(--border);
+  border-right: none;
+  flex: 0 0 auto;
+  flex-direction: row;
+  gap: 4px;
+  padding: 5px 8px;
+}
+.rail b {
+  border-left: 2px solid transparent;
+  color: var(--fg-dim);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-size: 9.5px;
+  font-weight: 400;
+  gap: 2px;
+  padding: 7px 2px;
+  text-align: center;
+}
+.rail.horizontal b {
+  border-bottom: 2px solid transparent;
+  border-left: none;
+  flex-direction: row;
+  gap: 6px;
+  padding: 5px 10px;
+}
+.rail b i {
+  font-size: 16px;
+  font-style: normal;
+}
+.rail b.on {
+  background: #ffffff10;
+  border-left-color: var(--accent);
+  color: var(--fg);
+}
+.rail.horizontal b.on {
+  border-bottom-color: var(--accent);
+  border-left-color: transparent;
+}
+
+/* -- file tree ------------------------------------------------------------- */
+
+.side {
+  background: var(--bg-alt);
+  border-right: 1px solid var(--border);
+  flex: 0 0 214px;
+}
+.tree {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 4px 0;
+}
+.tree div {
+  display: flex;
+  gap: 6px;
+  padding: 2.5px 10px;
+  white-space: nowrap;
+}
+.tree div.sel {
+  background: #ffffff14;
+}
+.tree .i1 {
+  padding-left: 22px;
+}
+.tree .i2 {
+  padding-left: 36px;
+}
+.tree .m {
+  color: var(--amber);
+  margin-left: auto;
+}
+.tree .u {
+  color: var(--mint);
+  margin-left: auto;
+}
+
+/* -- editor ---------------------------------------------------------------- */
+
+.editor {
+  background: var(--bg);
+  flex: 1;
+}
+.tabs {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex: 0 0 32px;
+}
+.tabs span {
+  border-right: 1px solid var(--border);
+  border-top: 2px solid transparent;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+.tabs span.on {
+  border-top-color: var(--accent);
+  color: var(--fg);
+}
+.code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.75;
+  margin: 0;
+  padding: 8px 12px;
+  white-space: pre;
+}
+.code .ln {
+  color: #5a5a5a;
+  padding-right: 10px;
+}
+.code .k {
+  color: #c586c0;
+}
+.code .f {
+  color: #dcdcaa;
+}
+.code .s {
+  color: #ce9178;
+}
+.code .t {
+  color: #4ec9b0;
+}
+.code .c {
+  color: #6a9955;
+}
+.code .n {
+  color: #569cd6;
+}
+
+/* -- preview --------------------------------------------------------------- */
+
+.preview {
+  background: var(--bg-alt);
+  border-left: 1px solid var(--border);
+  flex: 0 0 300px;
+}
+.urlbar {
+  align-items: center;
+  background: var(--bg-bar);
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-dim);
+  display: flex;
+  flex: 0 0 30px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  gap: 7px;
+  padding: 0 9px;
+}
+.urlbar .live {
+  color: var(--mint);
+  margin-left: auto;
+}
+.page {
+  background: #fff;
+  color: #16161a;
+  flex: 1;
+  font-size: 11px;
+  padding: 14px;
+}
+.page h4 {
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+.page label {
+  color: #6a6a72;
+  display: block;
+  font-size: 10px;
+  margin: 8px 0 3px;
+}
+.page .field {
+  border: 1px solid #dcdce2;
+  border-radius: 4px;
+  padding: 5px 7px;
+}
+.page .cta {
+  background: var(--accent);
+  border-radius: 5px;
+  color: #fff;
+  display: inline-block;
+  margin-top: 12px;
+  padding: 6px 12px;
+}
+.page .cta.picked {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
+.picked-tag {
+  color: var(--mint);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  margin-top: 6px;
+}
+
+/* -- terminal -------------------------------------------------------------- */
+
+.term {
+  background: var(--bg-deep);
+  border-top: 1px solid var(--border);
+  flex: 0 0 190px;
+}
+.term.vertical {
+  border-left: 1px solid var(--border);
+  border-top: none;
+  flex: 0 0 320px;
+}
+.termbar {
+  align-items: center;
+  background: var(--bg-bar);
+  display: flex;
+  flex: 0 0 28px;
+  gap: 3px;
+  padding: 0 8px;
+}
+.termbar em {
+  border-radius: 5px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-style: normal;
+  padding: 3px 9px;
+}
+.termbar em.on {
+  background: #ffffff18;
+  color: var(--fg);
+}
+.termbar em i {
+  border-radius: 50%;
+  display: inline-block;
+  height: 6px;
+  margin-right: 5px;
+  width: 6px;
+}
+.termbar em i.c {
+  background: var(--accent-fg);
+}
+.termbar em i.s {
+  background: var(--fg-faint);
+}
+.termlines {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.65;
+  padding: 8px 12px;
+}
+.termlines .p {
+  color: var(--mint);
+}
+.termlines .d {
+  color: var(--fg-dim);
+}
+.termlines .ok {
+  color: var(--mint);
+}
+.termlines .bad {
+  color: var(--red);
+}
+
+/* -- claude panel ---------------------------------------------------------- */
+
+.claude .metric {
+  border-bottom: 1px solid var(--border);
+  padding: 10px;
+}
+.claude .big {
+  font-family: var(--mono);
+  font-size: 19px;
+}
+.claude .sub {
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+.bar {
+  background: #ffffff12;
+  border-radius: 3px;
+  display: flex;
+  gap: 1px;
+  height: 6px;
+  margin-top: 7px;
+  overflow: hidden;
+}
+.bar i {
+  display: block;
+  height: 100%;
+}
+.bar .in {
+  background: var(--accent-fg);
+}
+.bar .out {
+  background: var(--mint);
+}
+.bar .ca {
+  background: var(--fg-faint);
+}
+
+/* -- status bar ------------------------------------------------------------ */
+
+.status {
+  align-items: center;
+  background: var(--bg-bar);
+  border-top: 1px solid var(--border);
+  color: var(--fg-dim);
+  display: flex;
+  flex: 0 0 22px;
+  font-size: 11px;
+  gap: 14px;
+  padding: 0 12px;
+}
+.status .right {
+  display: flex;
+  gap: 14px;
+  margin-left: auto;
+}
+
+/* -- notes drawer ---------------------------------------------------------- */
+
+.notes {
+  background: #101014;
+  border: 1px solid #26262e;
+  border-radius: 10px;
+  bottom: 16px;
+  box-shadow: 0 18px 50px #000a;
+  font-size: 12.5px;
+  max-height: 72vh;
+  overflow: auto;
+  padding: 16px 18px;
+  position: fixed;
+  right: 16px;
+  width: 340px;
+  z-index: 50;
+}
+.notes.closed {
+  height: 42px;
+  overflow: hidden;
+  padding: 10px 14px;
+  width: 190px;
+}
+.notes h2 {
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+.notes .kicker {
+  color: var(--accent-fg);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.notes p {
+  color: var(--fg-dim);
+  line-height: 1.6;
+  margin: 10px 0 0;
+}
+.notes .good,
+.notes .bad {
+  border-left: 2px solid var(--mint);
+  margin-top: 12px;
+  padding-left: 10px;
+}
+.notes .bad {
+  border-left-color: var(--amber);
+}
+.notes .good b,
+.notes .bad b {
+  color: var(--fg);
+  display: block;
+  font-size: 11.5px;
+  margin-bottom: 2px;
+}
+.notes .toggles {
+  border-top: 1px solid #26262e;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+.notes .close {
+  background: none;
+  border: none;
+  color: var(--fg-faint);
+  cursor: pointer;
+  font-size: 16px;
+  position: absolute;
+  right: 10px;
+  top: 8px;
+}
+.nav-back {
+  color: var(--fg-dim);
+  font-size: 12px;
+  text-decoration: none;
+}
+.nav-back:hover {
+  color: var(--fg);
+}

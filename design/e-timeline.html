@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>E · Activity timeline</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .feed { background: var(--bg-alt); border-right: 1px solid var(--border); flex: 0 0 310px; }
+  .ev { border-bottom: 1px solid var(--border); cursor: pointer; padding: 10px 12px; }
+  .ev:hover { background: #ffffff08; }
+  .ev.on { background: #ffffff12; border-left: 2px solid var(--accent); padding-left: 10px; }
+  .ev .when { color: var(--fg-faint); font-family: var(--mono); font-size: 10px; }
+  .ev .what { display: flex; gap: 7px; margin-top: 3px; }
+  .ev .what b { font-size: 12px; font-weight: 500; }
+  .ev .meta { color: var(--fg-dim); font-size: 11px; margin-top: 3px; }
+  .ev .kind { border-radius: 4px; flex: 0 0 auto; font-family: var(--mono); font-size: 9px;
+              height: 16px; line-height: 16px; text-align: center; width: 34px; }
+  .k-edit { background: #3a2f14; color: var(--amber); }
+  .k-test { background: #14322c; color: var(--mint); }
+  .k-fail { background: #3a1a1c; color: var(--red); }
+  .k-ask  { background: #16283d; color: var(--accent-fg); }
+  .diffline { font-family: var(--mono); font-size: 11px; padding: 1px 12px; white-space: pre; }
+  .diffline.add { background: #14321f; color: #b5e8c9; }
+  .diffline.del { background: #3a1a1c; color: #f0b0b0; }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div id="rail"></div>
+    <div class="panel feed">
+      <div class="panel-head">Activity <span class="count">live</span></div>
+      <div class="panel-body">
+        <div class="ev on">
+          <div class="when">10:42:07</div>
+          <div class="what"><span class="kind k-edit">EDIT</span><b>Signup.tsx</b></div>
+          <div class="meta">+6 −2 · made the submit button green</div>
+        </div>
+        <div class="ev">
+          <div class="when">10:42:19</div>
+          <div class="what"><span class="kind k-test">RUN</span><b>preview_fill</b></div>
+          <div class="meta">filled 4 fields on /signup</div>
+        </div>
+        <div class="ev">
+          <div class="when">10:42:24</div>
+          <div class="what"><span class="kind k-fail">FAIL</span><b>/checkout</b></div>
+          <div class="meta">POST /api/coupon → 500</div>
+        </div>
+        <div class="ev">
+          <div class="when">10:42:31</div>
+          <div class="what"><span class="kind k-ask">ASK</span><b>Permission</b></div>
+          <div class="meta">wants to run: npm test</div>
+        </div>
+        <div class="ev">
+          <div class="when">10:41:52</div>
+          <div class="what"><span class="kind k-edit">EDIT</span><b>api.ts</b></div>
+          <div class="meta">+18 −0 · new file</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="flex:1;min-width:0">
+      <div class="tabs"><span class="on">Signup.tsx · diff</span><span>Signup.tsx</span></div>
+      <div class="panel-body">
+        <div class="diffline">@@ -14,7 +14,11 @@</div>
+        <div class="diffline">   return (</div>
+        <div class="diffline">     &lt;form onSubmit={submit}&gt;</div>
+        <div class="diffline del">-      &lt;button id="submit"&gt;Create account&lt;/button&gt;</div>
+        <div class="diffline add">+      &lt;button id="submit" className="btn-green btn-lg"&gt;</div>
+        <div class="diffline add">+        Create account</div>
+        <div class="diffline add">+      &lt;/button&gt;</div>
+        <div class="diffline">     &lt;/form&gt;</div>
+        <div class="diffline">   )</div>
+      </div>
+      <div id="term" style="flex:0 0 150px"></div>
+    </div>
+    <div id="prev"></div>
+  </div>
+  <div id="status"></div>
+</div>
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar()
+document.getElementById('rail').outerHTML = P.rail('git')
+document.getElementById('term').outerHTML = P.terminal()
+document.getElementById('prev').outerHTML = P.preview()
+document.getElementById('status').outerHTML = P.status()
+document.querySelectorAll('.ev').forEach((ev) => ev.addEventListener('click', () => {
+  document.querySelector('.ev.on')?.classList.remove('on'); ev.classList.add('on')
+}))
+notes({
+  kicker: 'Variant E · the interesting one',
+  title: 'A feed of what the agent did',
+  body: [
+    'The file tree is replaced by a reverse-chronological feed: every edit, tool call, failed request and permission ask, in order. Click any entry and the middle pane shows exactly that change.',
+    'A tree answers "what files exist", which the agent already knows and you increasingly do not. The question you actually have is "what just happened, and was it right".',
+    'Failures and permission asks sit inline in the same stream, so an alert you missed is still there to scroll back to.'
+  ],
+  good: 'Turns reviewing an agent from archaeology into reading. It is the only layout here that could not be a VS Code theme.',
+  bad: 'Genuinely new, so it needs building and testing, and you still need the tree sometimes. Probably a view alongside Files, not a replacement.',
+  toggles: [
+    { label: 'Feed on the right', apply: (on) => { const b=document.querySelector('.body'); const f=document.querySelector('.feed'); on ? b.appendChild(f) : b.insertBefore(f, b.children[1]) } },
+    { label: 'Hide the preview', apply: (on) => document.querySelector('.preview').style.display = on ? 'none' : 'flex' }
+  ]
+})
+</script></body></html>
