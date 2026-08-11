@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>G · Threads</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      /* Left: a list of tasks, not files. Each carries a branch, a diff and an age. */
+      .threads {
+        background: var(--bg-alt);
+        border-right: 1px solid var(--border);
+        flex: 0 0 260px;
+      }
+      .group {
+        color: var(--fg-dim);
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 9px 12px 5px;
+      }
+      .thread {
+        border-bottom: 1px solid #ffffff08;
+        cursor: pointer;
+        display: flex;
+        gap: 9px;
+        padding: 8px 12px;
+      }
+      .thread:hover {
+        background: #ffffff08;
+      }
+      .thread.on {
+        background: #ffffff12;
+      }
+      .thread .dot {
+        flex: 0 0 auto;
+        font-size: 10px;
+        line-height: 1.6;
+      }
+      .thread .dot.run {
+        color: var(--accent-fg);
+      }
+      .thread .dot.wait {
+        color: var(--amber);
+      }
+      .thread .dot.done {
+        color: var(--fg-faint);
+      }
+      .thread .dot.fail {
+        color: var(--red);
+      }
+      .thread .txt {
+        min-width: 0;
+      }
+      .thread .name {
+        font-size: 12.5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .thread .meta {
+        color: var(--fg-faint);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .thread .meta .add {
+        color: var(--mint);
+      }
+      .thread .meta .del {
+        color: var(--red);
+      }
+
+      /* Middle: the thread itself. */
+      .convo {
+        background: var(--bg);
+        border-right: 1px solid var(--border);
+        flex: 0 0 380px;
+      }
+      .convo-head {
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex: 0 0 34px;
+        gap: 8px;
+        padding: 0 12px;
+      }
+      .convo-head b {
+        font-size: 12.5px;
+        font-weight: 550;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .convo-head span {
+        color: var(--fg-faint);
+        margin-left: auto;
+      }
+      .convo-body {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 12px;
+      }
+      /* The prompt is a card. The agent's prose is not. That contrast is the whole
+         readability trick, and a terminal cannot do it. */
+      .prompt {
+        background: #ffffff0a;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-size: 12.5px;
+        line-height: 1.6;
+        padding: 10px 12px;
+      }
+      .tools {
+        margin: 12px 0;
+      }
+      .tool {
+        align-items: baseline;
+        color: var(--fg-dim);
+        display: flex;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        gap: 8px;
+        padding: 2.5px 0;
+      }
+      .tool i {
+        color: var(--fg-faint);
+        font-style: normal;
+      }
+      .tool .arg {
+        color: var(--accent-fg);
+      }
+      .tool.edit .arg {
+        color: var(--amber);
+      }
+      .tool.bad .arg {
+        color: var(--red);
+      }
+      .prose {
+        color: var(--fg-dim);
+        font-size: 12.5px;
+        line-height: 1.65;
+      }
+      .composer {
+        border-top: 1px solid var(--border);
+        flex: 0 0 auto;
+        padding: 10px 12px;
+      }
+      .composer .box {
+        background: #ffffff08;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--fg-faint);
+        font-size: 12px;
+        padding: 9px 11px;
+      }
+      .composer .hint {
+        color: var(--fg-faint);
+        font-size: 10.5px;
+        margin-top: 6px;
+      }
+
+      /* Right: code, pushed to the side, with a terminal under it. */
+      .rightcol {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .crumb {
+        border-bottom: 1px solid var(--border);
+        color: var(--fg-dim);
+        flex: 0 0 26px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        padding: 5px 12px;
+      }
+      /* Diagnostics sit inline beside the code rather than in a separate panel. */
+      .diag {
+        background: #3a1a1c;
+        border-radius: 3px;
+        color: #f0b0b0;
+        font-size: 10px;
+        margin-left: 10px;
+        padding: 0 6px;
+      }
+      .diag.warn {
+        background: #3a2f14;
+        color: var(--amber);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div id="top"></div>
+      <div class="body">
+        <div class="panel threads">
+          <div class="panel-head">Threads <span class="count">4 running</span></div>
+          <div class="panel-body">
+            <div class="group">my-app</div>
+            <div class="thread on">
+              <span class="dot run">●</span>
+              <span class="txt">
+                <span class="name">Make the signup button green</span>
+                <span class="meta">⑂ signup-green / main · 4m</span>
+              </span>
+            </div>
+            <div class="thread">
+              <span class="dot wait">◐</span>
+              <span class="txt">
+                <span class="name">Add rate limiting to /api/coupon</span>
+                <span class="meta">⑂ coupon-limit · needs permission · 6m</span>
+              </span>
+            </div>
+            <div class="thread">
+              <span class="dot done">○</span>
+              <span class="txt">
+                <span class="name">Fix checkout 500 on empty cart</span>
+                <span class="meta"><span class="add">+23</span> <span class="del">-2</span> · 48m</span>
+              </span>
+            </div>
+            <div class="thread">
+              <span class="dot fail">●</span>
+              <span class="txt">
+                <span class="name">Migrate tests to vitest</span>
+                <span class="meta">⑂ vitest-migration · 3 failing · 2h</span>
+              </span>
+            </div>
+            <div class="thread">
+              <span class="dot done">○</span>
+              <span class="txt">
+                <span class="name">Dark mode contrast pass</span>
+                <span class="meta"><span class="add">+61</span> <span class="del">-40</span> · 1d</span>
+              </span>
+            </div>
+
+            <div class="group">marketing-site</div>
+            <div class="thread">
+              <span class="dot run">●</span>
+              <span class="txt">
+                <span class="name">Rewrite the pricing page copy</span>
+                <span class="meta">⑂ pricing-copy · 12m</span>
+              </span>
+            </div>
+            <div class="thread">
+              <span class="dot done">○</span>
+              <span class="txt">
+                <span class="name">Compress hero images</span>
+                <span class="meta"><span class="add">+4</span> <span class="del">-4</span> · 5h</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel convo">
+          <div class="convo-head">
+            <b>Make the signup button green</b><span>＋ ⤢ ⋯</span>
+          </div>
+          <div class="convo-body">
+            <div class="prompt">
+              Make the signup button green and a bit larger. Check it still passes contrast, and
+              make sure the disabled state does not look active.
+            </div>
+
+            <div class="tools">
+              <div class="tool"><i>⌕</i> Read <span class="arg">src/components/Signup.tsx</span></div>
+              <div class="tool"><i>⌕</i> Search <span class="arg">"btn-"</span> in src/styles/</div>
+              <div class="tool edit"><i>✎</i> Edit <span class="arg">Signup.tsx</span> +3 −1</div>
+              <div class="tool edit"><i>✎</i> Edit <span class="arg">theme.css</span> +2</div>
+              <div class="tool"><i>◫</i> preview_navigate <span class="arg">localhost:3000/signup</span></div>
+              <div class="tool"><i>◫</i> preview_state <span class="arg">contrast 5.1:1</span></div>
+              <div class="tool bad"><i>◫</i> preview_state <span class="arg">disabled state still reads as active</span></div>
+            </div>
+
+            <p class="prose">
+              Green passes at 5.1:1, so that part is fine. The disabled state does not: it keeps the
+              same background and only drops opacity, which still reads as clickable. I would give it
+              a flat grey rather than a faded green. Want me to?
+            </p>
+          </div>
+          <div class="composer">
+            <div class="box">Reply, or @ a file to bring it in…</div>
+            <div class="hint">⏎ send · ⇧⏎ newline · @ file · / command</div>
+          </div>
+        </div>
+
+        <div class="rightcol">
+          <div class="tabs">
+            <span class="on">Signup.tsx</span><span>theme.css</span><span>⑂ Review 2 files</span>
+          </div>
+          <div class="crumb">src / components / Signup.tsx</div>
+          <div class="panel-body">
+            <pre class="code"><span class="ln">15</span>   <span class="k">return</span> (
+<span class="ln">16</span>     &lt;<span class="t">form</span> onSubmit={submit}&gt;
+<span class="ln">17</span>       &lt;<span class="t">input</span> value={email} required /&gt;
+<span class="ln">18</span>       &lt;<span class="t">button</span>
+<span class="ln">19</span>         id=<span class="s">"submit"</span>
+<span class="ln">20</span>         className=<span class="s">"btn-green btn-lg"</span>
+<span class="ln">21</span>         disabled={!accepted}<span class="diag">disabled style reads as active</span>
+<span class="ln">22</span>       &gt;
+<span class="ln">23</span>         Create account
+<span class="ln">24</span>       &lt;/<span class="t">button</span>&gt;
+<span class="ln">25</span>     &lt;/<span class="t">form</span>&gt;
+<span class="ln">26</span>   )</pre>
+          </div>
+          <div id="term" style="flex: 0 0 150px"></div>
+        </div>
+      </div>
+      <div id="status"></div>
+    </div>
+
+    <script src="parts.js"></script>
+    <script>
+      document.getElementById('top').outerHTML = P.titlebar()
+      document.getElementById('term').outerHTML = P.terminal()
+      document.getElementById('status').outerHTML = P.status()
+      document.querySelectorAll('.thread').forEach((t) =>
+        t.addEventListener('click', () => {
+          document.querySelector('.thread.on')?.classList.remove('on')
+          t.classList.add('on')
+        })
+      )
+
+      notes({
+        kicker: 'Variant G · what Zed actually ships',
+        title: 'Threads, not terminals',
+        body: [
+          'I opened zed.dev in a browser instead of reading the docs, and their own hero shot is close to the layout I had been arguing for, with three refinements I did not have.',
+          'The left column is a list of <b>tasks</b>, grouped by project. Each carries a title, its branch, its diff stats and its age. Our terminal tabs say "claude" and "claude 2", which tell you nothing. A thread called "Fix checkout 500" with +23 −2 against a branch tells you everything.',
+          'Tool calls render as structured one-liners rather than scrollback: Read <i>file</i>, Search <i>query</i>, Edit <i>file</i> +3 −1. Scannable in a way a terminal dump is not.',
+          'The prompt is a card and the reply is plain prose. That contrast is doing most of the readability work, and it is the one thing an xterm fundamentally cannot give you.'
+        ],
+        good: 'Parallel agent runs stop being a pile of anonymous terminals. Status, branch and size are visible without opening anything.',
+        bad: 'It means giving up the raw terminal as the primary surface, which means parsing the agent stream rather than just printing it. That is the expensive part.',
+        toggles: [
+          {
+            label: 'Widen the conversation',
+            apply: (on) => (document.querySelector('.convo').style.flex = on ? '1 1 auto' : '0 0 380px')
+          },
+          {
+            label: 'Hide the code column',
+            apply: (on) => (document.querySelector('.rightcol').style.display = on ? 'none' : 'flex')
+          }
+        ]
+      })
+    </script>
+  </body>
+</html>

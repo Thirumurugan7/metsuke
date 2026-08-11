@@ -112,7 +112,7 @@
     <div class="wrap">
       <h1>Layout explorations</h1>
       <p class="lede">
-        Six arrangements of the same editor. The content in each is identical, so anything that
+        Seven arrangements of the same editor. The content in each is identical, so anything that
         looks different between two of them is a difference of layout rather than of styling. Every
         page has a notes panel with the tradeoff and a couple of live toggles to push the layout
         around. The last one is drawn from how Zed actually works.
@@ -193,9 +193,61 @@
             <p>Panels move between three docks. The centre shows every hunk Claude wrote in one editable scroll.</p>
           </div>
         </a>
+        <a class="card" href="g-threads.html">
+          <div class="thumb">
+            <i class="t-side" style="flex:0 0 34px;background:#2a2a30"></i>
+            <i class="t-ed" style="flex:0 0 46px;background:#1e1e1e"></i>
+            <span class="t-col"><i class="t-ed" style="flex:1"></i><i class="t-term t-h"></i></span>
+          </div>
+          <div class="card-body">
+            <span class="tag pick">G · what Zed ships</span>
+            <h3>Threads, not terminals</h3>
+            <p>A list of tasks with branch, diff and status. Tool calls as one-liners. The prompt is a card.</p>
+          </div>
+        </a>
       </div>
 
       <h2>What Zed does that is worth taking</h2>
+
+      <div class="idea">
+        <b>Their hero shot is an agent-first three column layout</b>
+        <p>
+          Left is a list of agent threads grouped by repo. Middle is the conversation. The code
+          editor is the right-hand column. Code is explicitly not the centre of the window, which is
+          the same bet variant B makes, shipped by people who had to live with it.
+        </p>
+        <p class="why">
+          Read from the actual page rather than the docs. The docs describe docks and panels and
+          never mention that this is the arrangement they chose to show.
+        </p>
+      </div>
+
+      <div class="idea">
+        <b>A thread carries its branch, its diff and its age</b>
+        <p>
+          Every row in that list reads like <code>Add vim motion for surround pairs · +23 −2 · 48m</code>
+          or <code>⑂ gpui-accesskit / main · 4m</code>. Status is a coloured dot. You can see which
+          runs are working, which are waiting and how big each change is without opening one.
+        </p>
+        <p class="why">
+          Ours are called "claude" and "claude 2". This is the single cheapest improvement on the
+          page: name the tab after the task and hang the branch and diff off it.
+        </p>
+      </div>
+
+      <div class="idea">
+        <b>Tool calls are one-liners, and the prompt is a card</b>
+        <p>
+          Their agent panel renders <code>Read crates/gpui/src/element.rs</code> and
+          <code>Search "accessibility" in crates/gpui/</code> as compact rows with an icon, then the
+          reply as plain prose, with the user's message in a bordered box above.
+        </p>
+        <p class="why">
+          That visual contrast between prompt, action and prose is most of why it reads well, and it
+          is the one thing an xterm cannot do. It also means parsing the agent stream instead of
+          printing it, which is the real cost.
+        </p>
+      </div>
 
       <div class="idea">
         <b>Docks, not a fixed layout</b>
