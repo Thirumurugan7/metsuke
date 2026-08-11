@@ -1,0 +1,274 @@
+/* The Claude sidebar view. Built from palette tokens so it follows the active theme. */
+
+.claude-panel {
+  padding-bottom: 20px;
+}
+
+.claude-section {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 10px 14px;
+}
+.claude-section:last-child {
+  border-bottom: none;
+}
+
+.claude-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.claude-head h3 {
+  color: var(--fg-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  margin: 0;
+  text-transform: uppercase;
+}
+.claude-head .icon-only {
+  margin-left: auto;
+}
+.claude-count {
+  background: var(--hover, #ffffff1a);
+  border-radius: 8px;
+  color: var(--fg-dim);
+  font-size: 10.5px;
+  margin-left: auto;
+  padding: 0 6px;
+}
+
+.claude-none {
+  color: var(--fg-dim);
+  font-size: 12px;
+  margin: 0;
+}
+.claude-foot {
+  border-top: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 12px 0 0;
+  padding-top: 10px;
+}
+.claude-foot code {
+  font-size: 10.5px;
+  margin: 0 2px;
+}
+
+/* -- usage ---------------------------------------------------------------- */
+
+.claude-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.claude-tabs button {
+  border-radius: 5px;
+  color: var(--fg-dim);
+  flex: 1;
+  font-size: 11.5px;
+  padding: 4px 2px;
+}
+.claude-tabs button.on {
+  background: var(--hover-strong, #ffffff20);
+  color: var(--fg);
+}
+
+.usage-total-line {
+  color: var(--fg-dim);
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.usage-total-line b {
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 16px;
+}
+
+.usage-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.usage-head {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.usage-model {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.usage-total {
+  color: var(--fg-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.usage-bar {
+  background: var(--hover, #ffffff12);
+  border-radius: 3px;
+  display: flex;
+  gap: 1px;
+  height: 6px;
+  overflow: hidden;
+}
+.usage-bar .seg {
+  display: block;
+  height: 100%;
+  min-width: 1px;
+}
+.seg.in,
+.usage-legend i.in {
+  background: var(--accent);
+}
+.seg.out,
+.usage-legend i.out {
+  background: var(--added, #4ec9b0);
+}
+.seg.cache,
+.usage-legend i.cache {
+  background: var(--fg-dim);
+  opacity: 0.5;
+}
+
+.usage-legend {
+  color: var(--fg-dim);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 10.5px;
+  gap: 10px;
+  margin-top: 5px;
+}
+.usage-legend span {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
+.usage-legend i {
+  border-radius: 2px;
+  display: inline-block;
+  height: 7px;
+  width: 7px;
+}
+
+/* -- model ---------------------------------------------------------------- */
+
+.model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.model-row {
+  align-items: flex-start;
+  border-radius: 6px;
+  display: flex;
+  gap: 8px;
+  padding: 7px 8px;
+  text-align: left;
+  width: 100%;
+}
+.model-row.on {
+  background: var(--hover, #ffffff12);
+}
+.model-tick {
+  color: var(--fg-dim);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.model-row.on .model-tick {
+  color: var(--accent);
+}
+.model-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.model-name {
+  font-size: 12.5px;
+}
+.model-name em {
+  color: var(--fg-dim);
+  font-size: 11px;
+  font-style: normal;
+}
+.model-body small {
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+
+.model-actions {
+  margin-top: 8px;
+}
+.model-actions button {
+  width: 100%;
+}
+
+/* -- skills --------------------------------------------------------------- */
+
+.skill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.skill-row {
+  border-left: 2px solid var(--border);
+  padding-left: 9px;
+}
+.skill-top {
+  align-items: baseline;
+  display: flex;
+  gap: 7px;
+}
+.skill-name {
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.skill-src {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--fg-dim);
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  margin-left: auto;
+  padding: 0 6px;
+}
+.src-project {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.skill-desc {
+  color: var(--fg-dim);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 3px 0 0;
+  /* Skill descriptions are written for a model and run long. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+/* -- plugins -------------------------------------------------------------- */
+
+.plugin-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.plugin-chip {
+  background: var(--hover, #ffffff12);
+  border-radius: 5px;
+  color: var(--fg-dim);
+  font-size: 11px;
+  padding: 3px 7px;
+}

@@ -23,6 +23,7 @@ const services: AppServices = {
   alerts: new AlertWindow(),
   workspace: null,
   mcpConfigPath: null,
+  sessionModel: null,
   hookSettingsPath: null,
   resetAdaptations: () => bridge.resetAdaptations()
 }

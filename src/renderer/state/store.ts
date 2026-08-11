@@ -104,7 +104,7 @@ async function adoptInner(workspace: Workspace, opts: { check: boolean }): Promi
   addTerminal('claude', opts.check && autoCheck ? { prompt: PROJECT_CHECK_PROMPT } : {})
 }
 
-export type SidebarView = 'explorer' | 'git' | 'search' | 'ports'
+export type SidebarView = 'explorer' | 'git' | 'search' | 'ports' | 'claude'
 
 export type TerminalKind = 'claude' | 'shell'
 

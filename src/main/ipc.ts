@@ -16,6 +16,7 @@ import { NotificationService } from './services/NotificationService'
 import { AlertWindow } from './AlertWindow'
 import { GitError } from './services/GitService'
 import { systemCheck, clearSystemCheck } from './services/systemCheck'
+import { ClaudeService } from './services/ClaudeService'
 
 /** Long-lived services, independent of which folder is open. */
 export interface AppServices {
@@ -32,6 +33,11 @@ export interface AppServices {
   hookSettingsPath: string | null
   /** Forget which capabilities have been used, so a new folder can be adapted to afresh. */
   resetAdaptations: () => void
+  /**
+   * Model passed to sessions the editor starts. Null follows the user's global default,
+   * which the editor deliberately never rewrites.
+   */
+  sessionModel: string | null
 }
 
 /**
@@ -206,6 +212,8 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
       if (services.mcpConfigPath) flags.push('--mcp-config', services.mcpConfigPath)
       // Hooks are what tell the editor Claude wants permission or has gone idle.
       if (services.hookSettingsPath) flags.push('--settings', services.hookSettingsPath)
+      // Only when the user picked one. Otherwise their own default applies.
+      if (services.sessionModel) flags.push('--model', services.sessionModel)
       // Denying the Chrome tools stops the wrong browser being used; the appended prompt
       // says what to use instead, so Claude does not simply conclude it has no browser.
       flags.push('--disallowedTools', ...CHROME_TOOLS)
@@ -228,6 +236,17 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
     (ports) => emit('ports:changed', ports)
   )
   handle('ports:list', () => services.ports.list())
+
+  // -- claude ---------------------------------------------------------------
+
+  const claude = new ClaudeService()
+
+  handle('claude:usage', () => claude.usage(services.workspace?.info.root ?? null))
+  handle('claude:skills', () => claude.skills(services.workspace?.info.root ?? null))
+  handle('claude:config', () => claude.config(services.sessionModel))
+  handle('claude:setModel', (model) => {
+    services.sessionModel = model
+  })
 
   // -- notifications --------------------------------------------------------
 

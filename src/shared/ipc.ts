@@ -199,6 +199,43 @@ export interface SystemCheck {
   platform: NodeJS.Platform
 }
 
+/** Token totals for one model. */
+export interface ModelUsage {
+  model: string
+  input: number
+  output: number
+  cacheRead: number
+  cacheWrite: number
+}
+
+/** What Claude Code has spent, read from the transcripts it writes locally. */
+export interface UsageReport {
+  today: ModelUsage[]
+  week: ModelUsage[]
+  /** Usage for the open folder only, or null when no folder is open. */
+  workspace: ModelUsage[] | null
+  sessions: number
+  windowDays: number
+  generatedAt: number
+}
+
+/** A skill available to Claude in this project. */
+export interface ClaudeSkill {
+  name: string
+  description: string
+  source: 'user' | 'project' | 'plugin'
+  plugin?: string
+  path: string
+}
+
+export interface ClaudeConfig {
+  /** From ~/.claude/settings.json. The editor reads this and never writes it. */
+  globalModel: string | null
+  /** The model the editor passes to sessions it starts. Null follows the global one. */
+  sessionModel: string | null
+  plugins: string[]
+}
+
 /** An element the user picked in the preview with the element picker. */
 export interface PickedElement {
   selector: string
@@ -288,6 +325,13 @@ export interface InvokeChannels {
 
   // -- ports ----------------------------------------------------------------
   'ports:list': { args: []; result: PortInfo[] }
+
+  // -- claude ---------------------------------------------------------------
+  'claude:usage': { args: []; result: UsageReport }
+  'claude:skills': { args: []; result: ClaudeSkill[] }
+  'claude:config': { args: []; result: ClaudeConfig }
+  /** Set the model for sessions the editor starts. Null follows the global default. */
+  'claude:setModel': { args: [model: string | null]; result: void }
 
   // -- notifications --------------------------------------------------------
   /** Telegram bot token is redacted; `telegramConfigured` says whether one is stored. */
@@ -396,6 +440,10 @@ export const INVOKE_CHANNELS = [
   'terminal:list',
   'terminal:history',
   'ports:list',
+  'claude:usage',
+  'claude:skills',
+  'claude:config',
+  'claude:setModel',
   'notify:get',
   'notify:set',
   'notify:test',

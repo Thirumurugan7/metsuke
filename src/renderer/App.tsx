@@ -4,6 +4,7 @@ import { Explorer } from './components/Explorer'
 import { GitPanel } from './components/GitPanel'
 import { SearchPanel } from './components/SearchPanel'
 import { PortsPanel } from './components/PortsPanel'
+import { ClaudePanel } from './components/ClaudePanel'
 import { EditorPane } from './components/EditorPane'
 import { Preview } from './components/Preview'
 import { TerminalPanel } from './components/TerminalPanel'
@@ -30,7 +31,8 @@ const VIEWS: Array<{
   { id: 'explorer', icon: '▤', label: 'Explorer', short: 'Files', shortcut: `${MOD}⇧E` },
   { id: 'git', icon: '⑂', label: 'Source Control', short: 'Git', shortcut: `${MOD}⇧G` },
   { id: 'search', icon: '⌕', label: 'Search', short: 'Search', shortcut: `${MOD}⇧F` },
-  { id: 'ports', icon: '⚓', label: 'Ports', short: 'Ports', shortcut: `${MOD}⇧P` }
+  { id: 'ports', icon: '⚓', label: 'Ports', short: 'Ports', shortcut: `${MOD}⇧P` },
+  { id: 'claude', icon: '✳', label: 'Claude', short: 'Claude', shortcut: `${MOD}⇧C` }
 ]
 
 export function App(): JSX.Element {
@@ -100,7 +102,7 @@ export function App(): JSX.Element {
 
       const key = e.key.toLowerCase()
       if (e.shiftKey) {
-        const view = ({ e: 'explorer', g: 'git', f: 'search', p: 'ports' } as const)[key]
+        const view = ({ e: 'explorer', g: 'git', f: 'search', p: 'ports', c: 'claude' } as const)[key]
         if (view) {
           e.preventDefault()
           setSidebar(view)
@@ -208,6 +210,7 @@ export function App(): JSX.Element {
                 {sidebar === 'git' && <GitPanel />}
                 {sidebar === 'search' && <SearchPanel />}
                 {sidebar === 'ports' && <PortsPanel />}
+                {sidebar === 'claude' && <ClaudePanel />}
               </div>
             </aside>
             <Splitter
