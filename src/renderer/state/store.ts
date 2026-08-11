@@ -11,6 +11,8 @@ import type {
   PickedElement,
   PortInfo,
   SystemCheck,
+  Thread,
+  NewThreadOptions,
   Workspace
 } from '@shared/ipc'
 
@@ -34,14 +36,39 @@ const LAST_FOLDER_KEY = 'open-claude.lastFolder'
  * Adopt a freshly opened workspace: clear everything scoped to the previous folder,
  * then load the root and git status. Shared by the picker and the startup restore.
  */
-async function adopt(workspace: Workspace, opts: { check: boolean }): Promise<void> {
+/**
+ * Run one folder-opening flow, start to finish, and refuse to start a second.
+ *
+ * The guard has to be taken before the *first* await, which is why this wraps the whole
+ * flow rather than just the adoption at the end of it. Both StrictMode invocations
+ * resolve their own IPC call first, and if the earlier one has finished by the time the
+ * later resumes, the later sees no live session yet and spawns a second Claude beside
+ * it. Guarding only the tail left exactly that race, and it showed up as a stray
+ * "claude 2" tab on roughly every other launch.
+ */
+async function adoptOnce(open: () => Promise<Workspace | null>, check: boolean): Promise<void> {
   if (adopting) return
   adopting = true
   try {
-    await adoptInner(workspace, opts)
+    const workspace = await open()
+    if (workspace) await adoptInner(workspace, { check })
   } finally {
     adopting = false
   }
+}
+
+/**
+ * Whether a session's working directory is part of the open project.
+ *
+ * Equality is not enough: a thread with its own worktree runs in a subdirectory of the
+ * project, so comparing against the root exactly marked every one of them as belonging
+ * to some other folder and killed it on the next reload — taking a running agent with
+ * it. Anything genuinely outside the root still gets cleaned up.
+ */
+function belongsTo(cwd: string, root: string): boolean {
+  if (cwd === root) return true
+  // Both separators, because the renderer has no path module and Windows uses '\'.
+  return cwd.startsWith(`${root}/`) || cwd.startsWith(`${root}\\`)
 }
 
 async function adoptInner(workspace: Workspace, opts: { check: boolean }): Promise<void> {
@@ -55,8 +82,8 @@ async function adoptInner(workspace: Workspace, opts: { check: boolean }): Promi
    * which is also what stops them accumulating.
    */
   const live = (await call('terminal:list')) ?? []
-  const mine = live.filter((s) => s.cwd === workspace.root)
-  for (const stale of live.filter((s) => s.cwd !== workspace.root)) {
+  const mine = live.filter((s) => belongsTo(s.cwd, workspace.root))
+  for (const stale of live.filter((s) => !belongsTo(s.cwd, workspace.root))) {
     void call('terminal:kill', stale.id)
   }
 
@@ -104,7 +131,7 @@ async function adoptInner(workspace: Workspace, opts: { check: boolean }): Promi
   addTerminal('claude', opts.check && autoCheck ? { prompt: PROJECT_CHECK_PROMPT } : {})
 }
 
-export type SidebarView = 'explorer' | 'git' | 'search' | 'ports' | 'claude'
+export type SidebarView = 'explorer' | 'git' | 'search' | 'ports' | 'threads' | 'claude'
 
 export type TerminalKind = 'claude' | 'shell'
 
@@ -196,6 +223,8 @@ const nextTerminalId = (): string => `t${++terminalSeq}`
  * React StrictMode double-invokes mount effects in development, so the startup restore
  * fired twice and adopted the folder twice — leaving two duplicate Claude sessions.
  * The same would happen on a rapid double-click of Open Folder.
+ *
+ * Held by `adoptOnce`, which explains why it has to cover the whole flow.
  */
 let adopting = false
 
@@ -258,6 +287,13 @@ interface State {
   activeTerminal: string | null
   /** Seed the first Claude session of a folder with the end-to-end check prompt. */
   autoCheck: boolean
+
+  // -- threads --------------------------------------------------------------
+  /** Instances and their subagents, parents before children. Owned by main. */
+  threads: Thread[]
+  selectedThread: string | null
+  /** Whether the new-thread sheet is up. */
+  newThreadOpen: boolean
 
   // -- notifications --------------------------------------------------------
   notifySettings: (NotificationSettings & { telegramConfigured: boolean }) | null
@@ -329,6 +365,13 @@ interface State {
   /** Start a Claude session that walks every screen and flow in the running UI. */
   runUiAudit: () => void
 
+  // -- threads --------------------------------------------------------------
+  setNewThreadOpen: (open: boolean) => void
+  /** Select a thread and bring its terminal to the front. */
+  selectThread: (id: string) => void
+  createThread: (opts: NewThreadOptions) => Promise<void>
+  closeThread: (id: string, opts?: { removeWorktree?: boolean }) => Promise<void>
+
   // -- notifications --------------------------------------------------------
   loadNotifySettings: () => Promise<void>
   updateNotifySettings: (patch: Partial<NotificationSettings>) => Promise<void>
@@ -373,6 +416,9 @@ export const useStore = create<State>((set, get) => ({
   terminals: [],
   activeTerminal: null,
   autoCheck: localStorage.getItem(AUTO_CHECK_KEY) !== 'off',
+  threads: [],
+  selectedThread: null,
+  newThreadOpen: false,
   notifySettings: null,
   notificationLog: [],
   settingsOpen: false,
@@ -399,23 +445,23 @@ export const useStore = create<State>((set, get) => ({
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
   openFolder: async () => {
-    const workspace = await call('workspace:open')
-    if (!workspace) return
-    await adopt(workspace, { check: true })
+    await adoptOnce(() => call('workspace:open'), true)
   },
 
   restoreLastFolder: async () => {
-    const last = localStorage.getItem(LAST_FOLDER_KEY)
-    if (!last) return
+    await adoptOnce(async () => {
+      const last = localStorage.getItem(LAST_FOLDER_KEY)
+      if (!last) return null
 
-    // The folder may have been moved or deleted since last launch. That is not worth
-    // an error banner on startup — just forget it and open empty.
-    const result = await window.api.invoke('workspace:openPath', last)
-    if (!result.ok) {
-      localStorage.removeItem(LAST_FOLDER_KEY)
-      return
-    }
-    await adopt(result.value, { check: false })
+      // The folder may have been moved or deleted since last launch. That is not worth
+      // an error banner on startup — just forget it and open empty.
+      const result = await window.api.invoke('workspace:openPath', last)
+      if (!result.ok) {
+        localStorage.removeItem(LAST_FOLDER_KEY)
+        return null
+      }
+      return result.value
+    }, false)
   },
 
   loadDir: async (dir) => {
@@ -669,6 +715,66 @@ export const useStore = create<State>((set, get) => ({
     get().triggerAdaptation('every screen you have')
   },
 
+  // -- threads --------------------------------------------------------------
+
+  setNewThreadOpen: (newThreadOpen) => set({ newThreadOpen }),
+
+  selectThread: (id) => {
+    set({ selectedThread: id })
+
+    const thread = get().threads.find((t) => t.id === id)
+    // A subagent has no terminal of its own, so selecting one shows its parent, which is
+    // the session its output is actually in.
+    const owner = thread?.parentId
+      ? get().threads.find((t) => t.id === thread.parentId)
+      : thread
+    if (!owner?.terminalId) return
+
+    // Threads carry the main-process session id; tabs are keyed by their own local id.
+    const tab = get().terminals.find((t) => t.sessionId === owner.terminalId)
+    if (tab) set({ activeTerminal: tab.id, terminalVisible: true })
+  },
+
+  createThread: async (opts) => {
+    const thread = await call('threads:create', opts)
+    if (!thread) return
+
+    set({ newThreadOpen: false, selectedThread: thread.id })
+
+    /*
+     * An instance thread spawns its pty in main, so the renderer needs a tab pointing at
+     * that existing session rather than one that spawns a second `claude`. Attaching by
+     * session id is exactly what a reload does.
+     */
+    if (thread.mode === 'instance' && thread.terminalId) {
+      const localId = get().addTerminal('claude', { title: thread.title })
+      get().attachSession(localId, thread.terminalId)
+    }
+    get().triggerAdaptation(thread.mode === 'subagent' ? 'delegating' : thread.title)
+  },
+
+  closeThread: async (id, opts = {}) => {
+    const thread = get().threads.find((t) => t.id === id)
+
+    /*
+     * Close the tab before ending the thread, not after.
+     *
+     * A tab whose session dies underneath it spawns a replacement — that is exactly how
+     * restart is implemented — and main adopts every new `claude` pty as a thread. So
+     * killing the pty alone put the row straight back, this time with no branch and no
+     * worktree, which left no way to get rid of it at all.
+     *
+     * A subagent has no tab of its own; it runs inside its parent's session.
+     */
+    if (thread?.terminalId) {
+      const tab = get().terminals.find((t) => t.sessionId === thread.terminalId)
+      if (tab) get().closeTerminal(tab.id)
+    }
+
+    if ((await call('threads:close', id, opts)) === null) return
+    set((s) => ({ selectedThread: s.selectedThread === id ? null : s.selectedThread }))
+  },
+
   // -- notifications --------------------------------------------------------
 
   loadNotifySettings: async () => {
@@ -708,8 +814,13 @@ export function wireEvents(): () => void {
   // before the renderer exists — so without an initial fetch the Ports panel sat empty
   // until something happened to start or stop a server.
   void call('ports:list').then((ports) => ports && useStore.setState({ ports }))
+  // Same reasoning for threads: main owns the list and only pushes on change, so a
+  // renderer that reloads mid-session would otherwise show none of the running ones.
+  void call('threads:list').then((threads) => threads && useStore.setState({ threads }))
 
   const unsubscribers = [
+    window.api.on('threads:changed', (threads) => useStore.setState({ threads })),
+
     window.api.on('files:changed', (paths) => {
       const { tree, loadDir, openFiles } = useStore.getState()
 

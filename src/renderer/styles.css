@@ -682,27 +682,41 @@ body.resizing .monaco-container {
 }
 
 .adapt-wheel {
-  height: 46vmin;
-  max-height: 460px;
-  max-width: 460px;
+  height: 100%;
   /* Screen blending drops the clip's black ground entirely, so only the wheel itself
      is drawn and it sits in the room rather than on top of it. */
   mix-blend-mode: screen;
-  object-fit: contain;
-  opacity: 0.17;
-  width: 46vmin;
+  /* The clip is square and the window is not, so cover crops the top and bottom rather
+     than letterboxing. The wheel is centred in frame, so what gets cut is empty ground. */
+  object-fit: cover;
+  /* Fainter than it was at 460px. The same opacity over ten times the area reads as a
+     lit room rather than a flourish. */
+  opacity: 0.12;
+  width: 100%;
+}
+
+/* Without this the wheel stops at a hard rectangular edge against the window frame.
+   Fading it out radially is what makes filling the screen look deliberate. */
+.adapt::after {
+  background: radial-gradient(circle at 50% 50%, #0000 38%, var(--bg) 78%);
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
 }
 
 .adapt-caption {
   align-items: center;
+  bottom: 7vh;
   display: flex;
   flex-direction: column;
   gap: 4px;
   left: 50%;
   position: absolute;
-  top: calc(50% + 26vmin);
   transform: translateX(-50%);
   white-space: nowrap;
+  /* Above the vignette, or the fade swallows it. */
+  z-index: 1;
 }
 .adapt-word {
   color: var(--fg-dim);
@@ -741,6 +755,392 @@ body.resizing .monaco-container {
 @media (prefers-reduced-motion: reduce) {
   .adapt {
     display: none;
+  }
+}
+
+/* -- threads -------------------------------------------------------------- */
+
+/*
+ * Instances and subagents in one list. Every colour here is a token, because the same
+ * markup has to hold up across all seven themes including the light ones, and a hard
+ * coded white wash disappears on a pale ground.
+ */
+.threads-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.threads-actions {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 8px 10px;
+}
+.thread-new {
+  background: var(--accent);
+  border: none;
+  border-radius: 5px;
+  color: var(--on-accent);
+  cursor: pointer;
+  flex: 1;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 10px;
+}
+.thread-new:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.thread-new:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.threads-count {
+  background: var(--hover-strong);
+  border-radius: 8px;
+  color: var(--fg-dim);
+  font-size: 11px;
+  padding: 1px 7px;
+}
+.threads-empty {
+  color: var(--fg-dim);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 14px 12px;
+}
+.threads-empty b {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.thread-list {
+  flex: 1;
+  list-style: none;
+  margin: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0;
+}
+.thread-row {
+  align-items: stretch;
+  display: flex;
+  position: relative;
+}
+.thread-row:hover {
+  background: var(--hover);
+}
+.thread-row.selected {
+  background: var(--hover-strong);
+}
+/* A subagent hangs off the instance above it: indented, quieter, on a guide line. */
+.thread-row.sub {
+  padding-left: 18px;
+}
+.thread-row.sub::before {
+  border-left: 1px solid var(--border);
+  bottom: 0;
+  content: '';
+  left: 15px;
+  position: absolute;
+  top: 0;
+}
+.thread-hit {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  font: inherit;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 4px 7px 10px;
+  text-align: left;
+}
+.thread-dot {
+  flex: 0 0 auto;
+  font-size: 9px;
+  line-height: 1.9;
+}
+.thread-dot.run {
+  color: var(--accent);
+}
+.thread-dot.wait {
+  color: var(--modified);
+}
+.thread-dot.idle,
+.thread-dot.done {
+  color: var(--fg-dim);
+  opacity: 0.6;
+}
+.thread-dot.fail {
+  color: var(--removed);
+}
+.thread-text {
+  min-width: 0;
+}
+.thread-name {
+  display: block;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thread-row.sub .thread-name {
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+.thread-arrow {
+  color: var(--fg-dim);
+  margin-right: 5px;
+  opacity: 0.7;
+}
+/* One line, clipped rather than wrapped: a sidebar row that reflows to three lines
+   turns the list into a wall and loses the at-a-glance read entirely. */
+.thread-meta {
+  color: var(--fg-dim);
+  display: flex;
+  font-size: 10.5px;
+  gap: 7px;
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.thread-meta > * {
+  flex: 0 0 auto;
+}
+.thread-kind,
+.thread-branch,
+.thread-stat,
+.thread-age {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+}
+.thread-branch {
+  color: var(--accent);
+}
+.thread-stat .add {
+  color: var(--added);
+}
+.thread-stat .del {
+  color: var(--removed);
+}
+.thread-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.thread-age {
+  opacity: 0.7;
+}
+.thread-close {
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  padding: 0 9px;
+}
+.thread-row:hover .thread-close,
+.thread-close:focus-visible {
+  opacity: 1;
+}
+.thread-close:hover {
+  color: var(--fg);
+}
+
+/* -- the new-thread sheet -------------------------------------------------- */
+
+.sheet-scrim {
+  align-items: center;
+  background: var(--shadow);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 80;
+}
+.sheet {
+  background: var(--bg-bar);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 24px 70px var(--shadow-strong);
+  max-height: 88vh;
+  max-width: 94vw;
+  overflow-y: auto;
+  padding: 20px;
+  width: 660px;
+}
+.sheet-title {
+  font-size: 15px;
+  margin: 0 0 3px;
+}
+.sheet-sub {
+  color: var(--fg-dim);
+  font-size: 12.5px;
+  margin: 0 0 14px;
+}
+.sheet-modes {
+  display: flex;
+  gap: 12px;
+}
+.sheet-mode {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  flex: 1;
+  font: inherit;
+  padding: 13px;
+  text-align: left;
+}
+.sheet-mode:hover:not(.unavailable) {
+  border-color: var(--fg-dim);
+}
+.sheet-mode.on {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.sheet-mode.unavailable {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.sheet-glyph {
+  color: var(--accent);
+  display: block;
+  font-size: 15px;
+}
+.sheet-mode-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 5px 0 6px;
+}
+.sheet-mode ul {
+  margin: 0;
+  padding-left: 16px;
+}
+.sheet-mode li {
+  color: var(--fg-dim);
+  font-size: 11.5px;
+  line-height: 1.55;
+  margin-bottom: 3px;
+}
+/* The tradeoff, stated on the card. Amber rather than red: it is a cost, not a fault. */
+.sheet-cost {
+  border-top: 1px solid var(--border);
+  color: var(--modified);
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 9px;
+  padding-top: 8px;
+}
+.sheet-unavailable {
+  color: var(--fg-dim);
+  display: block;
+  font-size: 11px;
+  margin-top: 7px;
+}
+
+.sheet-field {
+  display: block;
+  margin-top: 13px;
+}
+.sheet-field > span {
+  color: var(--fg-dim);
+  display: block;
+  font-size: 11.5px;
+  margin-bottom: 5px;
+}
+.sheet-field input,
+.sheet-field textarea,
+.sheet-field select {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  resize: vertical;
+  width: 100%;
+}
+.sheet-field input:focus,
+.sheet-field textarea:focus,
+.sheet-field select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.sheet-foot {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+.sheet-check {
+  align-items: center;
+  color: var(--fg-dim);
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  gap: 7px;
+}
+.sheet-check.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.sheet-check em {
+  font-style: normal;
+  opacity: 0.75;
+}
+.sheet-buttons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.sheet-buttons button {
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 6px 14px;
+}
+.sheet-buttons .ghost {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg-dim);
+}
+.sheet-buttons .ghost:hover {
+  color: var(--fg);
+}
+.sheet-buttons .primary {
+  background: var(--accent);
+  border: 1px solid transparent;
+  color: var(--on-accent);
+}
+.sheet-buttons .primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.sheet-buttons .primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* The two cards side by side need the width; stack them when there is not any. */
+@media (max-width: 720px) {
+  .sheet-modes {
+    flex-direction: column;
   }
 }
 

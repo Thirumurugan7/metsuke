@@ -31,16 +31,37 @@ export async function writeHookSettings(): Promise<string> {
   const token = windows ? '%OPEN_CLAUDE_CONTROL_TOKEN%' : '$OPEN_CLAUDE_CONTROL_TOKEN'
   const quiet = windows ? '>NUL 2>&1' : '>/dev/null 2>&1'
 
+  /*
+   * The trailing swallow matters more than it looks. A `PreToolUse` hook that exits
+   * non-zero can block the tool it is watching, so a curl that cannot reach the editor
+   * must never fail the command: an editor that is closing would otherwise start
+   * interfering with Claude's ability to delegate.
+   */
   const post = (kind: string): string =>
     `curl -sS -m 5 -X POST "${url}/notify?kind=${kind}" ` +
     `-H "authorization: Bearer ${token}" ` +
     `-H "content-type: application/json" --data-binary @- ${quiet}` +
-    (windows ? '' : ' || true')
+    (windows ? ' & exit /b 0' : ' || true')
 
   const settings = {
     hooks: {
       Notification: [{ matcher: '', hooks: [{ type: 'command', command: post('notification') }] }],
-      Stop: [{ matcher: '', hooks: [{ type: 'command', command: post('stop') }] }]
+      Stop: [{ matcher: '', hooks: [{ type: 'command', command: post('stop') }] }],
+      /*
+       * The thread list is built from these three rather than from the terminal stream.
+       *
+       * A `Task` call is Claude delegating to a subagent, so PreToolUse and PostToolUse
+       * matched to it bracket the subagent's whole life, and their payloads carry the
+       * description, the agent type and the returned report. Reading lifecycle from
+       * hooks means the sidebar also sees subagents Claude decided to spawn on its own,
+       * which parsing our own UI actions never would.
+       *
+       * UserPromptSubmit is what flips a thread from idle back to running the moment you
+       * hit enter, instead of a second or two later when output starts arriving.
+       */
+      PreToolUse: [{ matcher: 'Task', hooks: [{ type: 'command', command: post('subagent-start') }] }],
+      PostToolUse: [{ matcher: 'Task', hooks: [{ type: 'command', command: post('subagent-stop') }] }],
+      UserPromptSubmit: [{ matcher: '', hooks: [{ type: 'command', command: post('prompt') }] }]
     },
     /*
      * Claude reaches for the Chrome extension by default, which drives the user's own

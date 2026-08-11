@@ -187,3 +187,138 @@ describe('GitService against a real repository', () => {
     expect(new Date(log[0].date).getTime()).toBeGreaterThan(0)
   })
 })
+
+describe('GitService worktrees', () => {
+  let dir: string
+  let git: GitService
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-wt-'))
+    const repo = await makeRepo()
+    // The worktree lives beside the repo rather than inside it, so removing one in a
+    // test never takes the other with it.
+    await fs.rename(repo, path.join(dir, 'repo'))
+    git = new GitService(path.join(dir, 'repo'))
+  })
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  it('adds a worktree on a new branch, checked out and populated', async () => {
+    const target = path.join(dir, 'wt-a')
+    const made = await git.worktreeAdd('thread/a', target)
+
+    expect(made).toBe(path.resolve(target))
+    // The files are really there, not just the .git pointer.
+    expect(await fs.readFile(path.join(target, 'README.md'), 'utf8')).toBe('# hello\n')
+    expect(await new GitService(target).status()).toMatchObject({ branch: 'thread/a' })
+  })
+
+  it('reuses an existing branch rather than resetting it to the start point', async () => {
+    // The bug this guards: `worktree add -B` would move thread/a back to HEAD and throw
+    // away the commit, which is the entire output of the earlier thread.
+    const first = await git.worktreeAdd('thread/a', path.join(dir, 'wt-a'))
+    const inWorktree = new GitService(first)
+    await fs.writeFile(path.join(first, 'work.txt'), 'progress\n')
+    await inWorktree.stage(['work.txt'])
+    await inWorktree.commit('thread work', {})
+
+    await git.worktreeRemove(first)
+    const second = await git.worktreeAdd('thread/a', path.join(dir, 'wt-a2'))
+
+    expect((await new GitService(second).log({ limit: 1 }))[0].subject).toBe('thread work')
+    expect(await fs.readFile(path.join(second, 'work.txt'), 'utf8')).toBe('progress\n')
+  })
+
+  it('removes a worktree that is dirty, and keeps the branch', async () => {
+    const made = await git.worktreeAdd('thread/b', path.join(dir, 'wt-b'))
+    // A thread killed mid-edit leaves the checkout dirty; git refuses without --force.
+    await fs.writeFile(path.join(made, 'README.md'), '# edited\n')
+
+    await git.worktreeRemove(made)
+
+    await expect(fs.stat(made)).rejects.toThrow()
+    expect((await git.branches()).some((b) => b.name === 'thread/b')).toBe(true)
+  })
+
+  it('lists every checkout with its branch, the main one included', async () => {
+    await git.worktreeAdd('thread/c', path.join(dir, 'wt-c'))
+    const list = await git.worktrees()
+
+    expect(list.map((w) => w.branch).sort()).toEqual(['main', 'thread/c'])
+    expect(list.every((w) => w.detached === false)).toBe(true)
+  })
+
+  it('measures a branch against the merge base, not the tip of main', async () => {
+    const made = await git.worktreeAdd('thread/d', path.join(dir, 'wt-d'))
+    const branch = new GitService(made)
+    await fs.writeFile(path.join(made, 'feature.txt'), 'a\nb\nc\n')
+    await branch.stage(['feature.txt'])
+    await branch.commit('add feature', {})
+
+    // Somebody else moves main along. The thread did not write these lines, so its
+    // count must not change.
+    await fs.writeFile(path.join(dir, 'repo', 'other.txt'), 'x\ny\n')
+    await git.stage(['other.txt'])
+    await git.commit('unrelated work on main', {})
+
+    expect(await git.branchStat('thread/d', 'main')).toEqual({ added: 3, removed: 0 })
+  })
+
+  it('reports zero rather than throwing for a branch with no merge base', async () => {
+    // A genuinely unrelated history: `--orphan` shares no commit with main, so the
+    // three-dot range git needs cannot be resolved and git exits non-zero.
+    const repo = path.join(dir, 'repo')
+    await exec('git', ['checkout', '-q', '--orphan', 'orphan'], { cwd: repo })
+    await fs.writeFile(path.join(repo, 'alone.txt'), 'a\n')
+    await exec('git', ['add', 'alone.txt'], { cwd: repo })
+    await exec('git', ['commit', '-q', '-m', 'orphan root'], { cwd: repo })
+
+    expect(await git.branchStat('orphan', 'main')).toEqual({ added: 0, removed: 0 })
+  })
+
+  it('counts uncommitted edits to tracked files', async () => {
+    await fs.writeFile(path.join(dir, 'repo', 'README.md'), '# hello\nmore\nlines\n')
+    expect(await git.dirtyStat()).toEqual({ added: 2, removed: 0 })
+  })
+
+  it('counts untracked files, which git diff cannot see at all', async () => {
+    // The realistic agent case: its first act is writing a new file. Reporting 0 here
+    // is what made dirtyStat worth having.
+    await fs.writeFile(path.join(dir, 'repo', 'new.ts'), 'one\ntwo\nthree\n')
+    expect(await git.dirtyStat()).toEqual({ added: 3, removed: 0 })
+  })
+
+  it('ignores files git is told to ignore', async () => {
+    await fs.writeFile(path.join(dir, 'repo', '.gitignore'), 'build/\n')
+    await fs.mkdir(path.join(dir, 'repo', 'build'))
+    await fs.writeFile(path.join(dir, 'repo', 'build', 'out.js'), 'a\nb\nc\nd\ne\n')
+
+    // Only .gitignore itself is untracked and counted; the build output is not.
+    expect(await git.dirtyStat()).toEqual({ added: 1, removed: 0 })
+  })
+
+  it('counts a final line that has no trailing newline', async () => {
+    await fs.writeFile(path.join(dir, 'repo', 'new.txt'), 'one\ntwo')
+    expect((await git.dirtyStat()).added).toBe(2)
+  })
+
+  it('skips binary files instead of counting their bytes as lines', async () => {
+    await fs.writeFile(path.join(dir, 'repo', 'blob.bin'), Buffer.from([0x01, 0x00, 0x02, 0x0a]))
+    expect(await git.dirtyStat()).toEqual({ added: 0, removed: 0 })
+  })
+
+  it('adds committed and uncommitted work together for one thread', async () => {
+    const made = await git.worktreeAdd('thread/e', path.join(dir, 'wt-e'))
+    const branch = new GitService(made)
+    await fs.writeFile(path.join(made, 'done.txt'), 'a\nb\n')
+    await branch.stage(['done.txt'])
+    await branch.commit('committed part', {})
+    await fs.writeFile(path.join(made, 'wip.txt'), 'c\nd\ne\n')
+
+    const committed = await git.branchStat('thread/e', 'main')
+    const dirty = await branch.dirtyStat()
+    expect(committed.added + dirty.added).toBe(5)
+  })
+})

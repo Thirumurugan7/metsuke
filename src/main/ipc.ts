@@ -17,6 +17,7 @@ import { AlertWindow } from './AlertWindow'
 import { GitError } from './services/GitService'
 import { systemCheck, clearSystemCheck } from './services/systemCheck'
 import { ClaudeService } from './services/ClaudeService'
+import { ThreadService } from './services/ThreadService'
 
 /** Long-lived services, independent of which folder is open. */
 export interface AppServices {
@@ -31,6 +32,8 @@ export interface AppServices {
   mcpConfigPath: string | null
   /** Path to the generated hook settings handed to the embedded `claude`. */
   hookSettingsPath: string | null
+  /** Threads, built in registerIpc once the terminal and git plumbing exists. */
+  threads: ThreadService | null
   /** Forget which capabilities have been used, so a new folder can be adapted to afresh. */
   resetAdaptations: () => void
   /**
@@ -129,11 +132,21 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
   // -- workspace ------------------------------------------------------------
 
   const openFolder = async (root: string) => {
+    const previousRoot = services.workspace?.info.root ?? null
+
     await services.workspace?.dispose()
     const context = await WorkspaceContext.open(root)
     services.workspace = context
     // A different project is a different thing to adapt to.
     services.resetAdaptations()
+
+    /*
+     * Threads belong to a project, so switching project drops them. Reopening the same
+     * one must not: this runs again on every renderer reload, and clearing there threw
+     * away the list of agents still running in the background, which is precisely what
+     * a reload is supposed to survive.
+     */
+    if (previousRoot !== context.info.root) services.threads?.clear()
 
     context.watcher.start((paths) => {
       emit('files:changed', paths)
@@ -198,19 +211,29 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
 
   services.terminals.listen({
     onData: (id, data) => emit('terminal:data', id, data),
-    onExit: (id, exitCode) => emit('terminal:exit', id, exitCode)
+    onExit: (id, exitCode) => {
+      emit('terminal:exit', id, exitCode)
+      services.threads?.onTerminalExit(id, exitCode)
+    }
   })
 
-  handle('terminal:spawn', (opts) => {
+  /**
+   * Spawn a terminal, wiring the editor's tooling into it when it is a Claude session.
+   *
+   * Shared by the terminal tabs and by ThreadService, so a thread and a hand-opened tab
+   * get identical sessions. Anything but `claude` is spawned untouched.
+   */
+  const spawnTerminal = (opts: Parameters<typeof services.terminals.spawn>[0] = {}) => {
     const spawnOpts = { cwd: services.workspace?.info.root, ...opts }
 
     // A `claude` session gets the preview tools wired in automatically — that is the
     // whole point of the editor, and asking the user to configure MCP by hand would
-    // defeat it. Any other command is spawned untouched.
+    // defeat it.
     if (spawnOpts.command === 'claude') {
       const flags: string[] = []
       if (services.mcpConfigPath) flags.push('--mcp-config', services.mcpConfigPath)
-      // Hooks are what tell the editor Claude wants permission or has gone idle.
+      // Hooks are what tell the editor Claude wants permission, has gone idle, or has
+      // delegated a subagent.
       if (services.hookSettingsPath) flags.push('--settings', services.hookSettingsPath)
       // Only when the user picked one. Otherwise their own default applies.
       if (services.sessionModel) flags.push('--model', services.sessionModel)
@@ -222,12 +245,38 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
     }
 
     return services.terminals.spawn(spawnOpts)
+  }
+
+  handle('terminal:spawn', (opts) => {
+    const session = spawnTerminal(opts)
+    // A Claude terminal opened from the tab bar is a thread too, or the list would
+    // quietly disagree with what is running.
+    services.threads?.adoptTerminal(session)
+    return session
   })
   handle('terminal:write', (id, data) => services.terminals.write(id, data))
   handle('terminal:resize', (id, cols, rows) => services.terminals.resize(id, cols, rows))
   handle('terminal:kill', (id) => services.terminals.kill(id))
   handle('terminal:list', () => services.terminals.list())
   handle('terminal:history', (id) => services.terminals.history(id))
+
+  // -- threads --------------------------------------------------------------
+
+  services.threads = new ThreadService({
+    spawnTerminal,
+    writeTerminal: (id, data) => services.terminals.write(id, data),
+    killTerminal: (id) => services.terminals.kill(id),
+    // Null rather than a throw: a thread in a plain folder is fine, it just cannot have
+    // a worktree, and that check belongs in the one place that needs it.
+    git: () => services.workspace?.git ?? null,
+    workspaceRoot: () => services.workspace?.info.root ?? null,
+    onChange: (threads) => emit('threads:changed', threads)
+  })
+
+  handle('threads:list', () => services.threads!.list())
+  handle('threads:create', (opts) => services.threads!.create(opts))
+  handle('threads:close', (id, opts) => services.threads!.close(id, opts))
+  handle('threads:refresh', () => services.threads!.refresh())
 
   // -- ports ----------------------------------------------------------------
 

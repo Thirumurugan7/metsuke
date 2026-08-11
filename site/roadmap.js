@@ -177,7 +177,21 @@ const TASKS = [
         who: 'me',
         text: 'Add end-to-end tests',
         detail:
-          '62 unit tests cover git, the path jail, the IPC contract, hook classification and fuzzy matching. Nothing tests the actual UI. Every interface bug this project has had was found by hand, and two of them shipped because I checked the DOM instead of the pixels.'
+          '111 unit tests cover git, worktrees, threads, the path jail, the IPC contract, hook classification and fuzzy matching. Nothing tests the actual UI. Every interface bug this project has had was found by hand, and two of them shipped because I checked the DOM instead of the pixels.'
+      },
+      {
+        id: 'threads-subagent-cards',
+        who: 'me',
+        text: 'Show a subagent report in the conversation',
+        detail:
+          'Threads tracks subagents through the Task hooks and lists them under the instance that spawned them, with the size of what came back. The design called for the report itself to appear as a card in the conversation, since the subagent\'s actual work never enters the parent context and the sidebar row is all there is. That part is not built.'
+      },
+      {
+        id: 'threads-persistence',
+        who: 'me',
+        text: 'Remember threads across a restart',
+        detail:
+          'Threads survive a renderer reload but not a restart of the app, because the list lives in memory in main and the ptys die with it. The worktrees and branches are still on disk afterwards, so the list disagrees with the repository until you close and recreate each one by hand.'
       },
       {
         id: 'preview-scroll-hang',

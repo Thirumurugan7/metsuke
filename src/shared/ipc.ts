@@ -130,6 +130,73 @@ export interface TerminalSession {
   title: string
 }
 
+// ---------------------------------------------------------------------------
+// Threads
+// ---------------------------------------------------------------------------
+
+/**
+ * How a thread runs, which is the whole distinction.
+ *
+ * An `instance` is its own `claude` process with its own pty, its own conversation and,
+ * optionally, its own git worktree and branch. A `subagent` runs *inside* an instance,
+ * via Claude's own Task tool: it starts from the prompt its parent hands it and returns
+ * a summary. Subagents isolate context rather than share it, so their file reads never
+ * enter the parent conversation and there is nothing to scroll back to.
+ */
+export type ThreadMode = 'instance' | 'subagent'
+
+export type ThreadStatus =
+  /** Working. */
+  | 'running'
+  /** Blocked on the user, usually a permission prompt. */
+  | 'waiting'
+  /** Alive but with nothing to do. */
+  | 'idle'
+  /** Finished cleanly. */
+  | 'done'
+  /** Exited non-zero, or its subagent call returned an error. */
+  | 'failed'
+
+export interface Thread {
+  id: string
+  title: string
+  mode: ThreadMode
+  status: ThreadStatus
+  /** Set on subagents: the instance thread that spawned it. */
+  parentId: string | null
+  /** Instances own a pty. A subagent runs inside its parent's, so this stays null. */
+  terminalId: string | null
+  cwd: string
+  /** Branch it works on, when it has its own worktree. */
+  branch: string | null
+  /** Absolute path of its worktree, or null when it shares the workspace checkout. */
+  worktree: string | null
+  /** Claude Code session, learned from the first hook this thread delivers. */
+  sessionId: string | null
+  /** For subagents, the agent type the Task call asked for. */
+  agentType: string | null
+  /** The line under the title: "needs permission", "41 files read". */
+  detail: string | null
+  /** Lines added and removed on this thread's branch, against where it started. */
+  added: number
+  removed: number
+  createdAt: number
+  endedAt: number | null
+}
+
+export interface NewThreadOptions {
+  title: string
+  mode: ThreadMode
+  /** Give an instance its own worktree and branch, so it cannot touch your files. */
+  worktree: boolean
+  /** Branch for that worktree. Defaults to a slug of the title. */
+  branch?: string
+  /** Which instance runs a subagent. Defaults to the most recently active one. */
+  parentId?: string
+  /** Opening prompt. Typed into the pty for an instance, delegated for a subagent. */
+  prompt?: string
+}
+
 /** What Claude was doing when it asked for attention. */
 export type NotifyEvent =
   /** Claude is asking to run a tool and needs approval. */
@@ -323,6 +390,18 @@ export interface InvokeChannels {
   /** Buffered output so far, replayed when a reloaded renderer reattaches. */
   'terminal:history': { args: [id: string]; result: string }
 
+  // -- threads --------------------------------------------------------------
+  'threads:list': { args: []; result: Thread[] }
+  /** Start a thread. Creates a worktree and a pty for an instance; delegates for a subagent. */
+  'threads:create': { args: [opts: NewThreadOptions]; result: Thread }
+  /**
+   * Finish with a thread. Kills its pty and, when `removeWorktree`, deletes the
+   * worktree. The branch is always kept: the commits are the point of the thread.
+   */
+  'threads:close': { args: [id: string, opts: { removeWorktree?: boolean }]; result: void }
+  /** Recompute diff stats for every thread that owns a branch. */
+  'threads:refresh': { args: []; result: Thread[] }
+
   // -- ports ----------------------------------------------------------------
   'ports:list': { args: []; result: PortInfo[] }
 
@@ -386,6 +465,8 @@ export interface EventChannels {
   'ports:changed': [ports: PortInfo[]]
   'terminal:data': [id: string, data: string]
   'terminal:exit': [id: string, exitCode: number]
+  /** The whole list, whenever any thread changes. Small enough that diffing is not worth it. */
+  'threads:changed': [threads: Thread[]]
   'notify:fired': [payload: NotificationPayload]
   /** Sent to the floating alert window only. */
   'alert:payload': [payload: NotificationPayload]
@@ -439,6 +520,10 @@ export const INVOKE_CHANNELS = [
   'terminal:kill',
   'terminal:list',
   'terminal:history',
+  'threads:list',
+  'threads:create',
+  'threads:close',
+  'threads:refresh',
   'ports:list',
   'claude:usage',
   'claude:skills',
@@ -469,6 +554,7 @@ export const EVENT_CHANNELS = [
   'ports:changed',
   'terminal:data',
   'terminal:exit',
+  'threads:changed',
   'preview:navigated',
   'preview:console',
   'preview:elementPicked',

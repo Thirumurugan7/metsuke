@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import type {
   DiffKind,
@@ -325,4 +326,164 @@ export class GitService {
         return { hash, shortHash, subject, author, date }
       })
   }
+
+  // -------------------------------------------------------------------------
+  // Worktrees
+  // -------------------------------------------------------------------------
+
+  /**
+   * A second checkout of the same repository, on its own branch.
+   *
+   * This is what lets two agents work at once without overwriting each other. They
+   * share one `.git` object store, so a worktree costs the working files and nothing
+   * else, and a branch created in one is immediately visible from the other.
+   *
+   * Returns the absolute path of the new checkout.
+   */
+  async worktreeAdd(branch: string, dir: string, opts: { from?: string } = {}): Promise<string> {
+    const target = path.resolve(dir)
+
+    /*
+     * `-B` resets an existing branch to the start point, which would silently throw
+     * away commits from an earlier thread on the same name. Check first and reuse the
+     * branch instead, so re-opening a thread picks up where it left off.
+     */
+    const exists = await this.#branchExists(branch)
+    const args = exists
+      ? ['worktree', 'add', target, branch]
+      : ['worktree', 'add', '-b', branch, target, opts.from ?? 'HEAD']
+
+    await this.#git(args)
+    return target
+  }
+
+  async #branchExists(branch: string): Promise<boolean> {
+    try {
+      await this.#git(['rev-parse', '--verify', '--quiet', `refs/heads/${branch}`])
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Detach a worktree. The branch and its commits survive: they are the output of the
+   * thread, and deleting them along with the directory would throw away the work.
+   *
+   * `--force` because a thread that ends mid-edit leaves the checkout dirty, and
+   * refusing to clean up then would strand the directory forever.
+   */
+  async worktreeRemove(dir: string): Promise<void> {
+    await this.#git(['worktree', 'remove', '--force', path.resolve(dir)])
+  }
+
+  /** Every checkout of this repository, the main one included. */
+  async worktrees(): Promise<Array<{ path: string; branch: string | null; detached: boolean }>> {
+    const raw = await this.#git(['worktree', 'list', '--porcelain'])
+    const out: Array<{ path: string; branch: string | null; detached: boolean }> = []
+
+    // Records are separated by a blank line; each is `key value` or a bare keyword.
+    for (const record of raw.split(/\n\n+/)) {
+      const lines = record.split('\n').filter(Boolean)
+      if (lines.length === 0) continue
+
+      const worktree = lines.find((l) => l.startsWith('worktree '))?.slice(9)
+      if (!worktree) continue
+
+      const head = lines.find((l) => l.startsWith('branch '))?.slice(7)
+      out.push({
+        path: worktree,
+        branch: head ? head.replace(/^refs\/heads\//, '') : null,
+        detached: lines.includes('detached')
+      })
+    }
+    return out
+  }
+
+  /**
+   * Lines added and removed on `branch` since it left `base`, working tree included.
+   *
+   * The three-dot range measures against the merge base rather than the tip of `base`,
+   * so the count does not grow every time somebody else commits to main.
+   */
+  async branchStat(branch: string, base: string): Promise<{ added: number; removed: number }> {
+    try {
+      return parseNumstat(await this.#gitTolerant(['diff', '--numstat', `${base}...${branch}`]))
+    } catch (e) {
+      /*
+       * Unrelated histories have no merge base, so git cannot resolve the three-dot
+       * range and fails with nothing on stdout. That is a real state for a repository
+       * to be in, not a fault, and the honest answer for a sidebar is that the size of
+       * the difference is unknown. Anything else still throws.
+       */
+      if (e instanceof GitError && /no merge base/i.test(e.stderr)) return { added: 0, removed: 0 }
+      throw e
+    }
+  }
+
+  /**
+   * Uncommitted lines in a checkout. A thread that has not committed yet still has
+   * work to show, and a sidebar that reads 0 while files are open is just wrong.
+   *
+   * Untracked files are counted too. `git diff` cannot see them at all, and an agent's
+   * first act is very often to write a new file, so leaving them out would report
+   * nothing for exactly the case this exists to cover. Counting them without staging
+   * them matters: `add -N` would mutate an index the user is also using.
+   */
+  async dirtyStat(): Promise<{ added: number; removed: number }> {
+    const tracked = parseNumstat(await this.#gitTolerant(['diff', '--numstat', 'HEAD']))
+    const untracked = await this.#untrackedLines()
+    return { added: tracked.added + untracked, removed: tracked.removed }
+  }
+
+  /**
+   * Lines in files git is not tracking yet.
+   *
+   * Bounded on both axes, because this runs on a timer against a directory an agent is
+   * actively writing to: a build output that escaped .gitignore should cost a wrong
+   * number in a sidebar, never a stalled refresh.
+   */
+  async #untrackedLines(): Promise<number> {
+    const MAX_FILES = 500
+    const MAX_BYTES = 1024 * 1024
+
+    const raw = await this.#gitTolerant(['ls-files', '--others', '--exclude-standard', '-z'])
+    const files = raw.split('\0').filter(Boolean).slice(0, MAX_FILES)
+
+    let added = 0
+    for (const file of files) {
+      try {
+        const full = path.resolve(this.cwd, file)
+        const { size } = await fs.stat(full)
+        if (size > MAX_BYTES) continue
+
+        const text = await fs.readFile(full, 'utf8')
+        // A NUL byte means binary, which has no lines worth reporting.
+        if (text.includes('\0')) continue
+        if (text.length === 0) continue
+        // A trailing newline terminates the last line rather than starting a new one.
+        added += text.endsWith('\n') ? text.split('\n').length - 1 : text.split('\n').length
+      } catch {
+        // Vanished mid-scan, or unreadable. Either way it is not worth a number.
+      }
+    }
+    return added
+  }
+}
+
+/**
+ * Sum `git diff --numstat` output.
+ *
+ * Every line is `added\tremoved\tpath`, and a binary file reports '-' for both because
+ * it has no lines to count.
+ */
+function parseNumstat(raw: string): { added: number; removed: number } {
+  let added = 0
+  let removed = 0
+  for (const line of raw.split('\n')) {
+    const [a, r] = line.split('\t')
+    if (a && a !== '-') added += Number(a) || 0
+    if (r && r !== '-') removed += Number(r) || 0
+  }
+  return { added, removed }
 }

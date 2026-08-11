@@ -25,6 +25,8 @@ const services: AppServices = {
   mcpConfigPath: null,
   sessionModel: null,
   hookSettingsPath: null,
+  // Built by registerIpc, which is where the terminal and git plumbing it needs lives.
+  threads: null,
   resetAdaptations: () => bridge.resetAdaptations()
 }
 
@@ -132,18 +134,28 @@ app.whenReady().then(async () => {
   })
 
   bridge.onHook(async (kind, body) => {
-    let hook: { message?: string; session_id?: string } = {}
+    let hook: Record<string, unknown> = {}
     try {
-      hook = JSON.parse(body)
+      hook = JSON.parse(body) as Record<string, unknown>
     } catch {
       // A hook with an unreadable body is still worth surfacing.
     }
 
-    const message = hook.message ?? ''
+    // Every hook updates the thread list, including the ones that never alert.
+    services.threads?.ingestHook(kind, hook)
+
+    /*
+     * Only two kinds are a request for attention. The rest exist to track threads, and
+     * routing them here as well would fire a pop-up and a phone notification every time
+     * Claude delegated a subagent or the user pressed enter.
+     */
+    if (kind !== 'notification' && kind !== 'stop') return
+
+    const message = typeof hook.message === 'string' ? hook.message : ''
     await services.notifications.fire(
       classifyHook(kind, message),
       message,
-      hook.session_id ?? null
+      typeof hook.session_id === 'string' ? hook.session_id : null
     )
 
     // A dock bounce is a quiet secondary cue; the floating alert does the real work.

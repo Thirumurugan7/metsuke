@@ -59,12 +59,26 @@ up. A fix that "does not work" is often just not loaded. Renderer changes hot re
 **Restarting kills the user's `claude` session.** Renderer reloads reattach to running
 ptys and replay scrollback, but a main restart does not. Batch main-process work.
 
-**React StrictMode double-invokes mount effects.** This has caused three separate leaks:
-duplicate terminals, an abandoned pty from a discarded effect, and a killed session on
-unmount. Guard re-entrant work and kill anything a cancelled async path created.
+**React StrictMode double-invokes mount effects.** This has caused four separate leaks:
+duplicate terminals, an abandoned pty from a discarded effect, a killed session on
+unmount, and a phantom thread row for the discarded pty. Guard re-entrant work and kill
+anything a cancelled async path created. **A re-entrancy guard has to be taken before
+the first `await`,** not around the tail of the work: both invocations get as far as
+their own IPC call, and if the first has finished by the time the second resumes, the
+second sees no live session and starts a duplicate. `adoptOnce` in the store wraps the
+whole flow for exactly this reason.
 
 **Terminals belong to the app, not the window.** Never kill them on reload. `killAll()`
-keeps stream handlers wired; `disposeAll()` is shutdown only.
+keeps stream handlers wired; `disposeAll()` is shutdown only. Reload matches a session
+to the project by **containment, not equality**: a thread with its own worktree runs in
+a subdirectory, and comparing its cwd against the workspace root killed every one of
+them on the next reload.
+
+**A terminal tab whose session dies respawns one.** That is how restart is implemented,
+so anything that kills a pty behind the tab's back gets a fresh session it did not ask
+for. Closing a thread has to close the *tab*; killing only the pty put the thread
+straight back as a newly adopted row with no branch and no worktree, which could not
+then be closed at all.
 
 **A permission rule that does not match is silently a no-op.** The settings-level deny of
 the Chrome tools was not enough on its own; the CLI flags do the work.
@@ -97,7 +111,7 @@ demonstrably broken minutes later. Re-run the check yourself.
 
 ```bash
 npm run dev          # app, with CDP on 9222
-npm test             # 62 tests
+npm test             # 111 tests
 npm run typecheck    # both projects
 npm run dist:dir     # fast packaging smoke test
 ```
@@ -114,9 +128,11 @@ there before opening devtools.
   the alert window each need their own switch
 - `src/renderer/components/ClaudePanel.tsx` usage, model, skills; reads `~/.claude`
 - `src/main/services/AutomationService.ts` all CDP over the preview
+- `src/main/services/ThreadService.ts` instances and subagents; the only place that
+  creates worktrees, and the sink for every hook
 - `src/main/AlertWindow.ts` the floating alert
 - `site/` landing page and the roadmap checklist, static, no build step
-- `design/` five layout mockups, imports nothing from `src/`
+- `design/` eight layout mockups, imports nothing from `src/`
 - `docs/superpowers/specs/` the original design doc
 
 `site/roadmap.js` is the live checklist of what is left, including gaps in work already
@@ -128,7 +144,16 @@ done. Update `done` there when something lands.
 
 Working and verified: editor, git client, multi-terminal with reattach, preview with
 element picker and full screen, notifications across four channels, the adaptation
-flourish, seven themes, onboarding, the Claude panel.
+flourish, seven themes, onboarding, the Claude panel, threads.
+
+Threads is the newest and the least settled. An instance is a `claude` process with its
+own pty and optionally its own worktree and branch; a subagent runs inside one and is
+discovered through `PreToolUse`/`PostToolUse` hooks on the Task tool, so the sidebar
+also sees the ones Claude spawns on its own. Verified by driving the app: the worktree
+and branch appear on disk, `claude` starts inside the worktree, the diff stat counts
+committed and uncommitted work including untracked files, a thread survives a renderer
+reload, and closing one removes the checkout while keeping the branch and its commits.
+The list itself is in-memory in main, so it does not survive a restart of the app.
 
 Not done: nothing is published anywhere. No GitHub repo, no installers built for any
 platform, no code signing, no auto-update. The name uses Anthropic's trademark and should
