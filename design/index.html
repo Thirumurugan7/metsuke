@@ -112,10 +112,10 @@
     <div class="wrap">
       <h1>Layout explorations</h1>
       <p class="lede">
-        Five arrangements of the same editor. The content in each is identical, so anything that
+        Six arrangements of the same editor. The content in each is identical, so anything that
         looks different between two of them is a difference of layout rather than of styling. Every
         page has a notes panel with the tradeoff and a couple of live toggles to push the layout
-        around.
+        around. The last one is drawn from how Zed actually works.
       </p>
 
       <div class="cards">
@@ -181,6 +181,58 @@
             <p>The tree becomes a timeline of edits, tool calls and failures. Click one to see that change.</p>
           </div>
         </a>
+        <a class="card" href="f-docks.html">
+          <div class="thumb">
+            <i class="t-side" style="flex:0 0 30px"></i>
+            <span class="t-col"><i class="t-ed" style="flex:1"></i><i class="t-term t-h"></i></span>
+            <i class="t-prev"></i>
+          </div>
+          <div class="card-body">
+            <span class="tag pick">F · from Zed</span>
+            <h3>Docks, and one buffer for the whole change</h3>
+            <p>Panels move between three docks. The centre shows every hunk Claude wrote in one editable scroll.</p>
+          </div>
+        </a>
+      </div>
+
+      <h2>What Zed does that is worth taking</h2>
+
+      <div class="idea">
+        <b>Docks, not a fixed layout</b>
+        <p>
+          Zed has three docks and every panel can be dragged into any of them. It also exposes
+          <code>bottom_dock_layout</code>, choosing whether the bottom dock spans the window or
+          stays contained so the side docks keep their full height. That single setting is most of
+          variant D for two lines of CSS.
+        </p>
+        <p class="why">
+          It also sidesteps the argument this whole page is having. Ship a sensible default and let
+          people move things.
+        </p>
+      </div>
+
+      <div class="idea">
+        <b>The multibuffer, pointed at the agent</b>
+        <p>
+          Zed opens project search, find-all-references and diagnostics as excerpts from many files
+          in one buffer you can edit directly, with changes syncing back to each file. For a normal
+          editor that is a refactoring tool. For this one it is the review surface: every hunk
+          Claude just wrote, in one scroll, editable in place, instead of clicking through a list of
+          changed files.
+        </p>
+        <p class="why">
+          This is the strongest idea on the page and the one I would build first. It is also the
+          most work, because synced cross-file editing is not a weekend.
+        </p>
+      </div>
+
+      <div class="idea">
+        <b>Centered layout as a mode</b>
+        <p>
+          Zed's <code>centered_layout</code> just adds padding either side of the editor, ratio 0 to
+          0.4. Trivial to add, and it is the difference between reading a long file and squinting at
+          one.
+        </p>
       </div>
 
       <h2>Where I would actually go</h2>
@@ -191,6 +243,11 @@
           getting most of your attention. E fixes the second problem, which is that reviewing an
           agent's work through a file tree is archaeology. They compose: put the timeline where the
           tree is, and keep the conversation as the spine.
+        </p>
+        <p>
+          Having looked at Zed properly, I would fold F into that too: build it on docks so the
+          arrangement is the user's to change, and make the review multibuffer the thing a timeline
+          entry opens into.
         </p>
         <p class="why">
           C and D are worth having as modes rather than as the default. D in particular is a

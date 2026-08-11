@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>F · Docks and a review multibuffer</title>
+    <link rel="stylesheet" href="shared.css" />
+    <style>
+      /*
+       * Zed's model: three docks, any panel can live in any of them, and the bottom
+       * dock is "contained" so the side docks keep their full height.
+       */
+      .docks {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+      .dock {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .dock.left {
+        background: var(--bg-alt);
+        border-right: 1px solid var(--border);
+        flex: 0 0 250px;
+      }
+      .dock.right {
+        background: var(--bg-alt);
+        border-left: 1px solid var(--border);
+        flex: 0 0 300px;
+      }
+      .centre {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+      }
+      /* bottom_dock_layout: "full" pushes the bottom dock across the whole window. */
+      .app.full-bottom .docks {
+        flex-wrap: wrap;
+      }
+      .app.full-bottom .dock.bottom {
+        flex: 0 0 100%;
+        order: 9;
+      }
+      .dock.bottom {
+        background: var(--bg-deep);
+        border-top: 1px solid var(--border);
+        flex: 0 0 170px;
+      }
+
+      /* Panels are tabbed within their dock, and the tab is the drag handle. */
+      .docktabs {
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex: 0 0 30px;
+      }
+      .docktabs span {
+        border-right: 1px solid var(--border);
+        color: var(--fg-dim);
+        cursor: grab;
+        font-size: 11.5px;
+        padding: 7px 11px;
+      }
+      .docktabs span.on {
+        background: #ffffff10;
+        color: var(--fg);
+      }
+      .docktabs .grip {
+        color: var(--fg-faint);
+        margin-left: auto;
+        padding: 7px 9px;
+      }
+
+      /* The multibuffer: excerpts from several files in one scrolling surface. */
+      .mb-head {
+        align-items: center;
+        background: #16283d;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex: 0 0 34px;
+        gap: 9px;
+        padding: 0 12px;
+      }
+      .mb-head b {
+        font-size: 12px;
+        font-weight: 550;
+      }
+      .mb-head span {
+        color: var(--fg-dim);
+        font-size: 11.5px;
+      }
+      .excerpt {
+        border-bottom: 1px solid var(--border);
+      }
+      .ex-file {
+        align-items: center;
+        background: #ffffff08;
+        color: var(--fg-dim);
+        display: flex;
+        font-family: var(--mono);
+        font-size: 11px;
+        gap: 8px;
+        padding: 5px 12px;
+      }
+      .ex-file b {
+        color: var(--fg);
+        font-weight: 500;
+      }
+      .ex-file .stat {
+        margin-left: auto;
+      }
+      .ex-file .add {
+        color: var(--mint);
+      }
+      .ex-file .del {
+        color: var(--red);
+      }
+      .ex-line {
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.7;
+        padding: 0 12px;
+        white-space: pre;
+      }
+      .ex-line.a {
+        background: #14321f;
+        color: #b5e8c9;
+      }
+      .ex-line.d {
+        background: #3a1a1c;
+        color: #f0b0b0;
+      }
+      .ex-line .g {
+        color: #5a5a5a;
+        padding-right: 10px;
+      }
+      .ex-gap {
+        border-top: 1px dashed #33333c;
+        color: var(--fg-faint);
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 3px 12px;
+      }
+      .app.centered .centre .panel-body {
+        padding-inline: 12%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <div id="top"></div>
+      <div class="docks">
+        <div class="dock left">
+          <div class="docktabs">
+            <span class="on">Agent</span><span>Project</span><span>Git</span>
+            <span class="grip">⠿</span>
+          </div>
+          <div class="panel-body">
+            <div class="termlines" style="padding: 10px 12px">
+<span class="p">›</span> make the signup button green
+<span class="d">⏺ Edited Signup.tsx</span>
+<span class="d">⏺ Edited Button.tsx</span>
+<span class="d">⏺ Edited theme.css</span>
+<span class="ok">⏺ 3 files changed</span>
+            </div>
+            <div style="border-top: 1px solid var(--border); padding: 10px 12px">
+              <div style="color: var(--fg-dim); font-size: 11px">Review together</div>
+              <button class="chip on" style="margin-top: 7px; width: 100%">
+                Open 3 changes in one buffer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="centre">
+          <div class="panel" style="flex: 1; min-height: 0">
+            <div class="mb-head">
+              <b>Claude's changes</b>
+              <span>3 files · 5 hunks</span>
+              <span style="margin-left: auto">
+                <button class="chip">Accept all</button>
+                <button class="chip ghost">Open as files</button>
+              </span>
+            </div>
+            <div class="panel-body">
+              <div class="excerpt">
+                <div class="ex-file">
+                  <b>src/components/Signup.tsx</b>
+                  <span class="stat"><span class="add">+3</span> <span class="del">−1</span></span>
+                </div>
+                <div class="ex-line"><span class="g">16</span>     &lt;form onSubmit={submit}&gt;</div>
+                <div class="ex-line d"><span class="g">17</span> -     &lt;button id="submit"&gt;Create account&lt;/button&gt;</div>
+                <div class="ex-line a"><span class="g">17</span> +     &lt;button id="submit" className="btn-green btn-lg"&gt;</div>
+                <div class="ex-line a"><span class="g">18</span> +       Create account</div>
+                <div class="ex-line a"><span class="g">19</span> +     &lt;/button&gt;</div>
+                <div class="ex-line"><span class="g">20</span>     &lt;/form&gt;</div>
+              </div>
+
+              <div class="excerpt">
+                <div class="ex-file">
+                  <b>src/components/Button.tsx</b>
+                  <span class="stat"><span class="add">+6</span></span>
+                </div>
+                <div class="ex-line"><span class="g">42</span>   const base = 'btn'</div>
+                <div class="ex-line a"><span class="g">43</span> + const green = 'bg-emerald-600 hover:bg-emerald-500'</div>
+                <div class="ex-line a"><span class="g">44</span> + const large = 'px-5 py-3 text-base'</div>
+                <div class="ex-line"><span class="g">45</span></div>
+                <div class="ex-gap">… 24 unchanged lines …</div>
+                <div class="ex-line"><span class="g">69</span>   return &lt;button className={cx(base, variant)} /&gt;</div>
+              </div>
+
+              <div class="excerpt">
+                <div class="ex-file">
+                  <b>src/styles/theme.css</b>
+                  <span class="stat"><span class="add">+2</span></span>
+                </div>
+                <div class="ex-line"><span class="g">11</span>   --btn-bg: #0b6fd4;</div>
+                <div class="ex-line a"><span class="g">12</span> + --btn-green: #059669;</div>
+                <div class="ex-line a"><span class="g">13</span> + --btn-green-hi: #10b981;</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dock bottom" id="bottomdock">
+            <div class="docktabs">
+              <span class="on">Terminal</span><span>Problems</span><span>Output</span>
+              <span class="grip">⠿</span>
+            </div>
+            <div class="panel-body">
+              <div class="termlines">
+<span class="p">›</span> npm test
+<span class="d">  signup form  <span class="ok">✓ 12 passed</span></span>
+<span class="d">  checkout     <span class="bad">✗ 1 failed</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dock right">
+          <div class="docktabs"><span class="on">Preview</span><span>Ports</span><span class="grip">⠿</span></div>
+          <div id="prev"></div>
+        </div>
+      </div>
+      <div id="status"></div>
+    </div>
+
+    <script src="parts.js"></script>
+    <script>
+      document.getElementById('top').outerHTML = P.titlebar()
+      document.getElementById('prev').outerHTML = P.preview()
+      {
+        const p = document.querySelector('.dock.right .preview')
+        p.style.border = 'none'
+        p.style.flex = '1'
+      }
+      document.getElementById('status').outerHTML = P.status()
+
+      notes({
+        kicker: 'Variant F · from Zed',
+        title: 'Docks, and one buffer for the whole change',
+        body: [
+          'Two ideas taken from Zed. First, docks: left, right and bottom, with every panel movable between them by dragging its tab. The user decides where the agent, the tree, the preview and the terminal live, which is a better answer than me picking one arrangement.',
+          'Second, and the bigger one: the centre is a multibuffer. Zed opens search results and diagnostics as excerpts from many files in one editable surface. Point that at the agent and you get every hunk Claude just wrote in a single scroll, editable in place, instead of clicking through a file list.',
+          'The bottom dock is "contained" here, so the side docks keep their full height. Zed makes that a setting, and it is a two-line change worth having.'
+        ],
+        good: 'Reviewing six changed files becomes one scroll instead of six clicks. Docks mean nobody has to argue about the default layout.',
+        bad: 'A multibuffer is real work: synced editing across files, per-hunk accept, and save-all. Docks need drag and drop and persisted layout.',
+        toggles: [
+          {
+            label: 'Bottom dock full width',
+            apply: (on) => document.getElementById('app').classList.toggle('full-bottom', on)
+          },
+          {
+            label: 'Centered layout',
+            apply: (on) => document.getElementById('app').classList.toggle('centered', on)
+          },
+          {
+            label: 'Move preview to the left',
+            apply: (on) => {
+              const docks = document.querySelector('.docks')
+              const right = document.querySelector('.dock.right')
+              right.className = on ? 'dock left' : 'dock right'
+              on ? docks.insertBefore(right, docks.firstChild) : docks.appendChild(right)
+            }
+          }
+        ]
+      })
+    </script>
+  </body>
+</html>
