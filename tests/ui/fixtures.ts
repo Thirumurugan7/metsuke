@@ -13,8 +13,14 @@ export interface AppFixture {
   profileDir: string
 }
 
-/** Bounds every capture is taken at. Baselines are meaningless without this. */
-export const WINDOW = { x: 0, y: 0, width: 1400, height: 900 }
+/**
+ * Bounds every capture is taken at. The size is fixed because baselines are meaningless
+ * without it; the x is off-screen on purpose, so a suite run never appears on the user's
+ * desktop or takes focus from what they are doing. Captures still work from there,
+ * because the anti-throttling launch flags keep frames flowing regardless of where the
+ * window sits or whether anything can see it.
+ */
+export const WINDOW = { x: -2400, y: 0, width: 1400, height: 900 }
 
 export const test = base.extend<{ app: AppFixture }>({
   app: async ({}, use) => {
@@ -26,13 +32,29 @@ export const test = base.extend<{ app: AppFixture }>({
      * real config, which dev and packaged builds already share and clobber.
      */
     const electronApp = await electron.launch({
-      args: [appRoot, `--user-data-dir=${profileDir}`],
+      args: [
+        appRoot,
+        `--user-data-dir=${profileDir}`,
+        /*
+         * Keep frames coming without stealing the screen.
+         *
+         * The capture hang happens because Chromium stops producing frames for a window
+         * it considers occluded or backgrounded. Fighting that by forcing the window in
+         * front of everything works, but it makes the machine unusable while the suite
+         * runs: the window jumps to the foreground and takes focus on every poll tick.
+         * These flags disable the throttling itself, which is the actual cause, so the
+         * window can sit unfocused and behind other work and still be captured.
+         */
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-background-timer-throttling'
+      ],
       cwd: appRoot
     })
 
     const page = await electronApp.firstWindow()
     await page.waitForLoadState('domcontentloaded')
-    await frontmost(electronApp)
+    await settleWindow(electronApp)
 
     await use({ page, electronApp, profileDir })
 
@@ -42,14 +64,18 @@ export const test = base.extend<{ app: AppFixture }>({
 })
 
 /**
- * Put the window genuinely in front, at fixed bounds, from the main process.
+ * Settle the window at fixed bounds, parked off-screen, without taking over the display.
  *
- * Page.captureScreenshot hangs when the window is occluded, because the compositor
- * stops producing frames. That is a real trap in this project, not a theoretical one.
- * Forcing the window frontmost keeps frames coming; `shot` still races a timeout in
- * case it does not.
+ * Captures need two things: frames, and a stable size. Frames come from the
+ * anti-throttling launch flags rather than from being frontmost, so nothing here raises
+ * or pins the window. It is shown once, inactive, off the side of the desktop, and left
+ * alone. You can keep working while the suite runs.
+ *
+ * An earlier version called show(), moveTop() and setAlwaysOnTop(true) on every tick of
+ * the poll loop below, which slammed the window to the foreground hundreds of times per
+ * launch and made the machine unusable for the length of a run.
  */
-export async function frontmost(electronApp: ElectronApplication): Promise<void> {
+export async function settleWindow(electronApp: ElectronApplication): Promise<void> {
   /*
    * setBounds does not stick on the first try, and checking the native window's
    * getContentSize() is not enough to prove it: that reads back correct almost
@@ -78,14 +104,16 @@ export async function frontmost(electronApp: ElectronApplication): Promise<void>
   let stableReads = 0
   let ticksSinceNudge = 0
 
+  // Show it once, without focus. Repeating this inside the poll loop is what made the
+  // window slam to the foreground hundreds of times per launch.
+  await electronApp.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win && !win.isVisible()) win.showInactive()
+  })
+
   for (;;) {
     await electronApp.evaluate(({ BrowserWindow }, bounds) => {
-      const win = BrowserWindow.getAllWindows()[0]
-      if (!win) return
-      win.setBounds(bounds)
-      win.show()
-      win.moveTop()
-      win.setAlwaysOnTop(true)
+      BrowserWindow.getAllWindows()[0]?.setBounds(bounds)
     }, WINDOW)
 
     const viewport = page
@@ -102,19 +130,20 @@ export async function frontmost(electronApp: ElectronApplication): Promise<void>
       ticksSinceNudge++
       if (ticksSinceNudge >= nudgeAfterTicks) {
         ticksSinceNudge = 0
-        await electronApp.evaluate(({ BrowserWindow }) => {
+        await electronApp.evaluate(({ BrowserWindow }, bounds) => {
           const win = BrowserWindow.getAllWindows()[0]
-          // Deliberately not WINDOW: the renderer needs to see an actual change, and
-          // it has already shown it can ignore a repeat of the same target bounds.
-          win?.setBounds({ x: 0, y: 0, width: 900, height: 600 })
-        })
+          // A different size, because the renderer needs to see an actual change and has
+          // already shown it can ignore a repeat of the target bounds. Same off-screen x,
+          // so the nudge never flashes the window across the user's desktop.
+          win?.setBounds({ x: bounds.x, y: bounds.y, width: 900, height: 600 })
+        }, WINDOW)
         await new Promise((resolve) => setTimeout(resolve, 80))
       }
     }
 
     if (Date.now() > deadline) {
       throw new Error(
-        `frontmost(): page viewport never settled to ${WINDOW.width}x${WINDOW.height}` +
+        `settleWindow(): page viewport never settled to ${WINDOW.width}x${WINDOW.height}` +
           ` (last saw ${viewport ? `${viewport.width}x${viewport.height}` : 'unknown'})`
       )
     }
