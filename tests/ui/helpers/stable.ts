@@ -247,6 +247,51 @@ async function assertExtra(name: string, extra: Locator[]): Promise<void> {
   }
 }
 
+/**
+ * Refuse to capture when a mask has swallowed the screen.
+ *
+ * This exists because of a failure that is invisible and permanent. `.adapt-wheel` is in
+ * the mask list above, but the adaptation flourish it belongs to is a position: fixed,
+ * inset: 0 overlay, so while it is on screen its mask rectangle covers everything. A
+ * baseline captured in that moment is a solid block of mask colour, and the next run
+ * produces the same solid block, so the comparison passes forever while asserting
+ * nothing at all. Two baselines were generated in exactly that state before anyone
+ * noticed, and only noticed by a human looking at the images.
+ *
+ * A test that cannot fail is worse than a missing test, so treat it as fatal rather than
+ * leaving it to be caught by eye. The threshold is deliberately loose: the largest
+ * legitimate mask in this suite is the preview column at roughly a quarter of the
+ * viewport, so half is far above anything real and well below a full-screen overlay.
+ */
+async function assertNoBlindingMask(page: Page, locators: Locator[]): Promise<void> {
+  const MAX_FRACTION = 0.5
+
+  const viewport = await page.evaluate(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight
+  }))
+  const area = viewport.width * viewport.height
+  if (area === 0) return
+
+  for (const locator of locators) {
+    for (const box of await locator.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const rect = (node as HTMLElement).getBoundingClientRect()
+        return { width: rect.width, height: rect.height }
+      })
+    )) {
+      const fraction = (box.width * box.height) / area
+      if (fraction > MAX_FRACTION) {
+        throw new Error(
+          `a mask covers ${Math.round(fraction * 100)}% of the viewport, so this capture ` +
+            `would assert almost nothing. Something full-screen is probably on top, such ` +
+            `as the adaptation overlay. Wait for it to clear before capturing.`
+        )
+      }
+    }
+  }
+}
+
 /** One capture, with the standard masks and a timeout that names the known trap. */
 export async function shot(page: Page, name: string, extra: Locator[] = []): Promise<void> {
   // Every capture, not just the ones that went through openWorkspace(): a spec that
@@ -256,6 +301,9 @@ export async function shot(page: Page, name: string, extra: Locator[] = []): Pro
   const defs = maskDefs(page)
   await assertMasks(defs)
   await assertExtra(name, extra)
+
+  const all = [...defs.map((def) => def.locator), ...extra]
+  await assertNoBlindingMask(page, all)
 
   await expect(page).toHaveScreenshot(name, {
     mask: [...defs.map((def) => def.locator), ...extra],
