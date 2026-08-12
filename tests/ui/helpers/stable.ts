@@ -49,23 +49,41 @@ export async function openWorkspace(page: Page, dir: string): Promise<void> {
  */
 async function waitForPortsSettled(page: Page): Promise<void> {
   const portsButton = page.locator('[title="Show listening ports"]')
-  const deadline = Date.now() + 3_000
-  let lastText: string | null = null
+  const startedAt = Date.now()
+  const deadline = startedAt + 3_000
+  const floorMs = 1_000
+
+  /*
+   * `ports` starts as [] in the store, so the button shows its empty value from first
+   * paint. Stability alone therefore proves nothing: three unchanged reads cannot tell
+   * "the scan resolved and this is the answer" from "the scan has not come back and this
+   * is still the default". Waiting for a change is not a fix either, since a machine with
+   * genuinely nothing listening never changes it.
+   *
+   * So accept either signal: the text moved off its initial value, which proves the scan
+   * landed, or a floor of time passed with it unchanged, which is the best available
+   * evidence that the empty value is the real one.
+   */
+  const initial = await portsButton.textContent().catch(() => null)
+  let lastText = initial
   let stableReads = 0
 
   while (Date.now() < deadline) {
     const text = await portsButton.textContent().catch(() => null)
+    if (text !== null && text !== initial) return
+
     if (text !== null && text === lastText) {
       stableReads++
-      if (stableReads >= 3) return
+      if (stableReads >= 3 && Date.now() - startedAt >= floorMs) return
     } else {
       stableReads = 0
       lastText = text
     }
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
-  // Do not hang the suite over this; worst case the rare race this guards against
-  // still happens, and shot() masks enough of the region that most diffs stay contained.
+  // Never hang the suite over this. Every port region is masked and the footer height is
+  // pinned, so a late resolution costs a mask covering slightly the wrong thing rather
+  // than the wholesale layout shift this exists to prevent.
 }
 
 /** Kill anything that moves, so a capture is never taken mid-flight. */

@@ -22,46 +22,99 @@ export interface AppFixture {
  */
 export const WINDOW = { x: -2400, y: 0, width: 1400, height: 900 }
 
-export const test = base.extend<{ app: AppFixture }>({
-  app: async ({}, use) => {
-    const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-ui-'))
+/**
+ * One app, for the whole run.
+ *
+ * This is worker scoped rather than test scoped, and the reason is the user's machine
+ * rather than speed. Every Electron launch is a macOS app activation: the dock icon
+ * appears, focus moves, and the icon disappears again when it exits. Nothing test-side
+ * can prevent that, so the only lever is launching less. Test scoped meant one launch
+ * per test, roughly twenty five per run, each one stealing focus from whatever the user
+ * was doing. Worker scoped with `workers: 1` means exactly one, for the entire suite.
+ *
+ * The cost is that tests no longer get a fresh process, so `reset` below has to put the
+ * app back to a known state between them, and it has to do it thoroughly: the main
+ * process outlives a renderer reload, and so do its workspace and its ptys.
+ */
+export const test = base.extend<{ reset: void }, { app: AppFixture }>({
+  app: [
+    async ({}, use) => {
+      const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-ui-'))
 
-    /*
-     * A throwaway profile per file. Electron honours Chromium's --user-data-dir, so
-     * every run starts from genuine first-run state and none of this can reach the
-     * real config, which dev and packaged builds already share and clobber.
-     */
-    const electronApp = await electron.launch({
-      args: [
-        appRoot,
-        `--user-data-dir=${profileDir}`,
-        /*
-         * Keep frames coming without stealing the screen.
-         *
-         * The capture hang happens because Chromium stops producing frames for a window
-         * it considers occluded or backgrounded. Fighting that by forcing the window in
-         * front of everything works, but it makes the machine unusable while the suite
-         * runs: the window jumps to the foreground and takes focus on every poll tick.
-         * These flags disable the throttling itself, which is the actual cause, so the
-         * window can sit unfocused and behind other work and still be captured.
-         */
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-background-timer-throttling'
-      ],
-      cwd: appRoot
-    })
+      /*
+       * A throwaway profile. Electron honours Chromium's --user-data-dir, so the run
+       * starts from genuine first-run state and none of this can reach the real config,
+       * which dev and packaged builds already share and clobber.
+       */
+      const electronApp = await electron.launch({
+        args: [
+          appRoot,
+          `--user-data-dir=${profileDir}`,
+          /*
+           * Keep frames coming without needing the window in front.
+           *
+           * The capture hang happens because Chromium stops producing frames for a
+           * window it considers occluded or backgrounded. Disabling that throttling is
+           * the fix for the actual cause, and it is what lets the window sit off-screen
+           * and unfocused and still be captured.
+           */
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-background-timer-throttling'
+        ],
+        cwd: appRoot
+      })
 
-    const page = await electronApp.firstWindow()
-    await page.waitForLoadState('domcontentloaded')
-    await settleWindow(electronApp)
+      const page = await electronApp.firstWindow()
+      await page.waitForLoadState('domcontentloaded')
+      await settleWindow(electronApp)
 
-    await use({ page, electronApp, profileDir })
+      await use({ page, electronApp, profileDir })
 
-    await electronApp.close()
-    await fs.rm(profileDir, { recursive: true, force: true })
-  }
+      await electronApp.close()
+      await fs.rm(profileDir, { recursive: true, force: true })
+    },
+    { scope: 'worker' }
+  ],
+
+  /*
+   * Put the shared app back to first-run state before each test.
+   *
+   * A renderer reload is not enough on its own. The main process owns the workspace, the
+   * ptys and the thread list, and all of them survive a reload by design: that is the
+   * behaviour the app is built around. So close the workspace and kill every terminal
+   * through the app's own IPC, clear the renderer's storage, and only then reload.
+   */
+  reset: [
+    async ({ app }, use) => {
+      await resetApp(app)
+      await use()
+    },
+    { auto: true }
+  ]
 })
+
+/** Return the shared app to the state a fresh launch would be in. */
+export async function resetApp(app: AppFixture): Promise<void> {
+  await app.page.evaluate(async () => {
+    const api = (window as unknown as { api: { invoke: (c: string, ...a: unknown[]) => Promise<{ ok: boolean; value?: unknown }> } }).api
+
+    // Kill ptys first: closing the workspace does not stop them, and a session left
+    // running would be adopted as a thread by the next test that looks at the list.
+    const terminals = await api.invoke('terminal:list')
+    if (terminals?.ok && Array.isArray(terminals.value)) {
+      for (const session of terminals.value as Array<{ id: string }>) {
+        await api.invoke('terminal:kill', session.id)
+      }
+    }
+    await api.invoke('workspace:close')
+    localStorage.clear()
+  })
+
+  await app.page.reload()
+  await app.page.waitForLoadState('domcontentloaded')
+  await settleWindow(app.electronApp)
+}
 
 /**
  * Settle the window at fixed bounds, parked off-screen, without taking over the display.
@@ -104,11 +157,28 @@ export async function settleWindow(electronApp: ElectronApplication): Promise<vo
   let stableReads = 0
   let ticksSinceNudge = 0
 
-  // Show it once, without focus. Repeating this inside the poll loop is what made the
-  // window slam to the foreground hundreds of times per launch.
+  /*
+   * Show the window once, inactive, and stop it taking focus on later interactions.
+   *
+   * This does NOT stop the app activating at launch, and nothing test-side can. macOS
+   * activates an application when it starts, and src/main/index.ts shows the window
+   * itself on 'ready-to-show' via show(), which activates too. Measured, that lands
+   * about 25 to 45ms after we park the window, before any test code could intervene;
+   * setFocusable(false) and app.setActivationPolicy('accessory') were both tried and
+   * neither prevents it, because both arrive too late. Preventing it properly would
+   * need a change in src/, which this suite is not allowed to make.
+   *
+   * So each app launch briefly takes focus, invisibly, and the mitigation is to launch
+   * as seldom as possible rather than to pretend it does not happen.
+   *
+   * Playwright drives this window over CDP, which does not need OS focus, so specs are
+   * unaffected either way.
+   */
   await electronApp.evaluate(({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0]
-    if (win && !win.isVisible()) win.showInactive()
+    if (!win) return
+    win.setFocusable(false)
+    if (!win.isVisible()) win.showInactive()
   })
 
   for (;;) {
