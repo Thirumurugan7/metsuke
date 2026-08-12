@@ -138,5 +138,14 @@ present.
 
 The suite cannot run in CI, by choice. It says nothing about Windows or Linux rendering.
 It will not catch a regression inside a masked region, which is why terminal, ports and
-usage behaviour stays covered by unit tests and by assertions on the store rather than by
-pixels.
+usage behaviour stays covered by unit tests and by the non-visual assertions below rather
+than by pixels.
+
+### Assertions are DOM and disk, never the store
+
+`window.__store` is exposed under `import.meta.env.DEV` only, so it does not exist in the
+built app these tests drive. Non-visual assertions therefore read the DOM and the real
+filesystem: tab elements rather than `terminals`, a worktree directory and `git log`
+rather than a thread record. This is the better boundary anyway, because it asserts what
+a user can actually observe, and it keeps the tests from depending on internal state that
+is free to change.
