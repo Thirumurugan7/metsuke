@@ -50,14 +50,77 @@ export const test = base.extend<{ app: AppFixture }>({
  * case it does not.
  */
 export async function frontmost(electronApp: ElectronApplication): Promise<void> {
-  await electronApp.evaluate(({ BrowserWindow }, bounds) => {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (!win) return
-    win.setBounds(bounds)
-    win.show()
-    win.moveTop()
-    win.setAlwaysOnTop(true)
-  }, WINDOW)
+  /*
+   * setBounds does not stick on the first try, and checking the native window's
+   * getContentSize() is not enough to prove it: that reads back correct almost
+   * immediately, because `window.on('ready-to-show', () => window.show())` in
+   * src/main/index.ts fires on its own schedule during app boot and can nudge the
+   * window after we have already set bounds, while getContentSize() itself moves in
+   * lockstep with our own setBounds calls the whole time. What actually lags is
+   * Chromium's own viewport inside the renderer, which is what a screenshot reflects.
+   *
+   * Root cause, found by instrumenting a real stuck run: this machine's screen work
+   * area is 1470x923, smaller than the 1600x1000 the window is constructed at in
+   * src/main/index.ts. macOS clamps that oversized initial window to fit the screen,
+   * and on some launches the renderer's viewport latches onto the clamped size and
+   * never receives the follow-up resize notification for our smaller WINDOW bounds,
+   * even though the native BrowserWindow object correctly reports 1400x900 the whole
+   * time. Waiting longer does not help; a run that lands in this state stays stuck
+   * indefinitely. What does help, verified directly: an actual size change forces
+   * Chromium to re-notify the renderer, so if the viewport has not matched after a
+   * few ticks, resize away to a visibly different size and back rather than repeating
+   * the same setBounds call the renderer already appears to have ignored once.
+   */
+  const page = electronApp.windows()[0]
+  const deadline = Date.now() + 10_000
+  const stableReadsRequired = 5
+  const nudgeAfterTicks = 4
+  let stableReads = 0
+  let ticksSinceNudge = 0
+
+  for (;;) {
+    await electronApp.evaluate(({ BrowserWindow }, bounds) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      if (!win) return
+      win.setBounds(bounds)
+      win.show()
+      win.moveTop()
+      win.setAlwaysOnTop(true)
+    }, WINDOW)
+
+    const viewport = page
+      ? await page
+          .evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+          .catch(() => null)
+      : null
+
+    if (viewport && viewport.width === WINDOW.width && viewport.height === WINDOW.height) {
+      stableReads++
+      if (stableReads >= stableReadsRequired) return
+    } else {
+      stableReads = 0
+      ticksSinceNudge++
+      if (ticksSinceNudge >= nudgeAfterTicks) {
+        ticksSinceNudge = 0
+        await electronApp.evaluate(({ BrowserWindow }) => {
+          const win = BrowserWindow.getAllWindows()[0]
+          // Deliberately not WINDOW: the renderer needs to see an actual change, and
+          // it has already shown it can ignore a repeat of the same target bounds.
+          win?.setBounds({ x: 0, y: 0, width: 900, height: 600 })
+        })
+        await new Promise((resolve) => setTimeout(resolve, 80))
+      }
+    }
+
+    if (Date.now() > deadline) {
+      throw new Error(
+        `frontmost(): page viewport never settled to ${WINDOW.width}x${WINDOW.height}` +
+          ` (last saw ${viewport ? `${viewport.width}x${viewport.height}` : 'unknown'})`
+      )
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
 }
 
 export { expect }

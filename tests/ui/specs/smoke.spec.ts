@@ -11,8 +11,18 @@ test('the welcome screen is what a first run looks like', async ({ app }) => {
   await page.locator('.welcome-env').waitFor({ state: 'attached', timeout: 10_000 })
 
   await expect(page).toHaveScreenshot('welcome.png', {
-    // The claude/git probe results in .welcome-env depend on the machine.
-    mask: [page.locator('.welcome-env')],
+    mask: [
+      // The claude/git probe results depend on the machine.
+      page.locator('.welcome-env'),
+      // Real lsof output: the listening-port rows in the preview footer, the "Ports N"
+      // count beside them, and the port count in the status bar. All three change
+      // whenever anything on this machine starts or stops listening, including this
+      // app's own ephemeral debug ports, so an unmasked baseline is flaky by
+      // construction rather than occasionally.
+      page.locator('.port-list'),
+      page.locator('.preview-footer .count'),
+      page.locator('[title="Show listening ports"]')
+    ],
     timeout: 15_000
   })
 })
