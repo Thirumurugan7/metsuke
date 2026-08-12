@@ -6,3 +6,9 @@ dist/
 release/
 tsconfig.node.tsbuildinfo
 tsconfig.web.tsbuildinfo
+
+# Subagent-driven-development scratch: ledger, briefs, review packages.
+.superpowers/
+
+test-results/
+playwright-report/
