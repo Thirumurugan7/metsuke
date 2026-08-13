@@ -2101,3 +2101,40 @@ body.resizing .monaco-container {
 .search-expand {
   flex: 0 0 auto;
 }
+
+/*
+ * A subagent's report, in the sidebar next to the row that produced it.
+ *
+ * This is the only place its work exists: a subagent isolates context rather than
+ * sharing it, so nothing it read enters the parent conversation and there is no
+ * scrollback to search. Hence the generous max height and the real text selection.
+ */
+.thread-report-toggle {
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  grid-column: 1 / -1;
+  padding: 2px 0 4px 28px;
+  text-align: left;
+}
+.thread-report-toggle:hover {
+  color: var(--accent);
+}
+.thread-report {
+  background: var(--bg-raised);
+  border-left: 2px solid var(--accent);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  grid-column: 1 / -1;
+  line-height: 1.5;
+  margin: 0 8px 8px 28px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px 10px;
+  user-select: text;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { call, useStore } from '../state/store'
 import type { Thread, ThreadStatus } from '@shared/ipc'
 
@@ -36,6 +36,9 @@ export function ThreadsPanel(): JSX.Element {
   const closeThread = useStore((s) => s.closeThread)
   const openLandThread = useStore((s) => s.openLandThread)
   const setNewThreadOpen = useStore((s) => s.setNewThreadOpen)
+  // Only one report open at a time: they are long, and two expanded at once turns the
+  // sidebar into a wall of text with no list left to navigate.
+  const [openReport, setOpenReport] = useState<string | null>(null)
 
   /*
    * Diff stats only move when a thread commits, so polling slowly is plenty, and it
@@ -82,6 +85,10 @@ export function ThreadsPanel(): JSX.Element {
               onSelect={() => selectThread(thread.id)}
               onClose={() => void closeThread(thread.id, { removeWorktree: true })}
               onLand={() => void openLandThread(thread.id)}
+              expanded={openReport === thread.id}
+              onToggleReport={() =>
+                setOpenReport((current) => (current === thread.id ? null : thread.id))
+              }
             />
           ))}
         </ul>
@@ -95,13 +102,17 @@ function ThreadRow({
   selected,
   onSelect,
   onClose,
-  onLand
+  onLand,
+  expanded,
+  onToggleReport
 }: {
   thread: Thread
   selected: boolean
   onSelect: () => void
   onClose: () => void
   onLand: () => void
+  expanded: boolean
+  onToggleReport: () => void
 }): JSX.Element {
   const dot = DOT[thread.status]
   const sub = thread.mode === 'subagent'
@@ -148,6 +159,21 @@ function ThreadRow({
       >
         ×
       </button>
+
+      {thread.report && (
+        <button
+          className="thread-report-toggle"
+          onClick={onToggleReport}
+          aria-expanded={expanded}
+          title={expanded ? 'Hide what it reported' : 'Show what it reported'}
+        >
+          {expanded ? '▾' : '▸'} report
+        </button>
+      )}
+
+      {expanded && thread.report && (
+        <pre className="thread-report">{thread.report}</pre>
+      )}
     </li>
   )
 }

@@ -671,6 +671,68 @@ describe('ThreadService', () => {
     expect(next.list().map((t) => t.title)).toEqual(['Kept'])
   })
 
+  // -- subagent reports -----------------------------------------------------
+
+  it('keeps what a subagent handed back, since nothing else has it', async () => {
+    await threads.create({ title: 'Main', mode: 'instance', worktree: false })
+    threads.ingestHook('subagent-start', { session_id: 's', cwd: dir, tool_input: { description: 'Audit' } })
+    threads.ingestHook('subagent-stop', {
+      session_id: 's',
+      cwd: dir,
+      tool_input: { description: 'Audit' },
+      tool_response: 'Found three unauthenticated routes:\n- /admin\n- /debug\n- /metrics'
+    })
+
+    const sub = threads.list().find((t) => t.mode === 'subagent')
+    expect(sub?.report).toContain('/admin')
+    expect(sub?.report).toContain('unauthenticated')
+  })
+
+  it('reads a report out of content blocks as well as a bare string', async () => {
+    await threads.create({ title: 'Main', mode: 'instance', worktree: false })
+    threads.ingestHook('subagent-start', { session_id: 's', cwd: dir, tool_input: { description: 'Blocks' } })
+    threads.ingestHook('subagent-stop', {
+      session_id: 's',
+      cwd: dir,
+      tool_input: { description: 'Blocks' },
+      tool_response: [{ type: 'text', text: 'first part' }, { type: 'text', text: 'second part' }]
+    })
+
+    const sub = threads.list().find((t) => t.mode === 'subagent')
+    expect(sub?.report).toBe('first part\nsecond part')
+  })
+
+  it('truncates an enormous report rather than holding all of it', async () => {
+    await threads.create({ title: 'Main', mode: 'instance', worktree: false })
+    threads.ingestHook('subagent-start', { session_id: 's', cwd: dir, tool_input: { description: 'Huge' } })
+    threads.ingestHook('subagent-stop', {
+      session_id: 's',
+      cwd: dir,
+      tool_input: { description: 'Huge' },
+      tool_response: 'x'.repeat(60_000)
+    })
+
+    const sub = threads.list().find((t) => t.mode === 'subagent')
+    // Held in memory, sent over IPC on every change, and written to the state file.
+    expect(sub!.report!.length).toBeLessThan(21_000)
+    expect(sub!.report).toContain('truncated')
+  })
+
+  it('leaves report null when a subagent returned nothing usable', async () => {
+    await threads.create({ title: 'Main', mode: 'instance', worktree: false })
+    threads.ingestHook('subagent-start', { session_id: 's', cwd: dir, tool_input: { description: 'Empty' } })
+    threads.ingestHook('subagent-stop', {
+      session_id: 's',
+      cwd: dir,
+      tool_input: { description: 'Empty' },
+      tool_response: '   '
+    })
+
+    const sub = threads.list().find((t) => t.mode === 'subagent')
+    expect(sub?.report).toBeNull()
+    expect(sub?.status).toBe('done')
+  })
+
   it('clears everything when the open folder changes', async () => {
     await threads.create({ title: 'Old project', mode: 'instance', worktree: false })
     threads.clear()

@@ -197,6 +197,15 @@ export interface Thread {
   sessionId: string | null
   /** For subagents, the agent type the Task call asked for. */
   agentType: string | null
+  /**
+   * What a subagent handed back when it finished.
+   *
+   * This is the only place the work exists. A subagent isolates context rather than
+   * sharing it, so nothing it read or ran enters the parent conversation and there is no
+   * scrollback to go looking in: without this the report is written once, into a process
+   * that then exits. Null until it finishes, and on instances, which report nothing.
+   */
+  report: string | null
   /** The line under the title: "needs permission", "41 files read". */
   detail: string | null
   /** Lines added and removed on this thread's branch, against where it started. */

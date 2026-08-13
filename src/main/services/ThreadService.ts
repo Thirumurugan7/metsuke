@@ -261,6 +261,7 @@ export class ThreadService {
       worktree,
       sessionId: null,
       agentType: null,
+      report: null,
       detail: worktree ? 'own worktree' : 'shares the workspace',
       added: 0,
       removed: 0,
@@ -334,6 +335,7 @@ export class ThreadService {
       worktree: null,
       sessionId: parent.sessionId,
       agentType: 'general-purpose',
+      report: null,
       detail: 'asked, waiting for it to start',
       added: 0,
       removed: 0,
@@ -384,6 +386,7 @@ export class ThreadService {
       worktree: null,
       sessionId: null,
       agentType: null,
+      report: null,
       detail: 'shares the workspace',
       added: 0,
       removed: 0,
@@ -538,6 +541,7 @@ export class ThreadService {
       Object.assign(pending, {
         title: description,
         agentType: agentType ?? pending.agentType,
+        report: null,
         status: 'running',
         detail: agentType ? `${agentType} · running` : 'running'
       })
@@ -555,6 +559,7 @@ export class ThreadService {
         worktree: null,
         sessionId: parent.sessionId,
         agentType,
+        report: null,
         detail: agentType ? `${agentType} · running` : 'running',
         added: 0,
         removed: 0,
@@ -579,15 +584,59 @@ export class ThreadService {
       running.sort((a, b) => a.createdAt - b.createdAt)[0]
     if (!done) return
 
+    const report = this.#reportText(payload)
     Object.assign(done, {
       status: 'done',
       endedAt: Date.now(),
+      report,
       detail: this.#reportSize(payload) ?? 'returned a summary'
     })
     this.#changed()
   }
 
   /** How much came back, which is the honest measure of what a subagent cost the parent. */
+  /**
+   * The report itself, which is the whole output of a subagent.
+   *
+   * Capped, because a Task response can be enormous and this is held in memory, sent
+   * over IPC on every thread change, and written to the state file. A truncated report
+   * that says so beats an editor that stalls on a thread list.
+   */
+  #reportText(payload: Record<string, unknown>): string | null {
+    const MAX = 20_000
+    const response = payload.tool_response
+
+    // The shape varies by CLI version: a bare string, or content blocks like the API
+    // returns. Pull the text out of either, and fall back to the raw JSON rather than
+    // dropping a report nobody can otherwise read.
+    let text: string | null = null
+    if (typeof response === 'string') {
+      text = response
+    } else if (Array.isArray(response)) {
+      const parts = response
+        .map((block) =>
+          block && typeof block === 'object' && typeof (block as { text?: unknown }).text === 'string'
+            ? (block as { text: string }).text
+            : null
+        )
+        .filter((part): part is string => part !== null)
+      text = parts.length > 0 ? parts.join('\n') : JSON.stringify(response)
+    } else if (response && typeof response === 'object') {
+      const maybe = (response as { content?: unknown; text?: unknown })
+      if (typeof maybe.text === 'string') text = maybe.text
+      else if (typeof maybe.content === 'string') text = maybe.content
+      else text = JSON.stringify(response)
+    }
+
+    if (!text) return null
+    const trimmed = text.trim()
+    if (!trimmed) return null
+
+    return trimmed.length > MAX
+      ? `${trimmed.slice(0, MAX)}\n\n[report truncated at ${MAX} characters]`
+      : trimmed
+  }
+
   #reportSize(payload: Record<string, unknown>): string | null {
     const response = payload.tool_response
     const text =
