@@ -575,6 +575,102 @@ describe('ThreadService', () => {
     expect(threads.list()).toHaveLength(0)
   })
 
+  // -- surviving a restart --------------------------------------------------
+
+  /** A second service over the same folder, as a restarted app would be. */
+  function restarted(): ThreadService {
+    return new ThreadService({
+      ...fakeTerminals().deps,
+      git: () => new GitService(dir),
+      workspaceRoot: () => dir,
+      onChange: () => {}
+    })
+  }
+
+  it('brings a worktree thread back after a restart, finished rather than alive', async () => {
+    const thread = await threads.create({ title: 'Long job', mode: 'instance', worktree: true })
+
+    const next = restarted()
+    expect(next.list()).toHaveLength(0)
+    await next.restore()
+
+    const [back] = next.list()
+    expect(back).toMatchObject({
+      id: thread.id,
+      title: 'Long job',
+      branch: 'long-job',
+      worktree: thread.worktree,
+      // The pty died with the old process, so claiming it is running would be a lie.
+      terminalId: null,
+      status: 'done',
+      detail: 'from an earlier session'
+    })
+  })
+
+  it('lands a thread that came back from a previous session', async () => {
+    const thread = await threads.create({ title: 'Long job', mode: 'instance', worktree: true })
+    const inWorktree = new GitService(thread.worktree!)
+    await fs.writeFile(path.join(thread.worktree!, 'done.txt'), 'work\n')
+    await inWorktree.stage(['done.txt'])
+    await inWorktree.commit('the work', {})
+
+    const next = restarted()
+    await next.restore()
+    // The point of restoring: the work is reachable again instead of stranded.
+    await next.merge(thread.id)
+
+    expect(await fs.readFile(path.join(dir, 'done.txt'), 'utf8')).toBe('work\n')
+    expect(next.list()).toHaveLength(0)
+  })
+
+  it('drops a restored thread whose worktree has since been deleted', async () => {
+    const thread = await threads.create({ title: 'Gone', mode: 'instance', worktree: true })
+    await fs.rm(thread.worktree!, { recursive: true, force: true })
+
+    const next = restarted()
+    await next.restore()
+    // A row that cannot be landed or inspected is only a puzzle.
+    expect(next.list()).toHaveLength(0)
+  })
+
+  it('does not persist threads that have nothing to come back to', async () => {
+    await threads.create({ title: 'Shared', mode: 'instance', worktree: false })
+
+    const next = restarted()
+    await next.restore()
+    expect(next.list()).toHaveLength(0)
+  })
+
+  it('forgets a thread that was closed before the restart', async () => {
+    const thread = await threads.create({ title: 'Closed', mode: 'instance', worktree: true })
+    await threads.close(thread.id, { removeWorktree: true })
+
+    const next = restarted()
+    await next.restore()
+    expect(next.list()).toHaveLength(0)
+  })
+
+  it('restoring twice does not duplicate a thread', async () => {
+    await threads.create({ title: 'Once', mode: 'instance', worktree: true })
+
+    const next = restarted()
+    await next.restore()
+    await next.restore()
+    expect(next.list()).toHaveLength(1)
+  })
+
+  it('clearing for a project switch does not delete the new project saved threads', async () => {
+    // The trap: clear() runs after the workspace root already points at the new folder,
+    // so persisting there would wipe the incoming project's list before restoring it.
+    await threads.create({ title: 'Kept', mode: 'instance', worktree: true })
+
+    const next = restarted()
+    next.clear()
+    await next.restore()
+
+    expect(next.list().map((t) => t.title)).toEqual(['Kept'])
+  })
+
   it('clears everything when the open folder changes', async () => {
     await threads.create({ title: 'Old project', mode: 'instance', worktree: false })
     threads.clear()

@@ -67,6 +67,8 @@ export class ThreadService {
   readonly #bySession = new Map<string, string>()
   /** Threads picked up from a terminal rather than asked for. See `#isVestigial`. */
   readonly #adopted = new Set<string>()
+  /** Serialises writes of the state file. See `#persist`. */
+  #writes: Promise<void> = Promise.resolve()
 
   constructor(deps: ThreadDeps) {
     this.#deps = deps
@@ -93,6 +95,116 @@ export class ThreadService {
 
   #changed(): void {
     this.#deps.onChange(this.list())
+    void this.#persist()
+  }
+
+  /**
+   * Wait for pending writes to reach disk.
+   *
+   * Status changes persist in the background, since losing "running" to "idle" across a
+   * crash costs nothing. Creating and closing a thread do not get that latitude: those
+   * are the moments the list would be wrong in a way the user would notice, so those
+   * paths await this before returning.
+   */
+  async flush(): Promise<void> {
+    await this.#writes
+  }
+
+  // -------------------------------------------------------------------------
+  // Surviving a restart
+  // -------------------------------------------------------------------------
+
+  /**
+   * Where the thread list is kept between runs, inside the folder it describes.
+   *
+   * It belongs to the project rather than to the app, because that is what it is about:
+   * these threads name branches and checkouts in this repository and mean nothing
+   * anywhere else. It also sits under the same `.open-claude/` directory the worktrees
+   * do, which is already excluded from git, so persisting costs the user nothing.
+   */
+  #stateFile(root: string): string {
+    return path.join(root, '.open-claude', 'threads.json')
+  }
+
+  /**
+   * Write the threads worth restoring.
+   *
+   * Only instances with their own worktree qualify. A thread sharing the workspace is
+   * just a terminal that has since died, and a subagent lived inside a process that no
+   * longer exists, so restoring either would put a row on screen with nothing behind it.
+   * A worktree, by contrast, is still on disk with the work still in it.
+   */
+  #persist(): Promise<void> {
+    // Chained rather than concurrent: two writes racing over one file can interleave and
+    // leave truncated JSON, which on the next launch reads as "no threads at all".
+    this.#writes = this.#writes.then(() => this.#writeState()).catch(() => {})
+    return this.#writes
+  }
+
+  async #writeState(): Promise<void> {
+    const root = this.#deps.workspaceRoot()
+    if (!root) return
+
+    const keep = [...this.#threads.values()].filter((t) => t.mode === 'instance' && t.worktree)
+
+    try {
+      const file = this.#stateFile(root)
+      if (keep.length === 0) {
+        // Leaving a stale file behind would resurrect threads the user has finished with.
+        await fs.rm(file, { force: true })
+        return
+      }
+      await fs.mkdir(path.dirname(file), { recursive: true })
+      await fs.writeFile(file, `${JSON.stringify(keep, null, 2)}\n`)
+    } catch {
+      // Losing the list across a restart is a nuisance; failing the operation that
+      // triggered the write would be worse.
+    }
+  }
+
+  /**
+   * Bring back the threads from a previous run of the app.
+   *
+   * Their processes are gone: ptys die with the main process, and no amount of
+   * bookkeeping brings a conversation back. What survives is the part that matters after
+   * the fact, the branch and the checkout, so a restored thread comes back finished
+   * rather than pretending to be alive. From there it can be landed or closed, which is
+   * exactly what the list was previously unable to offer.
+   *
+   * A thread whose worktree has since been deleted is dropped rather than shown, because
+   * a row that cannot be landed or inspected is only a puzzle.
+   */
+  async restore(): Promise<void> {
+    const root = this.#deps.workspaceRoot()
+    if (!root) return
+
+    let saved: Thread[]
+    try {
+      saved = JSON.parse(await fs.readFile(this.#stateFile(root), 'utf8')) as Thread[]
+      if (!Array.isArray(saved)) return
+    } catch {
+      // No file, or unreadable. Either way there is nothing to restore.
+      return
+    }
+
+    let restored = false
+    for (const thread of saved) {
+      if (!thread?.id || !thread.worktree || this.#threads.has(thread.id)) continue
+      // Gone from disk means the work is gone with it.
+      if (!(await fs.stat(thread.worktree).catch(() => null))) continue
+
+      this.#threads.set(thread.id, {
+        ...thread,
+        terminalId: null,
+        sessionId: null,
+        status: thread.status === 'failed' ? 'failed' : 'done',
+        detail: 'from an earlier session',
+        endedAt: thread.endedAt ?? Date.now()
+      })
+      restored = true
+    }
+
+    if (restored) this.#changed()
   }
 
   #patch(id: string, patch: Partial<Thread>): void {
@@ -157,6 +269,9 @@ export class ThreadService {
     }
     this.#threads.set(thread.id, thread)
     this.#changed()
+    // A thread with a worktree must be on disk before this returns: it is the record
+    // that the checkout and branch belong to something.
+    await this.flush()
 
     /*
      * The pty needs a moment to get `claude` up and reading stdin. Typing into it before
@@ -573,6 +688,8 @@ export class ThreadService {
     this.#adopted.delete(id)
     if (thread.sessionId) this.#bySession.delete(thread.sessionId)
     this.#changed()
+    // Closing has to stick too, or a restart resurrects a thread the user finished with.
+    await this.flush()
   }
 
   /** Recompute what each thread has actually changed. */
@@ -627,6 +744,14 @@ export class ThreadService {
     this.#threads.clear()
     this.#bySession.clear()
     this.#adopted.clear()
-    this.#changed()
+
+    /*
+     * Deliberately not #changed(): this must not persist. Clearing happens while
+     * switching project, by which point the workspace root already points at the NEW
+     * folder, so writing an empty list here would delete the incoming project's saved
+     * threads before they were ever restored. Forgetting them in memory is the whole
+     * job; the file belongs to whichever project owns it.
+     */
+    this.#deps.onChange(this.list())
   }
 }

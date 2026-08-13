@@ -148,6 +148,11 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
      */
     if (previousRoot !== context.info.root) services.threads?.clear()
 
+    // Bring back threads from an earlier run of the app. Their processes are gone, but
+    // their branches and worktrees are still on disk, so they come back finished and
+    // landable rather than not at all.
+    await services.threads?.restore()
+
     context.watcher.start((paths) => {
       emit('files:changed', paths)
       // Any file change can move git status, so recompute it alongside.
