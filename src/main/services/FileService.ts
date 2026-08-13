@@ -240,4 +240,64 @@ export class FileService {
     await walk('')
     return results
   }
+
+  /**
+   * Replace every match of `query` across the workspace, or in the given files.
+   *
+   * Deliberately built on the same pattern construction as `search`, so what you replace
+   * is exactly what you were shown. A separate implementation here would eventually
+   * drift, and the failure mode of that drift is editing files the user never saw
+   * listed, which is not a mistake worth risking to save a few lines.
+   *
+   * Writes are per file and only when the content actually changed, so a run that
+   * matches nothing touches nothing and leaves no mtime churn for the watcher to
+   * announce.
+   */
+  async replace(
+    query: string,
+    replacement: string,
+    opts: { regex?: boolean; caseSensitive?: boolean; paths?: string[] } = {}
+  ): Promise<{ files: number; replacements: number }> {
+    const { regex = false, caseSensitive = false, paths } = opts
+    if (!query) return { files: 0, replacements: 0 }
+
+    /*
+     * Global, unlike the search pattern: search only asks whether a line matches, while
+     * replace has to reach every occurrence on it. Without /g this would silently fix
+     * only the first hit per line and report success.
+     */
+    const flags = `g${caseSensitive ? '' : 'i'}`
+    const pattern = regex
+      ? new RegExp(query, flags)
+      : new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags)
+
+    const targets = paths?.length ? paths : [...new Set((await this.search(query, { ...opts, limit: 10_000 })).map((hit) => hit.path))]
+
+    let files = 0
+    let replacements = 0
+
+    for (const file of targets) {
+      let contents: string
+      try {
+        contents = await this.read(file)
+      } catch {
+        continue // unreadable, binary, or gone since the search
+      }
+      if (contents.slice(0, 8000).includes('\0')) continue
+
+      // Count before replacing: a global regex is stateful, and reusing it to both count
+      // and replace would skip every other match through lastIndex.
+      const hits = contents.match(pattern)?.length ?? 0
+      if (hits === 0) continue
+
+      const next = contents.replace(pattern, replacement)
+      if (next === contents) continue
+
+      await this.write(file, next)
+      files++
+      replacements += hits
+    }
+
+    return { files, replacements }
+  }
 }

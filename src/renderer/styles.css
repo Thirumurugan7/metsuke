@@ -2082,3 +2082,22 @@ body.resizing .monaco-container {
   font-size: 12px;
   margin: 12px 0 0;
 }
+
+/* Replace, folded away under the search box until it is wanted. */
+.search-replace {
+  display: flex;
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+.search-replace input {
+  flex: 1;
+  min-width: 0;
+}
+.search-replace .primary {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+.search-expand {
+  flex: 0 0 auto;
+}

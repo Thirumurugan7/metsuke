@@ -389,6 +389,18 @@ export interface InvokeChannels {
     args: [query: string, opts: { regex?: boolean; caseSensitive?: boolean; limit?: number }]
     result: Array<{ path: string; line: number; text: string }>
   }
+  /**
+   * Replace every match across the workspace, or within `paths` when given.
+   * Returns how many files were touched and how many occurrences changed.
+   */
+  'files:replace': {
+    args: [
+      query: string,
+      replacement: string,
+      opts: { regex?: boolean; caseSensitive?: boolean; paths?: string[] }
+    ]
+    result: { files: number; replacements: number }
+  }
 
   // -- git ------------------------------------------------------------------
   'git:status': { args: []; result: GitStatus }
@@ -535,6 +547,7 @@ export const INVOKE_CHANNELS = [
   'files:rename',
   'files:delete',
   'files:search',
+  'files:replace',
   'git:status',
   'git:diff',
   'git:stage',

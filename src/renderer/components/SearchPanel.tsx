@@ -8,15 +8,42 @@ export function SearchPanel(): JSX.Element {
   const [caseSensitive, setCaseSensitive] = useState(false)
   const [results, setResults] = useState<Array<{ path: string; line: number; text: string }>>([])
   const [searching, setSearching] = useState(false)
+  const [replacement, setReplacement] = useState('')
+  const [showReplace, setShowReplace] = useState(false)
+  const [replacing, setReplacing] = useState(false)
+  const [replaced, setReplaced] = useState<{ files: number; replacements: number } | null>(null)
 
   if (!workspace) return <div className="panel-empty">No folder open</div>
 
   const search = async (): Promise<void> => {
+    setReplaced(null)
     if (!query) return setResults([])
     setSearching(true)
     const found = await call('files:search', query, { regex, caseSensitive, limit: 300 })
     setResults(found ?? [])
     setSearching(false)
+  }
+
+  /**
+   * Replace across exactly the files listed above, not across the workspace.
+   *
+   * Passing the paths matters: the result list is capped, so a workspace-wide replace
+   * could edit files the user was never shown. Confining it to what is on screen means
+   * what you see is what changes.
+   */
+  const replaceAll = async (): Promise<void> => {
+    const paths = [...new Set(results.map((r) => r.path))]
+    if (!query || paths.length === 0) return
+
+    setReplacing(true)
+    const done = await call('files:replace', query, replacement, { regex, caseSensitive, paths })
+    setReplacing(false)
+    if (!done) return
+
+    setReplaced(done)
+    // The old hits describe text that is no longer there, so re-run rather than leave
+    // a list that lies about the file.
+    await search()
   }
 
   // Group by file so the list reads like VS Code's, not a flat wall of lines.
@@ -28,6 +55,15 @@ export function SearchPanel(): JSX.Element {
   return (
     <div className="search-panel">
       <div className="search-controls">
+        <button
+          className={`icon-only search-expand${showReplace ? ' active' : ''}`}
+          title={showReplace ? 'Hide replace' : 'Show replace'}
+          aria-label="Toggle replace"
+          aria-expanded={showReplace}
+          onClick={() => setShowReplace((v) => !v)}
+        >
+          {showReplace ? '⌄' : '›'}
+        </button>
         <input
           value={query}
           placeholder="Search in files — press Enter"
@@ -58,6 +94,40 @@ export function SearchPanel(): JSX.Element {
           </button>
         </div>
       </div>
+
+      {showReplace && (
+        <div className="search-replace">
+          <input
+            value={replacement}
+            placeholder={regex ? 'Replace with, $1 for a group' : 'Replace with'}
+            aria-label="Replacement text"
+            onChange={(e) => setReplacement(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void replaceAll()
+            }}
+          />
+          <button
+            className="primary"
+            disabled={replacing || results.length === 0}
+            onClick={() => void replaceAll()}
+            title={
+              results.length === 0
+                ? 'Search first: replace only touches the files listed below'
+                : `Replace in ${new Set(results.map((r) => r.path)).size} files`
+            }
+          >
+            {replacing ? 'Replacing…' : 'Replace all'}
+          </button>
+        </div>
+      )}
+
+      {replaced && (
+        <p className="search-summary">
+          Replaced {replaced.replacements} occurrence
+          {replaced.replacements === 1 ? '' : 's'} in {replaced.files} file
+          {replaced.files === 1 ? '' : 's'}.
+        </p>
+      )}
 
       <div className="search-summary">
         {searching

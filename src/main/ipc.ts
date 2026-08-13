@@ -197,6 +197,9 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
   handle('files:rename', (from, to) => ws().files.rename(from, to))
   handle('files:delete', (p) => ws().files.delete(p))
   handle('files:search', (query, opts) => ws().files.search(query, opts))
+  handle('files:replace', (query, replacement, opts) =>
+    ws().files.replace(query, replacement, opts)
+  )
 
   // -- git ------------------------------------------------------------------
 

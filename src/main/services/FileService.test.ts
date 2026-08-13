@@ -160,3 +160,93 @@ describe('FileService', () => {
     })
   })
 })
+
+describe('FileService.replace', () => {
+  let dir: string
+  let files: FileService
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-replace-'))
+    files = new FileService(dir)
+    await fs.writeFile(path.join(dir, 'a.txt'), 'red fish\nred fish\nblue fish\n')
+    await fs.mkdir(path.join(dir, 'sub'))
+    await fs.writeFile(path.join(dir, 'sub', 'b.txt'), 'a red herring\n')
+    await fs.writeFile(path.join(dir, 'untouched.txt'), 'nothing here\n')
+  })
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  it('replaces every occurrence, including several on one line', async () => {
+    await fs.writeFile(path.join(dir, 'a.txt'), 'red red red\n')
+    const result = await files.replace('red', 'green')
+
+    expect(result.replacements).toBeGreaterThanOrEqual(3)
+    // Without a global pattern this would fix only the first hit and report success.
+    expect(await files.read('a.txt')).toBe('green green green\n')
+  })
+
+  it('reaches across directories and reports what it touched', async () => {
+    const result = await files.replace('red', 'green')
+
+    expect(result.files).toBe(2)
+    expect(await files.read('a.txt')).toBe('green fish\ngreen fish\nblue fish\n')
+    expect(await files.read('sub/b.txt')).toBe('a green herring\n')
+  })
+
+  it('leaves files without a match completely alone', async () => {
+    const before = await fs.stat(path.join(dir, 'untouched.txt'))
+    await files.replace('red', 'green')
+    const after = await fs.stat(path.join(dir, 'untouched.txt'))
+
+    expect(await files.read('untouched.txt')).toBe('nothing here\n')
+    // Not even an mtime change, so the watcher has nothing to announce.
+    expect(after.mtimeMs).toBe(before.mtimeMs)
+  })
+
+  it('treats the query literally unless asked for a regex', async () => {
+    await fs.writeFile(path.join(dir, 'a.txt'), 'a.b and axb\n')
+    await files.replace('a.b', 'X')
+    // A literal dot, not "any character", so axb survives.
+    expect(await files.read('a.txt')).toBe('X and axb\n')
+  })
+
+  it('honours a real regex, with capture groups', async () => {
+    await fs.writeFile(path.join(dir, 'a.txt'), 'version 1.2.3\n')
+    await files.replace('version (\\d+)', 'v$1', { regex: true })
+    expect(await files.read('a.txt')).toBe('v1.2.3\n')
+  })
+
+  it('is case insensitive by default and exact when asked', async () => {
+    await fs.writeFile(path.join(dir, 'a.txt'), 'Red red RED\n')
+
+    await files.replace('red', 'x', { caseSensitive: true })
+    expect(await files.read('a.txt')).toBe('Red x RED\n')
+
+    // Only the two that the case-sensitive pass left behind: the middle word is 'x' now.
+    await files.replace('red', 'y')
+    expect(await files.read('a.txt')).toBe('y x y\n')
+  })
+
+  it('confines itself to the given files when asked', async () => {
+    const result = await files.replace('red', 'green', { paths: ['sub/b.txt'] })
+
+    expect(result.files).toBe(1)
+    expect(await files.read('sub/b.txt')).toBe('a green herring\n')
+    // The other match is untouched, which is the whole point of passing paths.
+    expect(await files.read('a.txt')).toBe('red fish\nred fish\nblue fish\n')
+  })
+
+  it('does nothing at all for an empty query', async () => {
+    expect(await files.replace('', 'x')).toEqual({ files: 0, replacements: 0 })
+    expect(await files.read('a.txt')).toBe('red fish\nred fish\nblue fish\n')
+  })
+
+  it('refuses to escape the workspace through a path it was handed', async () => {
+    await expect(files.replace('red', 'green', { paths: ['../outside.txt'] })).resolves.toEqual({
+      files: 0,
+      replacements: 0
+    })
+  })
+})
