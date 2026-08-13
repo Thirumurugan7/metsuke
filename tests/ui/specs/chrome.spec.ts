@@ -28,8 +28,29 @@ test.describe('chrome', () => {
       await expect(page.locator('.tree-row', { hasText: 'README.md' })).toBeVisible()
       await freeze(page)
 
-      await page.locator('.tree-row', { hasText: 'README.md' }).click()
+      /*
+       * Open the TypeScript fixture rather than the README.
+       *
+       * Each theme defines its own colour for keyword, type, string, func, comment,
+       * number, variable and operator. README.md is a heading and one plain sentence,
+       * and Monaco maps a markdown heading to the keyword scope, so capturing it proved
+       * exactly one of those eight. A theme shipping a broken string or type colour
+       * passed all seven baselines. src/app.ts exercises keyword, type, string and func
+       * together, which is four of the eight rather than one.
+       *
+       * The other four are still not covered here: the fixture has no comment, number,
+       * variable or operator token, and adding one would mean changing a file the git
+       * spec diffs, so it is left for whoever wants that coverage to do deliberately.
+       */
+      await page.locator('.tree-row', { hasText: 'src' }).click()
+      const file = page.locator('.tree-row', { hasText: 'app.ts' })
+      await expect(file).toBeVisible()
+      await file.click()
+
       await expect(page.locator('.monaco-container')).toBeVisible()
+      // Proof the editor really rendered the code, so the capture is of a themed
+      // editor rather than an empty pane that happens to have the right background.
+      await expect(page.locator('.monaco-container')).toContainText('start')
 
       await shot(page, `theme-${theme}.png`)
     })

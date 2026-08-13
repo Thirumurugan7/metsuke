@@ -259,11 +259,23 @@ async function assertExtra(name: string, extra: Locator[]): Promise<void> {
  * noticed, and only noticed by a human looking at the images.
  *
  * A test that cannot fail is worse than a missing test, so treat it as fatal rather than
- * leaving it to be caught by eye. The threshold is deliberately loose: the largest
- * legitimate mask in this suite is the preview column at roughly a quarter of the
- * viewport, so half is far above anything real and well below a full-screen overlay.
+ * leaving it to be caught by eye.
+ *
+ * The threshold has less headroom than it looks. The preview column is about a fifth of
+ * the viewport at its default width, but it is user resizable up to
+ * `innerWidth - 400`, which on this window is close to half on its own, and
+ * `previewFullscreen` puts the webview at roughly nine tenths of the viewport as a
+ * single mask. So this cannot tell a deliberate full-viewport preview from the overlay
+ * bug it was written for: both look like one enormous mask. A spec that means to capture
+ * such a state passes `allowLargeMask` and says why, which keeps the intent visible at
+ * the call site instead of quietly weakening the check for everyone.
  */
-async function assertNoBlindingMask(page: Page, locators: Locator[]): Promise<void> {
+async function assertNoBlindingMask(
+  page: Page,
+  locators: Locator[],
+  allowLargeMask: boolean
+): Promise<void> {
+  if (allowLargeMask) return
   const MAX_FRACTION = 0.5
 
   const viewport = await page.evaluate(() => ({
@@ -285,7 +297,9 @@ async function assertNoBlindingMask(page: Page, locators: Locator[]): Promise<vo
         throw new Error(
           `a mask covers ${Math.round(fraction * 100)}% of the viewport, so this capture ` +
             `would assert almost nothing. Something full-screen is probably on top, such ` +
-            `as the adaptation overlay. Wait for it to clear before capturing.`
+            `as the adaptation overlay: wait for it to clear before capturing. If this ` +
+            `screen genuinely is mostly one masked region, such as a fullscreen preview, ` +
+            `pass allowLargeMask to shot() and say why.`
         )
       }
     }
@@ -293,7 +307,12 @@ async function assertNoBlindingMask(page: Page, locators: Locator[]): Promise<vo
 }
 
 /** One capture, with the standard masks and a timeout that names the known trap. */
-export async function shot(page: Page, name: string, extra: Locator[] = []): Promise<void> {
+export async function shot(
+  page: Page,
+  name: string,
+  extra: Locator[] = [],
+  opts: { allowLargeMask?: boolean } = {}
+): Promise<void> {
   // Every capture, not just the ones that went through openWorkspace(): a spec that
   // never opens a folder still needs animations stopped and live regions pinned.
   await freeze(page)
@@ -303,7 +322,7 @@ export async function shot(page: Page, name: string, extra: Locator[] = []): Pro
   await assertExtra(name, extra)
 
   const all = [...defs.map((def) => def.locator), ...extra]
-  await assertNoBlindingMask(page, all)
+  await assertNoBlindingMask(page, all, opts.allowLargeMask ?? false)
 
   await expect(page).toHaveScreenshot(name, {
     mask: [...defs.map((def) => def.locator), ...extra],

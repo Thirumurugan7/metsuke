@@ -62,3 +62,24 @@ you are not in the middle of something.
 
 **The suite runs serially and cannot run in CI.** It needs a real `claude` binary on
 PATH, and one shared app instance means tests cannot be parallelised across workers.
+
+## What these baselines do not cover
+
+Worth knowing before trusting a green run.
+
+**xterm theming.** A theme has to be applied separately to the CSS variables, to Monaco
+and to xterm, but `.terminal-body` is masked wholesale in every capture, so no baseline
+here can catch the terminal failing to follow a theme. The per-theme baselines prove the
+shell and Monaco, not the terminal. The commit that added them claims otherwise; it is
+wrong.
+
+**Most syntax colours.** The theme specs open `src/app.ts`, which renders keyword, type,
+string and func. Each theme also defines comment, number, variable and operator, and
+nothing here renders those, so a theme could ship a broken comment colour and pass.
+
+**The floating alert window**, a separate `BrowserWindow` that only appears on a real
+notification, and **the preview element picker**, which drives CDP over the webview where
+attaching a second debugger would detach the app's own. Both are deliberate gaps.
+
+**Anything inside the preview.** `.preview-webview` is masked, so these tests assert the
+editor's chrome around the preview, never the page loaded into it.
