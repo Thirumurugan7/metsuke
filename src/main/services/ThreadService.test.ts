@@ -491,6 +491,90 @@ describe('ThreadService', () => {
     expect(refreshed).toMatchObject({ added: 0, removed: 0 })
   })
 
+  // -- landing --------------------------------------------------------------
+
+  it('previews what landing a thread would do, without landing it', async () => {
+    const thread = await threads.create({ title: 'Feature', mode: 'instance', worktree: true })
+    const inWorktree = new GitService(thread.worktree!)
+    await fs.writeFile(path.join(thread.worktree!, 'feature.txt'), 'a\nb\n')
+    await inWorktree.stage(['feature.txt'])
+    await inWorktree.commit('add the feature', {})
+
+    const preview = await threads.mergePreview(thread.id)
+
+    expect(preview).toMatchObject({ branch: 'feature', commits: 1, conflicts: [] })
+    expect(preview.added).toBe(2)
+    // Still there: a preview that lands the work would be a trap.
+    await expect(fs.stat(thread.worktree!)).resolves.toBeTruthy()
+    expect(threads.list()).toHaveLength(1)
+  })
+
+  it('lands a thread into the open branch and cleans up after it', async () => {
+    const thread = await threads.create({ title: 'Feature', mode: 'instance', worktree: true })
+    const inWorktree = new GitService(thread.worktree!)
+    await fs.writeFile(path.join(thread.worktree!, 'feature.txt'), 'shipped\n')
+    await inWorktree.stage(['feature.txt'])
+    await inWorktree.commit('add the feature', {})
+
+    await threads.merge(thread.id)
+
+    // The work is in the workspace, which is the whole point.
+    expect(await fs.readFile(path.join(dir, 'feature.txt'), 'utf8')).toBe('shipped\n')
+    // The thread is finished, its checkout is gone, its branch remains as the record.
+    expect(threads.list()).toHaveLength(0)
+    await expect(fs.stat(thread.worktree!)).rejects.toThrow()
+    expect((await new GitService(dir).branches()).some((b) => b.name === 'feature')).toBe(true)
+  })
+
+  it('can delete the branch too, when asked', async () => {
+    const thread = await threads.create({ title: 'Feature', mode: 'instance', worktree: true })
+    const inWorktree = new GitService(thread.worktree!)
+    await fs.writeFile(path.join(thread.worktree!, 'feature.txt'), 'x\n')
+    await inWorktree.stage(['feature.txt'])
+    await inWorktree.commit('add the feature', {})
+
+    await threads.merge(thread.id, { deleteBranch: true })
+    expect((await new GitService(dir).branches()).some((b) => b.name === 'feature')).toBe(false)
+  })
+
+  it('keeps the thread and its work when the merge conflicts', async () => {
+    const thread = await threads.create({ title: 'Feature', mode: 'instance', worktree: true })
+    const inWorktree = new GitService(thread.worktree!)
+    await fs.writeFile(path.join(thread.worktree!, 'README.md'), '# theirs\n')
+    await inWorktree.stage(['README.md'])
+    await inWorktree.commit('their readme', {})
+
+    // The same file moves on the base branch, so the two disagree.
+    const root = new GitService(dir)
+    await fs.writeFile(path.join(dir, 'README.md'), '# ours\n')
+    await root.stage(['README.md'])
+    await root.commit('our readme', {})
+
+    await expect(threads.merge(thread.id)).rejects.toThrow()
+
+    // Nothing was thrown away: the thread, its checkout and the base file all survive.
+    expect(threads.list()).toHaveLength(1)
+    await expect(fs.stat(thread.worktree!)).resolves.toBeTruthy()
+    expect(await fs.readFile(path.join(dir, 'README.md'), 'utf8')).toBe('# ours\n')
+  })
+
+  it('refuses to land a thread that has no branch of its own', async () => {
+    const thread = await threads.create({ title: 'Shared', mode: 'instance', worktree: false })
+    await expect(threads.merge(thread.id)).rejects.toThrow(/no branch/i)
+  })
+
+  it('treats a thread whose work is already in the base as simply finished', async () => {
+    const thread = await threads.create({ title: 'Feature', mode: 'instance', worktree: true })
+    const inWorktree = new GitService(thread.worktree!)
+    await fs.writeFile(path.join(thread.worktree!, 'feature.txt'), 'x\n')
+    await inWorktree.stage(['feature.txt'])
+    await inWorktree.commit('add the feature', {})
+    await new GitService(dir).merge('feature')
+
+    await threads.merge(thread.id)
+    expect(threads.list()).toHaveLength(0)
+  })
+
   it('clears everything when the open folder changes', async () => {
     await threads.create({ title: 'Old project', mode: 'instance', worktree: false })
     threads.clear()

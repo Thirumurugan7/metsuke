@@ -9,7 +9,8 @@ import type {
   GitFileChange,
   GitFileStatus,
   GitLogEntry,
-  GitStatus
+  GitStatus,
+  MergePreview
 } from '@shared/ipc'
 
 const exec = promisify(execFile)
@@ -309,6 +310,96 @@ export class GitService {
     return this.#git(opts.rebase ? ['pull', '--rebase'] : ['pull'])
   }
 
+  // -------------------------------------------------------------------------
+  // Landing work
+  // -------------------------------------------------------------------------
+
+  /**
+   * What merging `branch` into the current one would do, without doing it.
+   *
+   * A thread's whole output is a branch, and the question you actually have before
+   * landing it is "will this conflict, and with what". Asking git that directly beats
+   * merging and then reaching for the undo: `merge-tree` computes the result in memory
+   * and touches neither the index nor the working tree, so this is safe to call while
+   * an agent is still writing files.
+   */
+  async mergePreview(branch: string): Promise<MergePreview> {
+    const base = (await this.#git(['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
+
+    // Nothing to do is a real answer, and a distinct one from a clean merge.
+    const ahead = (await this.#gitTolerant(['rev-list', '--count', `${base}..${branch}`])).trim()
+    if (ahead === '0') {
+      return { base, branch, commits: 0, conflicts: [], alreadyMerged: true, ...NO_CHANGES }
+    }
+
+    const stat = await this.branchStat(branch, base)
+
+    /*
+     * `merge-tree --write-tree` reports conflicts on stdout and exits non-zero when it
+     * finds them, which is a result rather than a failure. Older git lacks this form,
+     * and rather than silently claiming a clean merge, an unusable answer is reported
+     * as unknown so the UI can say so.
+     */
+    let conflicts: string[] = []
+    let known = true
+    try {
+      const raw = await this.#gitTolerant([
+        'merge-tree',
+        '--write-tree',
+        '--name-only',
+        base,
+        branch
+      ])
+      conflicts = parseMergeTreeConflicts(raw)
+    } catch {
+      known = false
+    }
+
+    return {
+      base,
+      branch,
+      commits: Number(ahead) || 0,
+      conflicts,
+      conflictsKnown: known,
+      alreadyMerged: false,
+      added: stat.added,
+      removed: stat.removed
+    }
+  }
+
+  /**
+   * Merge `branch` into the current branch.
+   *
+   * `--no-ff` on purpose: a thread is a unit of work and the merge commit is the record
+   * that it happened. Fast-forwarding would scatter its commits into the base branch's
+   * history with nothing tying them together.
+   *
+   * On conflict git leaves the merge in progress, which is a state the user has to
+   * resolve in the working tree, so it aborts and says so rather than leaving the
+   * repository half-merged behind a UI that has moved on.
+   */
+  async merge(branch: string, opts: { message?: string } = {}): Promise<void> {
+    const message = opts.message?.trim() || `Merge ${branch}`
+    try {
+      await this.#git(['merge', '--no-ff', '-m', message, branch])
+    } catch (e) {
+      if (e instanceof GitError) {
+        await this.#gitTolerant(['merge', '--abort']).catch(() => {})
+        throw new GitError(
+          `${e.stderr || e.message}\n\nThe merge was undone, so the working tree is as it was.`,
+          e.stderr,
+          e.stdout
+        )
+      }
+      throw e
+    }
+  }
+
+  /** Delete a branch once its work has landed. Refuses if it has not, unless forced. */
+  async deleteBranch(branch: string, opts: { force?: boolean } = {}): Promise<void> {
+    await this.#git(['branch', opts.force ? '-D' : '-d', branch])
+  }
+
   async log(opts: { limit?: number; path?: string } = {}): Promise<GitLogEntry[]> {
     const { limit = 100, path: filePath } = opts
     // Unit separator between fields, record separator between commits: neither can
@@ -469,6 +560,27 @@ export class GitService {
     }
     return added
   }
+}
+
+/** Shared empty diff result, so the merge preview allocates nothing for the no-op case. */
+const NO_CHANGES = { added: 0, removed: 0 } as const
+
+/**
+ * Pull the conflicted paths out of `git merge-tree --write-tree --name-only`.
+ *
+ * The output is the resulting tree's object id on the first line, then, when the merge
+ * does not apply cleanly, an "Auto-merging"/"CONFLICT" informational block. With
+ * --name-only the conflicted paths are listed one per line after a blank line. Anything
+ * that does not look like a path is ignored rather than guessed at, because a wrong
+ * conflict list is worse than an empty one: it would stop a user landing work that would
+ * have merged fine.
+ */
+function parseMergeTreeConflicts(raw: string): string[] {
+  const [, ...rest] = raw.split('\n')
+  return rest
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('Auto-merging'))
+    .filter((line, index, all) => all.indexOf(line) === index)
 }
 
 /**

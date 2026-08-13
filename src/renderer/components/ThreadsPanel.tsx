@@ -34,6 +34,7 @@ export function ThreadsPanel(): JSX.Element {
   const workspace = useStore((s) => s.workspace)
   const selectThread = useStore((s) => s.selectThread)
   const closeThread = useStore((s) => s.closeThread)
+  const openLandThread = useStore((s) => s.openLandThread)
   const setNewThreadOpen = useStore((s) => s.setNewThreadOpen)
 
   /*
@@ -80,6 +81,7 @@ export function ThreadsPanel(): JSX.Element {
               selected={selected === thread.id}
               onSelect={() => selectThread(thread.id)}
               onClose={() => void closeThread(thread.id, { removeWorktree: true })}
+              onLand={() => void openLandThread(thread.id)}
             />
           ))}
         </ul>
@@ -92,12 +94,14 @@ function ThreadRow({
   thread,
   selected,
   onSelect,
-  onClose
+  onClose,
+  onLand
 }: {
   thread: Thread
   selected: boolean
   onSelect: () => void
   onClose: () => void
+  onLand: () => void
 }): JSX.Element {
   const dot = DOT[thread.status]
   const sub = thread.mode === 'subagent'
@@ -126,6 +130,16 @@ function ThreadRow({
           </span>
         </span>
       </button>
+      {thread.branch && (
+        <button
+          className="thread-land"
+          onClick={onLand}
+          title={`Merge ${thread.branch} into the branch you have open`}
+          aria-label={`Land ${thread.title}`}
+        >
+          ⤓
+        </button>
+      )}
       <button
         className="thread-close"
         onClick={onClose}

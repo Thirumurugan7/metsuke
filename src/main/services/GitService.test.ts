@@ -322,3 +322,101 @@ describe('GitService worktrees', () => {
     expect(committed.added + dirty.added).toBe(5)
   })
 })
+
+describe('GitService merging', () => {
+  let dir: string
+  let git: GitService
+
+  beforeEach(async () => {
+    dir = await makeRepo()
+    git = new GitService(dir)
+  })
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  /** Put a commit on `branch` touching `file`, and return to where we started. */
+  async function commitOnBranch(branch: string, file: string, body: string): Promise<void> {
+    const run = (args: string[]) => exec('git', args, { cwd: dir })
+    const back = (await exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: dir })).stdout.trim()
+    await run(['checkout', '-q', '-b', branch])
+    await fs.writeFile(path.join(dir, file), body)
+    await run(['add', file])
+    await run(['commit', '-q', '-m', `work on ${branch}`])
+    await run(['checkout', '-q', back])
+  }
+
+  it('previews a clean merge without touching the working tree', async () => {
+    await commitOnBranch('feature', 'new.txt', 'one\ntwo\n')
+
+    const before = await git.status()
+    const preview = await git.mergePreview('feature')
+
+    expect(preview).toMatchObject({ base: 'main', branch: 'feature', commits: 1, conflicts: [] })
+    expect(preview.added).toBe(2)
+    expect(preview.alreadyMerged).toBe(false)
+    // The point of a preview: nothing moved.
+    expect(await git.status()).toEqual(before)
+  })
+
+  it('names the files that would conflict, before anybody merges', async () => {
+    await commitOnBranch('feature', 'README.md', '# Theirs\n')
+    // Now change the same file on main, so the two disagree.
+    await fs.writeFile(path.join(dir, 'README.md'), '# Ours\n')
+    await exec('git', ['add', 'README.md'], { cwd: dir })
+    await exec('git', ['commit', '-q', '-m', 'ours'], { cwd: dir })
+
+    const preview = await git.mergePreview('feature')
+    expect(preview.conflicts).toContain('README.md')
+  })
+
+  it('reports a branch already contained in the base as nothing to do', async () => {
+    await commitOnBranch('feature', 'new.txt', 'x\n')
+    await git.merge('feature')
+
+    const preview = await git.mergePreview('feature')
+    expect(preview.alreadyMerged).toBe(true)
+    expect(preview.commits).toBe(0)
+  })
+
+  it('merges with a merge commit rather than fast-forwarding', async () => {
+    await commitOnBranch('feature', 'new.txt', 'x\n')
+    await git.merge('feature', { message: 'Land the feature' })
+
+    const log = await git.log({ limit: 1 })
+    expect(log[0].subject).toBe('Land the feature')
+    // --no-ff means the merge is a real commit with two parents, so the thread's work
+    // stays identifiable rather than being scattered into main's history.
+    const parents = (await exec('git', ['rev-list', '--parents', '-n', '1', 'HEAD'], { cwd: dir }))
+      .stdout.trim().split(' ')
+    expect(parents).toHaveLength(3)
+    expect(await fs.readFile(path.join(dir, 'new.txt'), 'utf8')).toBe('x\n')
+  })
+
+  it('leaves the working tree untouched when a merge conflicts', async () => {
+    await commitOnBranch('feature', 'README.md', '# Theirs\n')
+    await fs.writeFile(path.join(dir, 'README.md'), '# Ours\n')
+    await exec('git', ['add', 'README.md'], { cwd: dir })
+    await exec('git', ['commit', '-q', '-m', 'ours'], { cwd: dir })
+
+    await expect(git.merge('feature')).rejects.toThrow(/undone|conflict/i)
+
+    // A half-finished merge behind a UI that moved on is the failure worth preventing.
+    expect(await fs.readFile(path.join(dir, 'README.md'), 'utf8')).toBe('# Ours\n')
+    const status = await git.status()
+    expect(status.files.filter((f) => f.staged === 'conflicted')).toEqual([])
+  })
+
+  it('deletes a merged branch, and refuses an unmerged one', async () => {
+    await commitOnBranch('landed', 'a.txt', 'a\n')
+    await commitOnBranch('unlanded', 'b.txt', 'b\n')
+    await git.merge('landed')
+
+    await git.deleteBranch('landed')
+    expect((await git.branches()).some((b) => b.name === 'landed')).toBe(false)
+
+    await expect(git.deleteBranch('unlanded')).rejects.toThrow()
+    expect((await git.branches()).some((b) => b.name === 'unlanded')).toBe(true)
+  })
+})

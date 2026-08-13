@@ -1,7 +1,13 @@
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import type { NewThreadOptions, Thread, TerminalSpawnOptions, TerminalSession } from '@shared/ipc'
+import type {
+  MergePreview,
+  NewThreadOptions,
+  Thread,
+  TerminalSpawnOptions,
+  TerminalSession
+} from '@shared/ipc'
 import { GitService } from './GitService'
 
 /** Shared empty result, so the refresh path allocates nothing in the common case. */
@@ -478,6 +484,69 @@ export class ThreadService {
     if (!text) return null
     // Four characters to the token is the usual rule of thumb and close enough for a label.
     return `returned about ${Math.max(1, Math.round(text.length / 4))} tok`
+  }
+
+  // -------------------------------------------------------------------------
+  // Landing
+  // -------------------------------------------------------------------------
+
+  /** What landing this thread would do. Computes nothing destructive. */
+  async mergePreview(id: string): Promise<MergePreview> {
+    const { git, thread } = this.#landable(id)
+    return git.mergePreview(thread.branch!)
+  }
+
+  /**
+   * Land a thread: merge its branch into whatever the workspace has checked out, then
+   * close it.
+   *
+   * The order matters. The worktree is removed only after the merge succeeds, because a
+   * failed merge leaves the work exactly where it was and the thread still usable. A
+   * conflict aborts inside GitService and throws, so nothing here has to unwind.
+   *
+   * The branch outlives the merge unless asked otherwise, since it is the record of what
+   * the thread did and deleting it is not something to do on the user's behalf.
+   */
+  async merge(id: string, opts: { message?: string; deleteBranch?: boolean } = {}): Promise<void> {
+    const { git, thread } = this.#landable(id)
+    const branch = thread.branch!
+
+    const preview = await git.mergePreview(branch)
+    if (preview.alreadyMerged) {
+      // Nothing to merge is not a failure; the thread is simply finished.
+      await this.close(id, { removeWorktree: true })
+      return
+    }
+
+    await git.merge(branch, { message: opts.message ?? `Merge thread: ${thread.title}` })
+
+    // Only now is the checkout expendable. Removing it first would strand the work if
+    // the merge then failed.
+    await this.close(id, { removeWorktree: true })
+
+    if (opts.deleteBranch) {
+      // The commits are in the base branch now, so a plain -d will accept it.
+      await git.deleteBranch(branch).catch(() => {})
+    }
+  }
+
+  /**
+   * The checks both landing paths share.
+   *
+   * A thread without a branch has nothing to land, and one whose worktree is the folder
+   * the user is looking at would be merging a branch into itself.
+   */
+  #landable(id: string): { git: GitService; thread: Thread } {
+    const thread = this.#threads.get(id)
+    if (!thread) throw new Error('That thread no longer exists')
+    if (!thread.branch) {
+      throw new Error('This thread shares the workspace, so it has no branch to land')
+    }
+
+    const git = this.#deps.git()
+    if (!git) throw new Error('This folder is not a git repository')
+
+    return { git, thread }
   }
 
   // -------------------------------------------------------------------------

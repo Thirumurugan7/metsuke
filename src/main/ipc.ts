@@ -277,6 +277,14 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
   handle('threads:create', (opts) => services.threads!.create(opts))
   handle('threads:close', (id, opts) => services.threads!.close(id, opts))
   handle('threads:refresh', () => services.threads!.refresh())
+  handle('threads:mergePreview', (id) => services.threads!.mergePreview(id))
+  handle('threads:merge', async (id, opts) => {
+    await services.threads!.merge(id, opts)
+    // The merge changed the branch the user is looking at, so the git panel and the
+    // file tree are both stale until they are told.
+    const status = await services.workspace?.git?.status()
+    if (status) emit('git:changed', status)
+  })
 
   // -- ports ----------------------------------------------------------------
 

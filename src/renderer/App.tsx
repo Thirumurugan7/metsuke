@@ -7,6 +7,7 @@ import { PortsPanel } from './components/PortsPanel'
 import { ClaudePanel } from './components/ClaudePanel'
 import { ThreadsPanel } from './components/ThreadsPanel'
 import { NewThread } from './components/NewThread'
+import { LandThread } from './components/LandThread'
 import { EditorPane } from './components/EditorPane'
 import { Preview } from './components/Preview'
 import { TerminalPanel } from './components/TerminalPanel'
@@ -284,6 +285,7 @@ export function App(): JSX.Element {
       <ElementComment />
       <QuickOpen />
       <NewThread />
+      <LandThread />
       <NotificationSettings />
       <Toasts />
     </div>

@@ -130,6 +130,28 @@ export interface TerminalSession {
   title: string
 }
 
+/**
+ * What merging a thread's branch would do, computed without touching the working tree.
+ *
+ * `conflictsKnown` is false when git could not answer, on a version without
+ * `merge-tree --write-tree`. An empty `conflicts` list then means "unknown", not
+ * "clean", and the UI has to say so rather than promise a smooth merge.
+ */
+export interface MergePreview {
+  /** Branch that would receive the work, that is, the currently checked out one. */
+  base: string
+  branch: string
+  /** Commits on `branch` that `base` does not have. */
+  commits: number
+  /** Paths that would conflict. Empty and `conflictsKnown` means it merges cleanly. */
+  conflicts: string[]
+  conflictsKnown?: boolean
+  /** Already contained in base, so there is nothing to land. */
+  alreadyMerged: boolean
+  added: number
+  removed: number
+}
+
 // ---------------------------------------------------------------------------
 // Threads
 // ---------------------------------------------------------------------------
@@ -401,6 +423,16 @@ export interface InvokeChannels {
   'threads:close': { args: [id: string, opts: { removeWorktree?: boolean }]; result: void }
   /** Recompute diff stats for every thread that owns a branch. */
   'threads:refresh': { args: []; result: Thread[] }
+  /** What landing this thread would do, without doing it. */
+  'threads:mergePreview': { args: [id: string]; result: MergePreview }
+  /**
+   * Merge a thread's branch into the branch the workspace has checked out, then close
+   * the thread. The worktree goes; whether the branch goes is the caller's choice.
+   */
+  'threads:merge': {
+    args: [id: string, opts: { message?: string; deleteBranch?: boolean }]
+    result: void
+  }
 
   // -- ports ----------------------------------------------------------------
   'ports:list': { args: []; result: PortInfo[] }
@@ -524,6 +556,8 @@ export const INVOKE_CHANNELS = [
   'threads:create',
   'threads:close',
   'threads:refresh',
+  'threads:mergePreview',
+  'threads:merge',
   'ports:list',
   'claude:usage',
   'claude:skills',

@@ -13,6 +13,7 @@ import type {
   SystemCheck,
   Thread,
   NewThreadOptions,
+  MergePreview,
   Workspace
 } from '@shared/ipc'
 
@@ -371,6 +372,13 @@ interface State {
   selectThread: (id: string) => void
   createThread: (opts: NewThreadOptions) => Promise<void>
   closeThread: (id: string, opts?: { removeWorktree?: boolean }) => Promise<void>
+  /** Which thread the land sheet is open for, or null. */
+  landingThread: string | null
+  landPreview: MergePreview | null
+  /** Open the land sheet and fetch what merging would do. */
+  openLandThread: (id: string) => Promise<void>
+  closeLandThread: () => void
+  landThread: (id: string, opts?: { deleteBranch?: boolean }) => Promise<void>
 
   // -- notifications --------------------------------------------------------
   loadNotifySettings: () => Promise<void>
@@ -419,6 +427,8 @@ export const useStore = create<State>((set, get) => ({
   threads: [],
   selectedThread: null,
   newThreadOpen: false,
+  landingThread: null,
+  landPreview: null,
   notifySettings: null,
   notificationLog: [],
   settingsOpen: false,
@@ -751,6 +761,39 @@ export const useStore = create<State>((set, get) => ({
       get().attachSession(localId, thread.terminalId)
     }
     get().triggerAdaptation(thread.mode === 'subagent' ? 'delegating' : thread.title)
+  },
+
+  openLandThread: async (id) => {
+    // Show the sheet immediately and fill it in when git answers: computing a merge
+    // preview shells out, and a sheet that appears only after that reads as a dead click.
+    set({ landingThread: id, landPreview: null })
+    const preview = await call('threads:mergePreview', id)
+    // Ignore a preview that arrives after the user moved on.
+    if (get().landingThread === id) set({ landPreview: preview })
+  },
+
+  closeLandThread: () => set({ landingThread: null, landPreview: null }),
+
+  landThread: async (id, opts = {}) => {
+    const thread = get().threads.find((t) => t.id === id)
+
+    // Same reason as closeThread: the tab would otherwise respawn a session that gets
+    // adopted as a new thread, and the row would come back with nothing behind it.
+    if (thread?.terminalId) {
+      const tab = get().terminals.find((t) => t.sessionId === thread.terminalId)
+      if (tab) get().closeTerminal(tab.id)
+    }
+
+    if ((await call('threads:merge', id, opts)) === null) return
+
+    set((s) => ({
+      landingThread: null,
+      landPreview: null,
+      selectedThread: s.selectedThread === id ? null : s.selectedThread
+    }))
+    // The merge moved the branch under the file tree and the git panel.
+    await get().refreshGit()
+    await get().loadDir('')
   },
 
   closeThread: async (id, opts = {}) => {
