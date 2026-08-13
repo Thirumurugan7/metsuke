@@ -111,10 +111,23 @@ demonstrably broken minutes later. Re-run the check yourself.
 
 ```bash
 npm run dev          # app, with CDP on 9222
-npm test             # 111 tests
+npm test             # 111 unit tests
+npm run test:ui      # visual regression over the built app
 npm run typecheck    # both projects
 npm run dist:dir     # fast packaging smoke test
 ```
+
+`tests/ui/` is the visual regression suite; read `tests/ui/README.md` before
+touching it. It drives the built app, so it needs `electron-vite build` first,
+which `npm run test:ui` does for you. Baselines are committed images: look at
+one before you bless it.
+
+**Running the UI suite interrupts whoever is at the machine.** Every launch is a
+macOS app activation: the dock icon appears and focus leaves what they were doing.
+The window is invisible and the fixture launches once per run rather than once per
+test, but the activation itself cannot be prevented from test code. Do not run it
+repeatedly to see whether something passes this time, and do not run it at all
+while someone is working. Read the diff image in `test-results/` instead.
 
 `tools/cdp/` drives the running app; read `tools/cdp/README.md` first, it lists the
 traps. Renderer errors are surfaced to the terminal running `npm run dev`, so check

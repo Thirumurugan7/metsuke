@@ -175,9 +175,10 @@ const TASKS = [
       {
         id: 'e2e-tests',
         who: 'me',
+        done: true,
         text: 'Add end-to-end tests',
         detail:
-          '111 unit tests cover git, worktrees, threads, the path jail, the IPC contract, hook classification and fuzzy matching. Nothing tests the actual UI. Every interface bug this project has had was found by hand, and two of them shipped because I checked the DOM instead of the pixels.'
+          'Done. 111 unit tests cover git, worktrees, threads, the path jail, the IPC contract, hook classification and fuzzy matching, and a 26 test Playwright suite drives the real built app and compares masked screenshots against 25 committed baselines across the shell, git, terminals, threads, preview and all seven themes. Two flows are deliberately not covered: the floating alert window, a separate BrowserWindow that only appears on a real notification, and the preview element picker, which drives CDP over the webview and would conflict with the harness attaching its own debugger. It runs locally only and cannot run in CI, since it needs a real claude binary on PATH. Running it briefly takes focus, because launching Electron activates the app on macOS and no test-side setting prevents that, so it is worth running when you are not mid-task.'
       },
       {
         id: 'threads-subagent-cards',
