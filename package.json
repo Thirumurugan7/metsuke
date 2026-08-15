@@ -17,6 +17,8 @@
     "test:watch": "vitest",
     "test:ui": "electron-vite build && playwright test",
     "test:ui:update": "electron-vite build && playwright test --update-snapshots",
+    "licenses": "node tools/licenses.mjs",
+    "licenses:check": "node tools/licenses.mjs --check",
     "rebuild": "electron-rebuild -f -w node-pty",
     "postinstall": "electron-rebuild -f -w node-pty",
     "dist": "electron-vite build && electron-builder",

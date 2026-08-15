@@ -357,6 +357,22 @@
               <code>xattr -dr com.apple.quarantine "/Applications/Metsuke.app"</code>. Windows
               SmartScreen complains once. On Linux, <code>chmod +x</code> the AppImage.
             </p>
+            <p>
+              <b>It sends nothing anywhere.</b> No analytics, no crash reporting, no account,
+              no server. What leaves your machine is what you can name: the
+              <code>claude</code> CLI talking to Anthropic as it always does, whatever you
+              load in the preview, and a Telegram notification if you set one up with your
+              own bot token.
+            </p>
+            <p>
+              <b>The preview hands Claude real control of the page.</b> It reads the DOM,
+              runs JavaScript in it, clicks and types, and reads the console. It sits in an
+              isolated session with its own cookie jar and cannot touch your browser, but
+              anything you log into inside the pane stays logged in, and anything on screen
+              can reach the model. The
+              <a href="https://github.com/OWNER/REPO#what-the-preview-actually-is-and-what-that-means" rel="noopener">README
+              spells out the whole boundary</a>.
+            </p>
           </div>
         </div>
       </section>
@@ -376,7 +392,11 @@
     <footer>
       <div class="wrap foot">
         <span class="foot-brand">Metsuke</span>
-        <span class="foot-lic">MIT licensed</span>
+        <span class="foot-lic">
+          MIT licensed, and
+          <a href="https://github.com/OWNER/REPO/blob/main/THIRD-PARTY-LICENSES.md" rel="noopener">104
+          third-party packages attributed</a>
+        </span>
         <div class="foot-links">
           <a href="https://github.com/OWNER/REPO" rel="noopener">GitHub</a>
           <a href="https://github.com/OWNER/REPO/releases" rel="noopener">Releases</a>

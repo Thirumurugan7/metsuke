@@ -202,18 +202,47 @@ you cannot see. Your own `claude` in a normal terminal is untouched.
 claude (pty)  →  MCP stdio server  →  loopback bridge  →  Electron main  →  CDP  →  preview
 ```
 
-### Why that is safe to leave unrestricted
+### What the preview actually is, and what that means
 
-The preview is a dedicated surface, not your browser. It runs in its own session
-partition with an empty cookie jar, holds none of your logins, and cannot reach the
-editor, the filesystem, or the main process. `webSecurity` is disabled *inside the
-preview only*, so dev servers with loose CORS and self-signed certs work without a
-fight.
+Read this rather than discover it.
 
-The editor's own renderer stays locked down — `contextIsolation` and `sandbox` on, no
-Node — and reaches the filesystem only through the typed IPC contract in
-`src/shared/ipc.ts`. The control bridge binds to 127.0.0.1 on an ephemeral port behind
-a per-run bearer token.
+**Claude has full control of whatever page is loaded.** Not a screenshot API: real CDP.
+It can read the DOM, run arbitrary JavaScript in the page with `preview_eval`, click and
+type as a trusted user, and read the console and network log. Everything it reads can end
+up in its context, which means it leaves your machine as part of the conversation. Treat
+the preview pane as something you are showing to the model on purpose.
+
+**`webSecurity` is off inside the preview only.** That is what makes a dev server with
+loose CORS and a self-signed cert work without a fight, and it also means a page loaded
+there can make cross-origin requests a normal browser would block. The pane is for your
+own app. It is not a browser to read the web in.
+
+**Its session persists.** The preview runs in an isolated `persist:preview` partition
+with its own cookie jar, separate from any browser you use and from the editor itself.
+It starts empty, and it stays: if you log into something inside the pane, that session
+is still there next time, and Claude can act as you on that site for as long as it
+lasts. Nothing else on your machine is exposed by it, but that one thing is.
+
+**The bridge is local, not private.** It binds to 127.0.0.1 on an ephemeral port behind
+a per-run bearer token, so nothing off your machine can reach it. The token sits in
+`mcp-preview.json` in the app's userData directory, so any process running as you can
+read it and drive the preview. That is the same trust boundary as your shell.
+
+**The editor itself is not the preview.** Its renderer keeps `contextIsolation` and
+`sandbox` on with no Node, and reaches the filesystem only through the typed IPC contract
+in `src/shared/ipc.ts`. Terminals are the real exception, and an obvious one: a terminal
+is a shell, and `claude` running in it has whatever permissions you gave it.
+
+### Telemetry
+
+There is none. The app makes no analytics, crash-reporting or update requests, and there
+is no account, no server, and nothing for it to phone home to. The only things that leave
+your machine are the ones you can name: the `claude` CLI talking to Anthropic as it
+always does, whatever your preview pane loads, and a Telegram notification if you
+configure one with your own bot token.
+
+This is a claim that gets harder to make later, so it is written down while it is
+cheap to keep. If it ever stops being true it will be opt-in and it will be in this file.
 
 ## Layout
 
@@ -227,6 +256,24 @@ a per-run bearer token.
 | `src/shared/ipc.ts` | The IPC contract, imported by both sides |
 
 Design notes: `docs/superpowers/specs/2026-08-10-claude-code-editor-design.md`.
+
+## Licenses
+
+Metsuke is MIT licensed; see `LICENSE`.
+
+It ships 104 third-party packages, MIT, ISC, BSD-2-Clause and BSD-3-Clause, each
+reproduced in full in `THIRD-PARTY-LICENSES.md`. That file is generated from the
+installed tree rather than written by hand, because a hand-written attribution is a
+claim about what shipped that nothing checks:
+
+```bash
+npm run licenses         # regenerate
+npm run licenses:check   # fail if it is stale
+```
+
+It covers both what electron-builder copies into the app and what is compiled into the
+renderer at build time. React and Monaco are devDependencies in `package.json`, which is
+a statement about who installs them, not about whether their code ships.
 
 ## Inspecting the editor's own UI
 
