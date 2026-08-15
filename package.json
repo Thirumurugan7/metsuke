@@ -5,6 +5,14 @@
   "description": "A VS Code-style editor built around Claude Code",
   "main": "./out/main/index.js",
   "author": "Thirumurugan Sivalingam",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thirumurugan7/metsuke.git"
+  },
+  "homepage": "https://github.com/thirumurugan7/metsuke",
+  "bugs": {
+    "url": "https://github.com/thirumurugan7/metsuke/issues"
+  },
   "license": "MIT",
   "private": true,
   "type": "module",
