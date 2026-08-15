@@ -178,21 +178,23 @@ const TASKS = [
         done: true,
         text: 'Add end-to-end tests',
         detail:
-          'Done. 111 unit tests cover git, worktrees, threads, the path jail, the IPC contract, hook classification and fuzzy matching, and a 26 test Playwright suite drives the real built app and compares masked screenshots against 25 committed baselines across the shell, git, terminals, threads, preview and all seven themes. Two flows are deliberately not covered: the floating alert window, a separate BrowserWindow that only appears on a real notification, and the preview element picker, which drives CDP over the webview and would conflict with the harness attaching its own debugger. It runs locally only and cannot run in CI, since it needs a real claude binary on PATH. Running it briefly takes focus, because launching Electron activates the app on macOS and no test-side setting prevents that, so it is worth running when you are not mid-task.'
+          'Done. 143 unit tests cover git, worktrees, threads, the path jail, the IPC contract, hook classification and fuzzy matching, and a 26 test Playwright suite drives the real built app and compares masked screenshots against 25 committed baselines across the shell, git, terminals, threads, preview and all seven themes. Two flows are deliberately not covered: the floating alert window, a separate BrowserWindow that only appears on a real notification, and the preview element picker, which drives CDP over the webview and would conflict with the harness attaching its own debugger. It runs locally only and cannot run in CI, since it needs a real claude binary on PATH. Running it briefly takes focus, because launching Electron activates the app on macOS and no test-side setting prevents that, so it is worth running when you are not mid-task.'
       },
       {
         id: 'threads-subagent-cards',
         who: 'me',
+        done: true,
         text: 'Show a subagent report in the conversation',
         detail:
-          'Threads tracks subagents through the Task hooks and lists them under the instance that spawned them, with the size of what came back. The design called for the report itself to appear as a card in the conversation, since the subagent\'s actual work never enters the parent context and the sidebar row is all there is. That part is not built.'
+          'Done. The report is kept now instead of being reduced to a token count, and the sidebar row expands to show it, one at a time so the list stays navigable. The text is pulled out of a bare string, out of API-style content blocks, or failing both out of the raw JSON, because the shape varies by CLI version and a report nobody can reach is the one thing threads cannot afford to drop. Capped at 20k characters, since it is held in memory, sent over IPC on every thread change, and written to the state file.'
       },
       {
         id: 'threads-persistence',
         who: 'me',
+        done: true,
         text: 'Remember threads across a restart',
         detail:
-          'Threads survive a renderer reload but not a restart of the app, because the list lives in memory in main and the ptys die with it. The worktrees and branches are still on disk afterwards, so the list disagrees with the repository until you close and recreate each one by hand.'
+          'Done. Instances with their own worktree are written to a state file and restored on launch, finished rather than pretending to be alive: the pty died with the process, but the branch and the checkout are still there, so a restored thread can be landed or closed. One whose worktree has since been deleted is dropped. Threads that shared the workspace and subagents are not persisted, because nothing is left behind them to restore.'
       },
       {
         id: 'preview-scroll-hang',

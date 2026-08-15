@@ -111,7 +111,7 @@ demonstrably broken minutes later. Re-run the check yourself.
 
 ```bash
 npm run dev          # app, with CDP on 9222
-npm test             # 111 unit tests
+npm test             # 143 unit tests
 npm run test:ui      # visual regression over the built app
 npm run typecheck    # both projects
 npm run dist:dir     # fast packaging smoke test
@@ -155,7 +155,8 @@ done. Update `done` there when something lands.
 
 ## State as of the last session
 
-Working and verified: editor, git client, multi-terminal with reattach, preview with
+Working and verified: editor with search and replace across files, git client,
+multi-terminal with reattach, preview with
 element picker and full screen, notifications across four channels, the adaptation
 flourish, seven themes, onboarding, the Claude panel, threads.
 
@@ -166,7 +167,12 @@ also sees the ones Claude spawns on its own. Verified by driving the app: the wo
 and branch appear on disk, `claude` starts inside the worktree, the diff stat counts
 committed and uncommitted work including untracked files, a thread survives a renderer
 reload, and closing one removes the checkout while keeping the branch and its commits.
-The list itself is in-memory in main, so it does not survive a restart of the app.
+A thread can also be landed: the sheet previews the merge with `merge-tree --write-tree`
+before doing it, merges `--no-ff`, and removes the worktree only after the merge
+succeeds. Instances with a worktree are persisted to a state file and restored on
+launch, finished rather than live, since the pty died with the process. A subagent's
+report is kept in full (capped at 20k characters) and the sidebar row expands to show
+it, because that work never enters the parent conversation.
 
 Not done: nothing is published anywhere. No GitHub repo, no installers built for any
 platform, no code signing, no auto-update. The name uses Anthropic's trademark and should
