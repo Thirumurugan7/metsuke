@@ -78,10 +78,11 @@ The landing page lives in `site/` — see `site/README.md`.
   another Claude session or a plain shell, middle-click or `×` to close, restart in
   place when a process exits. Switching tabs never kills a session.
 
-  Sessions belong to the app, not to the window. A reload — including an HMR refresh
-  while hacking on the editor itself, or a renderer crash — reattaches to the running
-  ptys and replays their scrollback rather than starting over. A session ends when you
-  close its tab, when you open a different folder, or when you quit.
+  Sessions belong to the machine, not to the window or even to the app. They run in a
+  separate host process, so a reload, a renderer crash, and a full restart of the editor
+  all reattach to the running ptys and replay their scrollback rather than starting over.
+  A `claude` session survives you rebuilding the editor around it. A session ends when
+  you close its tab, when you open a different folder, or when you quit.
 
 ## Point at something and say what is wrong
 

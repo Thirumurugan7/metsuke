@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { registerIpc, type AppServices } from './ipc'
 import { installCrashHandlers, type CrashHandlers } from './crash'
 import { UpdateService } from './updates'
+import { attachPtyHost } from './ptyHostLauncher'
 import { TerminalService } from './services/TerminalService'
 import { PortService } from './services/PortService'
 import { AutomationService } from './services/AutomationService'
@@ -188,6 +189,16 @@ app.whenReady().then(async () => {
   services.mcpConfigPath = await writeMcpConfig(bridge)
   services.hookSettingsPath = await writeHookSettings()
   await services.notifications.load()
+
+  /*
+   * Ptys move into their own process here, before anything can spawn one. Sessions from
+   * a previous run of the editor come back attached rather than as an empty pane; see
+   * PtyHost for why they cannot simply live in this process.
+   */
+  const restored = await attachPtyHost(services.terminals)
+  if (restored.length > 0) {
+    console.log(`[terminals] reattached ${restored.length} session(s) from the pty host`)
+  }
   await services.updates.start(() => window)
 
   // Hooks reach the bridge using these, so they must be in the pty's environment

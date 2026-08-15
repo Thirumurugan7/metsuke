@@ -179,9 +179,10 @@ const TASKS = [
       {
         id: 'main-restart-sessions',
         who: 'me',
+        done: true,
         text: 'Survive main-process restarts, not just renderer reloads',
         detail:
-          'Sessions now reattach across a window reload, which fixed the complaint about constant restarts. A change to anything under src/main still kills every terminal, because the process that owns the ptys is the one restarting.'
+          'Done. Ptys now run in their own detached process and main attaches to it over a unix socket, because a pty master is a file descriptor that cannot be handed over or reopened: anything main owns dies with main. Verified by killing main outright and restarting: the host survived reparented to init, both ptys kept running, and the claude session came back with the same session id, the same pty pid and 1875 characters of scrollback replayed. Sessions are still killed on a real quit, and only there. If the host cannot start, terminals fall back to running in-process exactly as before, because a terminal that does not survive a restart is a disappointment and a terminal that does not open is a broken editor.'
       },
       {
         id: 'e2e-tests',

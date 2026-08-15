@@ -12,7 +12,9 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
-          'mcp-server': resolve('src/main/mcp/server.ts')
+          'mcp-server': resolve('src/main/mcp/server.ts'),
+          // Its own process on purpose: it has to outlive this one. See PtyHost.
+          'pty-host': resolve('src/main/pty-host/host.ts')
         }
       }
     }

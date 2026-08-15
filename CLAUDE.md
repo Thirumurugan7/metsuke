@@ -27,10 +27,11 @@ screen. If you say you verified something, have the output.
 
 | Process | Owns |
 |---|---|
-| **main** (`src/main/`) | Window lifecycle, filesystem, git, ptys, file watching, ports, CDP over the preview, notifications, the MCP bridge |
+| **main** (`src/main/`) | Window lifecycle, filesystem, git, file watching, ports, CDP over the preview, notifications, the MCP bridge |
 | **renderer** (`src/renderer/`) | All React UI. Sandboxed, no Node, talks to main only over IPC |
 | **preview** (`<webview>`) | The user's app. Isolated partition, `webSecurity` off |
 | **alert window** | Separate always-on-top frameless window (`alert.html`) |
+| **pty host** (`src/main/pty-host/`) | Every pty, in a detached process that outlives main |
 
 `src/shared/ipc.ts` is the contract. Both sides import it, so they cannot drift, and a
 test asserts every declared channel has a handler. Add a channel there first.
@@ -56,8 +57,20 @@ environment, never through a file.
 **Main-process changes need a full restart.** `electron-vite` does not reliably pick them
 up. A fix that "does not work" is often just not loaded. Renderer changes hot reload.
 
-**Restarting kills the user's `claude` session.** Renderer reloads reattach to running
-ptys and replay scrollback, but a main restart does not. Batch main-process work.
+**Ptys live in their own process, not in main.** A pty master is a file descriptor: it
+cannot be passed to another process or reopened, so anything main owns dies with main.
+`src/main/pty-host/host.ts` runs detached, keeps the sessions and their scrollback, and
+main attaches to it over a unix socket. A restart of main therefore reattaches instead of
+killing the user's `claude` session. Sessions are killed on a real quit and only there:
+`disposeAll` sends `shutdown`, and nothing else may call it, or a crash would take the
+sessions with it. If the host cannot start, TerminalService falls back to spawning ptys
+in-process, which is the old behaviour and still better than no terminals.
+
+**`npm run dist:mac` leaves node_modules built for the wrong architecture.** It rebuilds
+node-pty for each target arch in place, so after building on Apple silicon the tree holds
+the x64 `pty.node` and `npm run dev` cannot open a single terminal: every spawn fails with
+`posix_spawnp failed`, and the tab respawns in a loop that looks like the app is fine.
+`npm run rebuild` puts it back. This cost an hour of debugging a feature that was working.
 
 **React StrictMode double-invokes mount effects.** This has caused four separate leaks:
 duplicate terminals, an abandoned pty from a discarded effect, a killed session on
@@ -139,7 +152,7 @@ leaves it empty; that is cosmetic, not a leak.
 
 ```bash
 npm run dev          # app, with CDP on 9222
-npm test             # 147 unit tests
+npm test             # 208 unit tests
 npm run test:ui      # visual regression over the built app
 npm run typecheck    # both projects
 npm run dist:dir     # fast packaging smoke test
