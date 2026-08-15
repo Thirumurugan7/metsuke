@@ -162,9 +162,10 @@ const TASKS = [
       {
         id: 'packaged-dmg',
         who: 'me',
+        done: true,
         text: 'Produce and open a real .dmg',
         detail:
-          'I only ever ran dist:dir, which makes an unpacked app. The .dmg path, its layout, and whether it mounts and installs cleanly are all untested.'
+          'Done, and it found a packaging bug that had never been hit because only dist:dir had ever run. electron-builder bundles its own older @electron/rebuild pinned to node-gyp 9, whose vendored gyp imports distutils, removed in Python 3.12; the build made the first architecture and then died rebuilding node-pty for the second. Overriding node-gyp alone fixed the crash and then hung the old worker at zero CPU indefinitely. The fix is an npm override pointing every copy at the direct dependency. Both .dmgs now build: arm64 and x64, each mounting with the Applications symlink and a correct bundle (dev.metsuke.app, right architecture, node-pty unpacked outside the asar). The app launches from the arm64 one and opens a real 1470x923 window, and doing so proved the userData split with the real thing: it wrote its own directory and left the running dev config byte-identical. The build still exits non-zero at the very last step, computing publish metadata, because there is no repository to resolve; the artifacts are complete before that point.'
       },
       {
         id: 'userdata-clash',

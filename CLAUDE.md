@@ -102,6 +102,15 @@ missing on machines where the terminal runs it fine. See `services/systemCheck.t
 PowerShell), hook commands run through cmd.exe so `$VAR` must be `%VAR%`, and the macOS
 traffic-light inset must not apply elsewhere.
 
+**electron-builder ships its own, older `@electron/rebuild`.** It bundled 3.6.1, pinned
+to `node-gyp@^9`, whose vendored gyp imports `distutils` — removed in Python 3.12. So
+`npm run dist:*` built the first architecture and then died on the second, where it
+rebuilds node-pty from source, on any machine with a current Python. Overriding
+`node-gyp` alone fixes the crash and then *hangs* that old worker at 0% CPU forever. The
+fix in `package.json` is `"overrides": { "@electron/rebuild": "$@electron/rebuild" }`,
+which points every copy at the direct dependency. Our own `postinstall` was never
+affected, which is why the app ran fine and only packaging broke.
+
 **Subagent reports need re-checking.** One reported verifying video playback that was
 demonstrably broken minutes later. Re-run the check yourself.
 
