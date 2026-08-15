@@ -186,6 +186,13 @@ const TASKS = [
           'Done. 143 unit tests cover git, worktrees, threads, the path jail, the IPC contract, hook classification and fuzzy matching, and a 26 test Playwright suite drives the real built app and compares masked screenshots against 25 committed baselines across the shell, git, terminals, threads, preview and all seven themes. Two flows are deliberately not covered: the floating alert window, a separate BrowserWindow that only appears on a real notification, and the preview element picker, which drives CDP over the webview and would conflict with the harness attaching its own debugger. It runs locally only and cannot run in CI, since it needs a real claude binary on PATH. Running it briefly takes focus, because launching Electron activates the app on macOS and no test-side setting prevents that, so it is worth running when you are not mid-task.'
       },
       {
+        id: 'review-baselines',
+        who: 'you',
+        text: 'Confirm the one re-blessed screenshot',
+        detail:
+          'The baselines were regenerated after the rename and all 26 tests passed. Only one image actually moved, smoke.spec.ts/welcome.png, since the other shots do not include the title bar. Compared against the committed version it differs in three ways and no others: the title bar and the heading say Metsuke, and the new non-affiliation paragraph pushes the vertically centred block up by about 20px. That is my reading of it; a blessed baseline is a test that agrees with whatever the app did, so it is worth 30 seconds of yours.'
+      },
+      {
         id: 'threads-subagent-cards',
         who: 'me',
         done: true,
