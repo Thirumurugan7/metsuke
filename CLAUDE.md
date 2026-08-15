@@ -1,4 +1,4 @@
-# Open Claude
+# Metsuke
 
 A VS Code-style Electron editor built around Claude Code. The point is that you watch the
 agent work: the file tree, git diffs and terminals move as it edits, and it drives a real

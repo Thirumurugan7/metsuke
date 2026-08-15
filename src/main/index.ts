@@ -101,10 +101,10 @@ function createWindow(): void {
 }
 
 // In dev, expose the editor's own window over CDP. This is what lets Claude inspect
-// and screenshot Open Claude's UI while building it — the same trick the preview pane
+// and screenshot Metsuke's UI while building it — the same trick the preview pane
 // gives you for your project, turned back on the editor itself.
 if (process.env['ELECTRON_RENDERER_URL']) {
-  app.commandLine.appendSwitch('remote-debugging-port', process.env['OPEN_CLAUDE_DEBUG_PORT'] ?? '9222')
+  app.commandLine.appendSwitch('remote-debugging-port', process.env['METSUKE_DEBUG_PORT'] ?? '9222')
 }
 
 app.whenReady().then(async () => {
@@ -129,8 +129,8 @@ app.whenReady().then(async () => {
   // Hooks reach the bridge using these, so they must be in the pty's environment
   // before any `claude` session starts.
   services.terminals.setEnv({
-    OPEN_CLAUDE_CONTROL_URL: `http://127.0.0.1:${bridge.port}`,
-    OPEN_CLAUDE_CONTROL_TOKEN: bridge.token
+    METSUKE_CONTROL_URL: `http://127.0.0.1:${bridge.port}`,
+    METSUKE_CONTROL_TOKEN: bridge.token
   })
 
   bridge.onHook(async (kind, body) => {

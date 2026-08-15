@@ -126,6 +126,16 @@
 .welcome-env .sep {
   color: var(--fg-dim);
 }
+/* The non-affiliation notice. It has to be somewhere a first-time user actually
+   passes, and this screen is the only one everybody sees. */
+.welcome-note {
+  color: var(--fg-dim);
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 14px 0 0;
+  max-width: 62ch;
+  opacity: 0.75;
+}
 
 /* -- guide ---------------------------------------------------------------- */
 

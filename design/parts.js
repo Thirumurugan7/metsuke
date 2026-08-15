@@ -10,7 +10,7 @@ const P = {
   titlebar: (extra = '') => `
     <div class="titlebar">
       <span class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></span>
-      <span class="app-name">Open Claude</span>
+      <span class="app-name">Metsuke</span>
       <span class="title-meta">my-app · ⑂ main · 3 changes</span>
       <span class="title-right">${extra}</span>
     </div>`,

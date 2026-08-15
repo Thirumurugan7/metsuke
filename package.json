@@ -1,10 +1,10 @@
 {
-  "name": "open-claude",
-  "productName": "Open Claude",
+  "name": "metsuke",
+  "productName": "Metsuke",
   "version": "0.1.0",
   "description": "A VS Code-style editor built around Claude Code",
   "main": "./out/main/index.js",
-  "author": "",
+  "author": "Thirumurugan Sivalingam",
   "license": "MIT",
   "private": true,
   "type": "module",

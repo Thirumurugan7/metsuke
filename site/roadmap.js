@@ -19,16 +19,18 @@ const TASKS = [
       {
         id: 'rename',
         who: 'me',
+        done: true,
         text: 'Rename off "Open Claude"',
         detail:
-          'Puts Anthropic\'s trademark in the product name, which reads as official. Touches 10+ files: package.json, electron-builder.yml appId, the userData directory, TERM_PROGRAM, the MCP server identity, env var prefixes, localStorage keys, every UI string, and the site. Changing the userData path orphans saved settings, so it has to happen before anyone has any.'
+          'Done. The product is Metsuke, a kendo term for where you fix your gaze during a fight, and under the shogunate the officer who watched on the shogun\'s behalf. The old name put Anthropic\'s trademark in the product name and read as official. The change ran through 34 files: package.json, the electron-builder appId and installer names, the userData directory, TERM_PROGRAM, the MCP server identity, the METSUKE_ env prefix, every localStorage key, the worktree directory, all UI strings, the tests and the site. It landed before anyone had saved settings, which is the only moment it could be done without orphaning them.'
       },
       {
         id: 'license',
         who: 'me',
+        done: true,
         text: 'Add a LICENSE file',
         detail:
-          'package.json and the README both claim MIT and there is no LICENSE file in the repo. As it stands the code is unlicensed, which means nobody may legally use it.'
+          'Done. MIT, copyright Thirumurugan Sivalingam, matching the claim package.json was already making. Until it existed the code was legally unusable by anyone who found it.'
       },
       {
         id: 'claude-missing',
@@ -119,8 +121,10 @@ const TASKS = [
       {
         id: 'disclaimer',
         who: 'me',
+        done: true,
         text: 'Add a not-affiliated notice',
-        detail: 'Whatever the final name is, state clearly that this is not an Anthropic product.'
+        detail:
+          'Done. It says Metsuke is independent, not affiliated with or endorsed by Anthropic, that Claude and Claude Code are their trademarks, and that you bring your own account. It appears in the README, in the footer of both site pages, and on the welcome screen, which is the one screen every first-time user passes.'
       },
       {
         id: 'third-party-licenses',
@@ -266,7 +270,7 @@ const TASKS = [
 
 // ── rendering ────────────────────────────────────────────────────────────────
 
-const STORE_KEY = 'open-claude.roadmap'
+const STORE_KEY = 'metsuke.roadmap'
 
 function loadState() {
   try {

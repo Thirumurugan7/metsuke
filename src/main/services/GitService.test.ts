@@ -10,7 +10,7 @@ const exec = promisify(execFile)
 
 /** A real repo in a temp dir — parsing git output is only worth testing against real git. */
 async function makeRepo(): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-git-'))
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'metsuke-git-'))
   const run = (args: string[]) => exec('git', args, { cwd: dir })
   await run(['init', '-q', '-b', 'main'])
   await run(['config', 'user.email', 'test@example.com'])
@@ -193,7 +193,7 @@ describe('GitService worktrees', () => {
   let git: GitService
 
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-wt-'))
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'metsuke-wt-'))
     const repo = await makeRepo()
     // The worktree lives beside the repo rather than inside it, so removing one in a
     // test never takes the other with it.

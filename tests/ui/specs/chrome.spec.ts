@@ -22,7 +22,7 @@ test.describe('chrome', () => {
       const { page } = app
 
       // Set it the way the app does, then reload so Monaco and xterm re-theme too.
-      await page.evaluate((id) => localStorage.setItem('open-claude.theme', id), theme)
+      await page.evaluate((id) => localStorage.setItem('metsuke.theme', id), theme)
       await page.reload()
       await page.waitForLoadState('domcontentloaded')
       await expect(page.locator('.tree-row', { hasText: 'README.md' })).toBeVisible()

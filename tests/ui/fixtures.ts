@@ -39,7 +39,7 @@ export const WINDOW = { x: -2400, y: 0, width: 1400, height: 900 }
 export const test = base.extend<{ reset: void }, { app: AppFixture }>({
   app: [
     async ({}, use) => {
-      const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-ui-'))
+      const profileDir = await fs.mkdtemp(path.join(os.tmpdir(), 'metsuke-ui-'))
 
       /*
        * A throwaway profile. Electron honours Chromium's --user-data-dir, so the run

@@ -1,4 +1,4 @@
-# Open Claude — website
+# Metsuke — website
 
 A static landing page: three files, no build step, no dependencies. Drop it on any
 static host (GitHub Pages, Netlify, Vercel, Cloudflare Pages) or serve it locally:

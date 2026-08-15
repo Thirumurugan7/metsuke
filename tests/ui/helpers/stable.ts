@@ -10,9 +10,9 @@ import { expect, type Locator, type Page } from '@playwright/test'
  */
 export async function openWorkspace(page: Page, dir: string): Promise<void> {
   await page.evaluate((root) => {
-    localStorage.setItem('open-claude.lastFolder', root)
-    localStorage.setItem('open-claude.autoCheck', 'off')
-    localStorage.setItem('open-claude.theme', 'dark')
+    localStorage.setItem('metsuke.lastFolder', root)
+    localStorage.setItem('metsuke.autoCheck', 'off')
+    localStorage.setItem('metsuke.theme', 'dark')
   }, dir)
 
   await page.reload()

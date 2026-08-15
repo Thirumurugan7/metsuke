@@ -93,8 +93,8 @@ export function App(): JSX.Element {
   useEffect(() => {
     const name = workspace?.name
     document.title = name
-      ? `${dirty.size > 0 ? '● ' : ''}${activePath?.split('/').pop() ?? name} — Open Claude`
-      : 'Open Claude'
+      ? `${dirty.size > 0 ? '● ' : ''}${activePath?.split('/').pop() ?? name} — Metsuke`
+      : 'Metsuke'
   }, [workspace, activePath, dirty])
 
   // Global shortcuts. Registered on the window rather than inside Monaco so they work
@@ -149,7 +149,7 @@ export function App(): JSX.Element {
   return (
     <div className="app">
       <header className="title-bar">
-        <span className="app-name">Open Claude</span>
+        <span className="app-name">Metsuke</span>
         <span className="title-sep" />
         <span className="title-folder">{workspace?.name ?? 'No folder open'}</span>
 

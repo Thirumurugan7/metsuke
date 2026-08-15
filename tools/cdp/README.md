@@ -1,6 +1,6 @@
 # Driving the editor over CDP
 
-In dev the app exposes its own window on port 9222 (`OPEN_CLAUDE_DEBUG_PORT` overrides).
+In dev the app exposes its own window on port 9222 (`METSUKE_DEBUG_PORT` overrides).
 These three scripts talk to it. Node 22+ only, no dependencies.
 
 ```bash
@@ -25,9 +25,9 @@ holds its debugger, and a second connection detaches it. Drive the preview throu
 control bridge instead, which goes via Electron's own attachment:
 
 ```bash
-CFG="$HOME/Library/Application Support/Open Claude/mcp-preview.json"
-URL=$(python3 -c "import json;print(json.load(open('$CFG'))['mcpServers']['preview']['env']['OPEN_CLAUDE_CONTROL_URL'])")
-TOK=$(python3 -c "import json;print(json.load(open('$CFG'))['mcpServers']['preview']['env']['OPEN_CLAUDE_CONTROL_TOKEN'])")
+CFG="$HOME/Library/Application Support/Metsuke/mcp-preview.json"
+URL=$(python3 -c "import json;print(json.load(open('$CFG'))['mcpServers']['preview']['env']['METSUKE_CONTROL_URL'])")
+TOK=$(python3 -c "import json;print(json.load(open('$CFG'))['mcpServers']['preview']['env']['METSUKE_CONTROL_TOKEN'])")
 curl -s -X POST "$URL/call" -H "authorization: Bearer $TOK" \
   -H 'content-type: application/json' --data '{"tool":"preview_state","args":{}}'
 ```

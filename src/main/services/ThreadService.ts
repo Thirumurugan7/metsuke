@@ -28,7 +28,7 @@ export interface ThreadDeps {
 }
 
 /** Where isolated checkouts live, relative to the open folder. */
-const WORKTREE_DIR = path.join('.open-claude', 'worktrees')
+const WORKTREE_DIR = path.join('.metsuke', 'worktrees')
 
 /**
  * Turn a title into something git will accept as a branch name.
@@ -119,11 +119,11 @@ export class ThreadService {
    *
    * It belongs to the project rather than to the app, because that is what it is about:
    * these threads name branches and checkouts in this repository and mean nothing
-   * anywhere else. It also sits under the same `.open-claude/` directory the worktrees
+   * anywhere else. It also sits under the same `.metsuke/` directory the worktrees
    * do, which is already excluded from git, so persisting costs the user nothing.
    */
   #stateFile(root: string): string {
-    return path.join(root, '.open-claude', 'threads.json')
+    return path.join(root, '.metsuke', 'threads.json')
   }
 
   /**
@@ -297,7 +297,7 @@ export class ThreadService {
    */
   async #excludeWorktreeDir(root: string): Promise<void> {
     const excludePath = path.join(root, '.git', 'info', 'exclude')
-    const line = '/.open-claude/'
+    const line = '/.metsuke/'
     try {
       const current = await fs.readFile(excludePath, 'utf8').catch(() => '')
       if (current.split('\n').some((l) => l.trim() === line)) return

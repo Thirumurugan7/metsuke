@@ -21,7 +21,7 @@ export function Welcome(): JSX.Element {
   return (
     <div className="welcome">
       <div className="welcome-inner">
-        <h1 className="welcome-title">Open Claude</h1>
+        <h1 className="welcome-title">Metsuke</h1>
         <p className="welcome-lede">
           A code editor that runs Claude Code beside your project, and gives it a browser it can
           drive. You watch the work happen instead of reading a summary of it afterwards.
@@ -84,6 +84,12 @@ export function Welcome(): JSX.Element {
             )}
           </p>
         )}
+
+        <p className="welcome-note">
+          Metsuke is an independent open-source project, not affiliated with or endorsed by
+          Anthropic. Claude and Claude Code are their trademarks, and running Claude Code here
+          uses your own account with them.
+        </p>
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 /*
- * Open Claude landing page.
+ * Metsuke landing page.
  *
  * Three static files, no build step, no dependencies. Dark ground, one accent, a tight
  * type scale, and monospace for anything a developer would recognise as literal.
@@ -758,6 +758,14 @@ footer {
 }
 .foot-links a:hover {
   color: var(--fg);
+}
+/* The non-affiliation notice. Deliberately quiet, but on every page of the site. */
+.foot-note {
+  color: var(--fg-faint);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 20px;
+  max-width: 64ch;
 }
 
 /* -- responsive ----------------------------------------------------------- */

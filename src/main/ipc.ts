@@ -50,7 +50,7 @@ export interface AppServices {
  * browser the user is not looking at.
  */
 const EDITOR_SYSTEM_PROMPT = [
-  'You are running inside the Open Claude editor, in a terminal beside a live preview pane.',
+  'You are running inside the Metsuke editor, in a terminal beside a live preview pane.',
   '',
   'To look at or interact with a web page, use the preview_* tools (preview_navigate,',
   'preview_snapshot, preview_click, preview_type, preview_screenshot, preview_console,',

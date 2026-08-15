@@ -201,7 +201,7 @@ export function EditorPane({
             </>
           ) : (
             <>
-              <p className="empty-title">Welcome to Open Claude</p>
+              <p className="empty-title">Welcome to Metsuke</p>
               <p className="hint">
                 Open a folder to browse its files, watch git changes, and run Claude against it.
               </p>

@@ -50,7 +50,7 @@ function fakeTerminals(): {
 }
 
 async function makeRepo(): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-thread-'))
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'metsuke-thread-'))
   const run = (args: string[]) => exec('git', args, { cwd: dir })
   await run(['init', '-q', '-b', 'main'])
   await run(['config', 'user.email', 'test@example.com'])
@@ -125,7 +125,7 @@ describe('ThreadService', () => {
     })
 
     expect(thread.branch).toBe('fix-the-cart-bug')
-    expect(thread.worktree).toBe(path.resolve(dir, '.open-claude/worktrees/fix-the-cart-bug'))
+    expect(thread.worktree).toBe(path.resolve(dir, '.metsuke/worktrees/fix-the-cart-bug'))
     // The session must start inside the worktree, or it would edit the user's files.
     expect(terminals.spawned[0].cwd).toBe(thread.worktree)
     expect(await fs.readFile(path.join(thread.worktree!, 'README.md'), 'utf8')).toBe('# hello\n')
@@ -145,7 +145,7 @@ describe('ThreadService', () => {
     await threads.create({ title: 'One', mode: 'instance', worktree: true })
 
     const exclude = await fs.readFile(path.join(dir, '.git/info/exclude'), 'utf8')
-    expect(exclude).toMatch(/^\/\.open-claude\/$/m)
+    expect(exclude).toMatch(/^\/\.metsuke\/$/m)
     await expect(fs.stat(path.join(dir, '.gitignore'))).rejects.toThrow()
   })
 
@@ -154,7 +154,7 @@ describe('ThreadService', () => {
     await threads.create({ title: 'Two', mode: 'instance', worktree: true })
 
     const exclude = await fs.readFile(path.join(dir, '.git/info/exclude'), 'utf8')
-    expect(exclude.match(/\/\.open-claude\//g)).toHaveLength(1)
+    expect(exclude.match(/\/\.metsuke\//g)).toHaveLength(1)
   })
 
   it('refuses a worktree in a folder that is not a repository', async () => {

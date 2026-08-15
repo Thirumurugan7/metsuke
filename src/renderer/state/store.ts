@@ -31,7 +31,7 @@ export async function call<C extends InvokeChannel>(
   return null
 }
 
-const LAST_FOLDER_KEY = 'open-claude.lastFolder'
+const LAST_FOLDER_KEY = 'metsuke.lastFolder'
 
 /**
  * Adopt a freshly opened workspace: clear everything scoped to the previous folder,
@@ -154,7 +154,7 @@ export interface TerminalTab {
  * Deliberately read-only: this runs unattended, so it inspects and reports rather than
  * editing. Anything it wants to change, it proposes and you approve in the same session.
  */
-export const PROJECT_CHECK_PROMPT = `You have just been opened in this folder by the Open Claude editor. Do an end-to-end check of the project and report what you find.
+export const PROJECT_CHECK_PROMPT = `You have just been opened in this folder by the Metsuke editor. Do an end-to-end check of the project and report what you find.
 
 1. Work out what this project is and how it runs — package.json scripts, Makefile, README, whatever applies.
 2. Start its dev server in the background if it has one.
@@ -209,7 +209,7 @@ Give me: the list of screens visited, a table of flows tested with pass/fail, th
 
 Do not edit, create, or delete any files. This is an inspection: tell me what you would change instead.`
 
-const AUTO_CHECK_KEY = 'open-claude.autoCheck'
+const AUTO_CHECK_KEY = 'metsuke.autoCheck'
 
 /** Minimum quiet period between flourishes, so a burst of new tools plays once. */
 const ADAPT_GAP_MS = 12_000
@@ -392,7 +392,7 @@ interface State {
 }
 
 /** Panel sizes survive restarts; they are pure layout, so localStorage is enough. */
-const LAYOUT_KEY = 'open-claude.layout'
+const LAYOUT_KEY = 'metsuke.layout'
 
 function loadLayout(): { sidebarWidth: number; previewWidth: number; terminalHeight: number } {
   const fallback = { sidebarWidth: 280, previewWidth: 440, terminalHeight: 260 }

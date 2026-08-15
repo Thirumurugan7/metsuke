@@ -206,7 +206,7 @@ export class NotificationService {
   async test(channel: 'modal' | 'system' | 'sound' | 'telegram'): Promise<string> {
     const payload: NotificationPayload = {
       event: 'permission',
-      title: 'Open Claude test',
+      title: 'Metsuke test',
       message: 'If you can see or hear this, the channel works.',
       sessionId: null,
       timestamp: Date.now()

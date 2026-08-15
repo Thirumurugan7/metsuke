@@ -1,9 +1,18 @@
-# Open Claude
+# Metsuke
 
 A VS Code–style desktop editor built around Claude Code. It exists so you can watch
 Claude work: the file tree, git diffs, and a live browser preview all update as the
 agent edits your project — and Claude can drive that preview itself to test UI flows
 end to end.
+
+*Metsuke* (目付) is the kendo term for where you fix your gaze during a fight, and the
+title of the officer who watched the daimyo on the shogun's behalf. Both are the job
+this editor does.
+
+**Not an Anthropic product.** Metsuke is an independent open-source project, not
+affiliated with, endorsed by, or sponsored by Anthropic. Claude and Claude Code are
+their trademarks. The editor runs the `claude` CLI you install yourself and bills to
+your own account with them.
 
 ## Running it
 
@@ -32,7 +41,7 @@ npm version minor && git push --follow-tags
 way to check packaging without waiting for installers.
 
 Builds are unsigned. macOS quarantines a downloaded unsigned app — right-click → Open,
-or `xattr -dr com.apple.quarantine "/Applications/Open Claude.app"`. Windows SmartScreen
+or `xattr -dr com.apple.quarantine "/Applications/Metsuke.app"`. Windows SmartScreen
 warns once. The download page says all of this.
 
 The landing page lives in `site/` — see `site/README.md`.
@@ -221,8 +230,8 @@ Design notes: `docs/superpowers/specs/2026-08-10-claude-code-editor-design.md`.
 
 ## Inspecting the editor's own UI
 
-In dev, Open Claude exposes its own window over CDP on port 9222 (override with
-`OPEN_CLAUDE_DEBUG_PORT`). That means the same trick the preview pane gives you for
+In dev, Metsuke exposes its own window over CDP on port 9222 (override with
+`METSUKE_DEBUG_PORT`). That means the same trick the preview pane gives you for
 your project works on the editor itself — you can screenshot it, query its DOM, and
 drive it while building. `http://127.0.0.1:9222/json/list` lists the target.
 

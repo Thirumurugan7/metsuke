@@ -22,7 +22,7 @@ export async function makeWorkspace(): Promise<string> {
    * The random part stays on the parent, which is never displayed; the project folder
    * itself is always called "fixture".
    */
-  const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-ws-'))
+  const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'metsuke-ws-'))
   const dir = path.join(parent, 'fixture')
   await fs.mkdir(dir, { recursive: true })
   for (const [rel, body] of Object.entries(TREE)) {
@@ -66,6 +66,6 @@ export async function removeDir(dir: string): Promise<void> {
    * leaves an empty directory behind in the system temp area.
    */
   const parent = path.dirname(dir)
-  const target = path.basename(parent).startsWith('open-claude-ws-') ? parent : dir
+  const target = path.basename(parent).startsWith('metsuke-ws-') ? parent : dir
   await fs.rm(target, { recursive: true, force: true })
 }

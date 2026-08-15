@@ -43,7 +43,7 @@ test.describe('threads', () => {
     await expect(page.locator('.thread-branch', { hasText: 'fixture-thread' })).toBeVisible()
 
     // The row is not the point; the checkout is.
-    const worktree = path.join(dir, '.open-claude/worktrees/fixture-thread')
+    const worktree = path.join(dir, '.metsuke/worktrees/fixture-thread')
     await expect
       .poll(async () => fs.stat(worktree).then(() => true, () => false), { timeout: 20_000 })
       .toBe(true)
@@ -68,7 +68,7 @@ test.describe('threads', () => {
     const row = page.locator('.thread-row', { hasText: 'Fixture thread' })
     await expect(row).toBeVisible()
 
-    const worktree = path.join(dir, '.open-claude/worktrees/fixture-thread')
+    const worktree = path.join(dir, '.metsuke/worktrees/fixture-thread')
     await expect
       .poll(async () => fs.stat(worktree).then(() => true, () => false), { timeout: 20_000 })
       .toBe(true)

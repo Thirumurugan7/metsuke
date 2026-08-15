@@ -1,5 +1,5 @@
-appId: dev.openclaude.app
-productName: Open Claude
+appId: dev.metsuke.app
+productName: Metsuke
 copyright: Copyright © 2026
 
 directories:
@@ -50,7 +50,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Open Claude
+  shortcutName: Metsuke
 
 linux:
   category: Development
@@ -62,7 +62,7 @@ linux:
       arch: [x64]
   desktop:
     entry:
-      Name: Open Claude
+      Name: Metsuke
       Comment: A VS Code-style editor built around Claude Code
       Categories: Development;IDE;
   artifactName: ${productName}-${version}-${arch}.${ext}

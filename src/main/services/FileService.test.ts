@@ -10,7 +10,7 @@ describe('FileService', () => {
   let files: FileService
 
   beforeEach(async () => {
-    const base = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-fs-'))
+    const base = await fs.mkdtemp(path.join(os.tmpdir(), 'metsuke-fs-'))
     root = path.join(base, 'workspace')
     outside = path.join(base, 'outside')
     await fs.mkdir(root)
@@ -166,7 +166,7 @@ describe('FileService.replace', () => {
   let files: FileService
 
   beforeEach(async () => {
-    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'open-claude-replace-'))
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'metsuke-replace-'))
     files = new FileService(dir)
     await fs.writeFile(path.join(dir, 'a.txt'), 'red fish\nred fish\nblue fish\n')
     await fs.mkdir(path.join(dir, 'sub'))

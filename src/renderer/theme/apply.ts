@@ -11,7 +11,7 @@ import { DEFAULT_THEME, THEMES, themeById, type Theme } from './themes'
  * happen to be constructed.
  */
 
-const STORAGE_KEY = 'open-claude.theme'
+const STORAGE_KEY = 'metsuke.theme'
 
 export function readStoredTheme(): string {
   try {
