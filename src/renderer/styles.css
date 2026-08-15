@@ -1260,6 +1260,14 @@ body.resizing .monaco-container {
 .settings-row.indent {
   padding-left: 24px;
 }
+/* State rather than choice: where the last update check got to. Indented to the same
+   column as the help text under the toggle it belongs to. */
+.settings-note {
+  color: var(--fg-dim);
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin: 2px 0 0 24px;
+}
 .settings-spacer {
   flex: 0 0 0;
 }

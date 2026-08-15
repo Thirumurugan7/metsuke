@@ -235,14 +235,24 @@ is a shell, and `claude` running in it has whatever permissions you gave it.
 
 ### Telemetry
 
-There is none. The app makes no analytics, crash-reporting or update requests, and there
-is no account, no server, and nothing for it to phone home to. The only things that leave
-your machine are the ones you can name: the `claude` CLI talking to Anthropic as it
-always does, whatever your preview pane loads, and a Telegram notification if you
-configure one with your own bot token.
+There is none. No analytics, no crash reporting, no account, and no server of ours for
+anything to reach. Crashes are written to `crashes.log` in the app's data directory and
+stay on your machine; if you want anyone to see one, you send it.
 
-This is a claim that gets harder to make later, so it is written down while it is
-cheap to keep. If it ever stops being true it will be opt-in and it will be in this file.
+The app makes exactly one request of its own accord: an update check against GitHub's
+release feed, on launch and every six hours. That reveals your IP and your current
+version to GitHub, which is the honest cost of an editor that can update itself. It is a
+checkbox in Settings, it downloads in the background, and it never installs on its own,
+because installing quits the app and quitting kills every terminal and every running
+`claude` session.
+
+Everything else that leaves your machine is something you did: the `claude` CLI talking
+to Anthropic as it always does, whatever you load in the preview pane, and a Telegram
+notification if you configure one with your own bot token.
+
+This is a claim that gets harder to make later, so it is written down while it is cheap
+to keep. Anything added to that list will be opt-out at worst, and it will be in this
+file.
 
 ## Layout
 
@@ -261,7 +271,7 @@ Design notes: `docs/superpowers/specs/2026-08-10-claude-code-editor-design.md`.
 
 Metsuke is MIT licensed; see `LICENSE`.
 
-It ships 104 third-party packages, MIT, ISC, BSD-2-Clause and BSD-3-Clause, each
+It ships 118 third-party packages, MIT, ISC, BSD-2-Clause, BSD-3-Clause, BlueOak-1.0.0 and Python-2.0, each
 reproduced in full in `THIRD-PARTY-LICENSES.md`. That file is generated from the
 installed tree rather than written by hand, because a hand-written attribution is a
 claim about what shipped that nothing checks:

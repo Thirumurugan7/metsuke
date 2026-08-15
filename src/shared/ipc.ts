@@ -264,6 +264,25 @@ export interface NotificationSettings {
 }
 
 /**
+ * Where the app is in the business of updating itself.
+ *
+ * `unsupported` covers every build that cannot update: a run from the repo, and any
+ * install that did not come from a release. Saying so is better than a check that
+ * silently never finds anything.
+ */
+export interface UpdateState {
+  status: 'unsupported' | 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error'
+  /** The version waiting to be installed, when there is one. */
+  version: string | null
+  /** 0–100 while downloading. */
+  percent: number | null
+  /** Why the last check failed, for the status bar tooltip. */
+  error: string | null
+  /** Epoch milliseconds of the last completed check. */
+  checkedAt: number | null
+}
+
+/**
  * A moment worth marking: Claude reached for something it had not used yet, or you
  * pointed it at something new.
  */
@@ -476,6 +495,16 @@ export interface InvokeChannels {
   /** The configured sound as base64, so the renderer can play it under a strict CSP. */
   'notify:sound': { args: []; result: { mimeType: string; base64: string } | null }
 
+  // -- updates ---------------------------------------------------------------
+  /** Current update state, plus whether checking is switched on at all. */
+  'updates:get': { args: []; result: UpdateState & { enabled: boolean } }
+  /** Turn checking on or off. Turning it on checks immediately, so the answer is visible. */
+  'updates:setEnabled': { args: [enabled: boolean]; result: void }
+  /** Check now, regardless of the schedule. Ignored when checking is off. */
+  'updates:check': { args: []; result: void }
+  /** Quit and install a downloaded update. Terminals do not survive it. */
+  'updates:install': { args: []; result: void }
+
   // -- floating alert window ------------------------------------------------
   /** The alert page reporting it can receive payloads. */
   'alert:ready': { args: []; result: void }
@@ -521,6 +550,8 @@ export interface EventChannels {
   /** The whole list, whenever any thread changes. Small enough that diffing is not worth it. */
   'threads:changed': [threads: Thread[]]
   'notify:fired': [payload: NotificationPayload]
+  /** Update progress, pushed rather than polled. */
+  'updates:state': [state: UpdateState]
   /** Sent to the floating alert window only. */
   'alert:payload': [payload: NotificationPayload]
   /** Main renderer: focus the Claude terminal that asked for attention. */
@@ -590,6 +621,10 @@ export const INVOKE_CHANNELS = [
   'notify:test',
   'notify:pickSound',
   'notify:sound',
+  'updates:get',
+  'updates:setEnabled',
+  'updates:check',
+  'updates:install',
   'alert:ready',
   'alert:dismiss',
   'alert:goto',
@@ -615,6 +650,7 @@ export const EVENT_CHANNELS = [
   'preview:console',
   'preview:elementPicked',
   'notify:fired',
+  'updates:state',
   'alert:payload',
   'notify:goto',
   'adapt:fired',

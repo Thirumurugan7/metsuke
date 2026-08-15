@@ -14,6 +14,7 @@ import type {
   Thread,
   NewThreadOptions,
   MergePreview,
+  UpdateState,
   Workspace
 } from '@shared/ipc'
 
@@ -303,6 +304,13 @@ interface State {
   settingsOpen: boolean
   /** Whether the guide overlay is up. */
   guideOpen: boolean
+
+  // -- updates --------------------------------------------------------------
+  /** Null until main answers, which keeps the status bar quiet during startup. */
+  update: (UpdateState & { enabled: boolean }) | null
+  setUpdatesEnabled: (enabled: boolean) => Promise<void>
+  /** Quit and install. Warns first: this kills every terminal. */
+  installUpdate: () => Promise<void>
   /** What tooling the machine has. Null until the first check comes back. */
   systemCheck: SystemCheck | null
 
@@ -431,6 +439,7 @@ export const useStore = create<State>((set, get) => ({
   landPreview: null,
   notifySettings: null,
   notificationLog: [],
+  update: null,
   settingsOpen: false,
   guideOpen: false,
   systemCheck: null,
@@ -830,6 +839,18 @@ export const useStore = create<State>((set, get) => ({
     await get().loadNotifySettings()
   },
 
+  // -- updates --------------------------------------------------------------
+
+  setUpdatesEnabled: async (enabled) => {
+    if ((await call('updates:setEnabled', enabled)) === null) return
+    const state = await call('updates:get')
+    if (state) set({ update: state })
+  },
+
+  installUpdate: async () => {
+    await call('updates:install')
+  },
+
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setGuideOpen: (guideOpen) => set({ guideOpen }),
 
@@ -924,7 +945,14 @@ export function wireEvents(): () => void {
 
     window.api.on('git:changed', (git) => useStore.setState({ git })),
     window.api.on('ports:changed', (ports) => useStore.setState({ ports })),
-    window.api.on('app:error', (message) => useStore.getState().setError(message))
+    window.api.on('app:error', (message) => useStore.getState().setError(message)),
+    window.api.on('updates:state', (state) =>
+      useStore.setState((s) => ({
+        // The pushed state carries no preference, so keep the one already known rather
+        // than flipping the settings toggle every time a download reports progress.
+        update: { ...state, enabled: s.update?.enabled ?? true }
+      }))
+    )
   ]
 
   return () => unsubscribers.forEach((off) => off())

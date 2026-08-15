@@ -87,6 +87,11 @@ export function App(): JSX.Element {
     // Loaded up front so a notification arriving before the settings panel is ever
     // opened still knows which channels the user wants.
     void useStore.getState().loadNotifySettings()
+    // Whether an update is already waiting from a previous run, and whether checking is
+    // even on. Until this answers, the status bar says nothing about updates at all.
+    void window.api
+      .invoke('updates:get')
+      .then((result) => result.ok && useStore.setState({ update: result.value }))
   }, [])
 
   // Keep the OS window title in step, with the standard dirty marker.

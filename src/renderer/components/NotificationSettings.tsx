@@ -1,7 +1,31 @@
 import { useEffect, useState } from 'react'
 import { call, useStore } from '../state/store'
 import { ThemePicker } from '../theme/ThemePicker'
-import type { NotifyEvent } from '@shared/ipc'
+import type { NotifyEvent, UpdateState } from '@shared/ipc'
+
+/** One line under the toggle saying where the last check got to. */
+function updateStatusLine(update: (UpdateState & { enabled: boolean }) | null): string {
+  if (!update) return 'Checking…'
+  if (update.status === 'unsupported') {
+    return 'This build cannot update itself. Running from the repo, or installed outside a release.'
+  }
+  if (!update.enabled) return 'Off. Nothing is sent anywhere.'
+
+  switch (update.status) {
+    case 'checking':
+      return 'Checking…'
+    case 'downloading':
+      return `Downloading ${update.version ?? 'a new version'}, ${update.percent ?? 0}%.`
+    case 'ready':
+      return `Version ${update.version} is ready. Installing restarts the editor and ends every terminal.`
+    case 'error':
+      return `Last check failed: ${update.error ?? 'unknown error'}`
+    default:
+      return update.checkedAt
+        ? `Up to date, last checked ${new Date(update.checkedAt).toLocaleTimeString()}.`
+        : 'Up to date.'
+  }
+}
 
 const EVENTS: Array<{ id: NotifyEvent; label: string; help: string }> = [
   {
@@ -14,7 +38,15 @@ const EVENTS: Array<{ id: NotifyEvent; label: string; help: string }> = [
 ]
 
 export function NotificationSettings(): JSX.Element | null {
-  const { settingsOpen, notifySettings, setSettingsOpen, updateNotifySettings, setError } = useStore()
+  const {
+    settingsOpen,
+    notifySettings,
+    setSettingsOpen,
+    updateNotifySettings,
+    setError,
+    update,
+    setUpdatesEnabled
+  } = useStore()
   const [token, setToken] = useState('')
   const [testing, setTesting] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
@@ -72,6 +104,31 @@ export function NotificationSettings(): JSX.Element | null {
           <section>
             <h3>Theme</h3>
             <ThemePicker />
+          </section>
+
+          <section>
+            <h3>Updates</h3>
+            <label className="settings-row">
+              <input
+                type="checkbox"
+                checked={update?.enabled ?? true}
+                onChange={(e) => void setUpdatesEnabled(e.target.checked)}
+              />
+              <span>
+                Check for new versions
+                <small>
+                  {/*
+                    Named plainly because it is the only request this app makes on its
+                    own, and the README says as much. Nothing installs without being
+                    asked: installing restarts the editor and ends every session.
+                  */}
+                  Asks GitHub on launch and every few hours, downloads in the background,
+                  and waits for you to install it. This is the only thing the editor sends
+                  anywhere by itself.
+                </small>
+              </span>
+            </label>
+            <p className="settings-note">{updateStatusLine(update)}</p>
           </section>
 
           <section>

@@ -25,7 +25,9 @@ export function StatusBar({
     runUiAudit,
     setSettingsOpen,
     setGuideOpen,
-    notificationLog
+    notificationLog,
+    update,
+    installUpdate
   } = useStore()
 
   const changes = git?.files.length ?? 0
@@ -106,6 +108,29 @@ export function StatusBar({
         <span aria-hidden="true">⚓</span>
         {ports.length} port{ports.length === 1 ? '' : 's'}
       </button>
+
+      {/*
+        Only when there is something to say. An update that is not there yet is not news,
+        and a status bar that permanently reports "up to date" is a status bar nobody
+        reads. A failed check stays quiet too: it belongs in settings, not in the way.
+      */}
+      {update?.status === 'ready' && (
+        <button
+          className="status-item status-ok"
+          onClick={() => void installUpdate()}
+          title={`Version ${update.version} is downloaded. Installing restarts the editor, which ends every terminal and Claude session.`}
+        >
+          <span aria-hidden="true">↑</span>
+          Update ready
+        </button>
+      )}
+
+      {update?.status === 'downloading' && (
+        <span className="status-item" title={`Downloading version ${update.version ?? ''}`}>
+          <span aria-hidden="true">↓</span>
+          {update.percent ?? 0}%
+        </span>
+      )}
 
       <button className="status-item" onClick={() => setGuideOpen(true)} title="How to use this">
         <span aria-hidden="true">?</span>

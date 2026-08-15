@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerIpc, type AppServices } from './ipc'
 import { installCrashHandlers, type CrashHandlers } from './crash'
+import { UpdateService } from './updates'
 import { TerminalService } from './services/TerminalService'
 import { PortService } from './services/PortService'
 import { AutomationService } from './services/AutomationService'
@@ -61,6 +62,7 @@ const services: AppServices = {
   ports: new PortService(),
   automation: new AutomationService(),
   notifications: new NotificationService(),
+  updates: new UpdateService(app.getPath('userData')),
   alerts: new AlertWindow(),
   workspace: null,
   mcpConfigPath: null,
@@ -186,6 +188,7 @@ app.whenReady().then(async () => {
   services.mcpConfigPath = await writeMcpConfig(bridge)
   services.hookSettingsPath = await writeHookSettings()
   await services.notifications.load()
+  await services.updates.start(() => window)
 
   // Hooks reach the bridge using these, so they must be in the pty's environment
   // before any `claude` session starts.

@@ -14,6 +14,7 @@ import { PortService } from './services/PortService'
 import { AutomationService } from './services/AutomationService'
 import { NotificationService } from './services/NotificationService'
 import { AlertWindow } from './AlertWindow'
+import { UpdateService } from './updates'
 import { GitError } from './services/GitService'
 import { systemCheck, clearSystemCheck } from './services/systemCheck'
 import { ClaudeService } from './services/ClaudeService'
@@ -25,6 +26,7 @@ export interface AppServices {
   ports: PortService
   automation: AutomationService
   notifications: NotificationService
+  updates: UpdateService
   alerts: AlertWindow
   /** The currently open folder, or null. */
   workspace: WorkspaceContext | null
@@ -324,6 +326,11 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
       services.alerts.present(payload, { takeFocus: services.notifications.focusWindow })
     }
   })
+
+  handle('updates:get', () => services.updates.state)
+  handle('updates:setEnabled', (enabled) => services.updates.setEnabled(enabled))
+  handle('updates:check', () => services.updates.check())
+  handle('updates:install', () => services.updates.install())
 
   handle('notify:get', () => services.notifications.read())
   handle('notify:set', (settings) => services.notifications.update(settings))

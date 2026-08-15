@@ -107,9 +107,10 @@ const TASKS = [
       {
         id: 'auto-update',
         who: 'me',
+        done: true,
         text: 'Wire auto-update',
         detail:
-          'Not present at all. Every user stays on whatever version they first downloaded, forever. electron-updater plus the GitHub publish config already in electron-builder.yml.'
+          'Built, with one part nobody can test yet. electron-updater checks GitHub on launch and every six hours, downloads in the background, and then stops: installing quits the app, and quitting kills every terminal and every running claude session, so it waits to be asked. A ready update appears in the status bar and nowhere else, since a bar that permanently says "up to date" is one nobody reads. It is a checkbox in Settings because it is the only request the app makes on its own, and the README says so. A run from the repo reports itself as unable to update rather than checking forever. Verified as far as it can be: the preference round-trips to disk and back into the UI, and the settings panel says plainly why a dev build cannot update. The actual check, download and install cannot be exercised until a release exists to compare against, which needs the repo.'
       },
       {
         id: 'document-preview-security',
