@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { socketPathFor } from './services/PtyHost'
 import type { TerminalService } from './services/TerminalService'
 
@@ -70,10 +71,10 @@ function launch(socketPath: string, token: string): void {
    * PATH would fail on the module version — and on a packaged machine there may be no
    * node at all.
    */
-  const entry = path.join(path.dirname(app.getAppPath()), 'app.asar', 'out', 'main', 'pty-host.js')
-  const script = fs.existsSync(entry)
-    ? entry
-    : path.join(app.getAppPath(), 'out', 'main', 'pty-host.js')
+  // Sibling of the running main bundle: out/main in a dev run, the same path inside
+  // app.asar when packaged. This is how the MCP server entry is found too, and it is the
+  // one form already known to work in both.
+  const script = path.join(path.dirname(fileURLToPath(import.meta.url)), 'pty-host.js')
 
   /*
    * The host's output goes to a file rather than nowhere. It is detached, so there is no
@@ -85,6 +86,9 @@ function launch(socketPath: string, token: string): void {
 
   const child = spawn(process.execPath, [script], {
     detached: true,
+    // Without this, Electron in node mode opens a console window on Windows each time
+    // the host starts.
+    windowsHide: true,
     stdio: ['ignore', log, log],
     env: {
       ...process.env,

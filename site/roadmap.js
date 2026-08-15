@@ -155,10 +155,11 @@ const TASKS = [
     items: [
       {
         id: 'verify-chrome-deny',
-        who: 'both',
+        who: 'me',
+        done: true,
         text: 'Confirm Claude actually stops using the Chrome tools',
         detail:
-          'I verified 23 deny patterns land on the spawned process argv. I never watched a live agent try the Chrome tool, get refused, and reach for preview_ instead. If it still misbehaves the next lever is --strict-mcp-config, which drops every other MCP server from editor sessions.'
+          'Done, watched rather than reasoned about. A live session in the editor was asked to open a page in "the browser you have". The 23 deny patterns were on its argv, and it went straight for preview_navigate without ever mentioning the Chrome extension: no refusal was needed, because the appended system prompt had already pointed it at the right tool. Two honest notes from watching it. With the preview pane closed it got "Preview is not open", correctly explained, and then said it could not open the pane itself and needed the user to. And it answered anyway by falling back to curl, while saying plainly that curl sees the served HTML rather than what a browser renders. --strict-mcp-config was never needed.'
       },
       {
         id: 'packaged-dmg',
@@ -214,6 +215,13 @@ const TASKS = [
         text: 'Remember threads across a restart',
         detail:
           'Done. Instances with their own worktree are written to a state file and restored on launch, finished rather than pretending to be alive: the pty died with the process, but the branch and the checkout are still there, so a restored thread can be landed or closed. One whose worktree has since been deleted is dropped. Threads that shared the workspace and subagents are not persisted, because nothing is left behind them to restore.'
+      },
+      {
+        id: 'preview-open-itself',
+        who: 'me',
+        text: 'Let Claude open the preview pane it is told to use',
+        detail:
+          'Found by watching a live session reach for preview_navigate with the pane closed. It got a clear "Preview is not open. Open the preview panel first", then told the user it could not open the panel itself and they would have to. Every preview_ tool is a dead end until a human clicks something, which is a strange shape for the one browser the editor tells it to use. Navigating should open the pane, or there should be a tool that does.'
       },
       {
         id: 'preview-scroll-hang',

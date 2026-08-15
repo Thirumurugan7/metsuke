@@ -19,13 +19,10 @@ jobs:
         include:
           - os: macos-latest
             script: dist:mac
-            artifacts: 'release/*.dmg release/*.zip'
           - os: windows-latest
             script: dist:win
-            artifacts: 'release/*.exe'
           - os: ubuntu-latest
             script: dist:linux
-            artifacts: 'release/*.AppImage release/*.deb'
 
     runs-on: ${{ matrix.os }}
 
@@ -49,12 +46,18 @@ jobs:
           npm run typecheck
           npm test
 
+      # Deliberately without GH_TOKEN. electron-builder would otherwise create the
+      # release itself and race the job below for it; here it only builds, and writes
+      # the update metadata beside the installers.
       - name: Build installers
         run: npm run ${{ matrix.script }}
-        env:
-          # Lets electron-builder attach the artifacts to the release itself.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The .yml files are the update feed: latest-mac.yml, latest.yml and
+      # latest-linux.yml are what electron-updater reads to decide whether anything is
+      # newer. Without them in the release, every update check 404s and the app silently
+      # never updates. The blockmaps make the download differential rather than a fresh
+      # hundred megabytes. Each runner produces only its own platform's files, so most of
+      # these patterns legitimately miss, which is why a miss is a warning.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-installers
@@ -64,6 +67,8 @@ jobs:
             release/*.exe
             release/*.AppImage
             release/*.deb
+            release/*.yml
+            release/*.blockmap
           if-no-files-found: warn
 
   release:
