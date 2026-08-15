@@ -326,6 +326,31 @@ export class AutomationService {
     return this.#wc
   }
 
+  /** Resolvers waiting for the preview pane to come up. See waitForAttach. */
+  #attachWaiters: Array<(attached: boolean) => void> = []
+
+  /**
+   * Wait for the preview to register, for callers that just asked the UI to open it.
+   *
+   * Opening the pane is a round trip through the renderer, a webview mount and a CDP
+   * attach, so the tool that asked for it has to wait rather than fail on the state it
+   * saw a millisecond earlier. Resolves false on timeout, which the caller answers by
+   * failing the normal way with the normal explanation.
+   */
+  waitForAttach(timeoutMs = 5_000): Promise<boolean> {
+    if (this.attached) return Promise.resolve(true)
+
+    return new Promise<boolean>((resolve) => {
+      const settle = (attached: boolean): void => {
+        clearTimeout(timer)
+        this.#attachWaiters = this.#attachWaiters.filter((w) => w !== settle)
+        resolve(attached)
+      }
+      const timer = setTimeout(() => settle(false), timeoutMs)
+      this.#attachWaiters.push(settle)
+    })
+  }
+
   /**
    * Attach to the preview's webContents. Called once when the preview mounts; a
    * reload of the preview re-registers with a new id.
@@ -347,6 +372,8 @@ export class AutomationService {
     for (const domain of ['Page', 'DOM', 'Runtime', 'Network', 'Log']) {
       void wc.debugger.sendCommand(`${domain}.enable`).catch(() => {})
     }
+
+    for (const waiter of [...this.#attachWaiters]) waiter(true)
   }
 
   detach(): void {

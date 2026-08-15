@@ -219,9 +219,10 @@ const TASKS = [
       {
         id: 'preview-open-itself',
         who: 'me',
+        done: true,
         text: 'Let Claude open the preview pane it is told to use',
         detail:
-          'Found by watching a live session reach for preview_navigate with the pane closed. It got a clear "Preview is not open. Open the preview panel first", then told the user it could not open the panel itself and they would have to. Every preview_ tool is a dead end until a human clicks something, which is a strange shape for the one browser the editor tells it to use. Navigating should open the pane, or there should be a tool that does.'
+          'Done. preview_navigate now opens the pane instead of refusing: it asks the UI to show it, waits up to five seconds for the webview to mount and the debugger to attach, and then proceeds. Navigating is the entry point, so it is the one tool that opens things; the rest still answer "not open", which is correct when there is no page to act on. If the pane never comes up the call fails with the same explained error as before. Verified from the unattached state that used to fail: the call returned openedPreview, the pane went from detached to attached with the page loaded, and a follow-up preview_state read the real title and headings back.'
       },
       {
         id: 'preview-scroll-hang',

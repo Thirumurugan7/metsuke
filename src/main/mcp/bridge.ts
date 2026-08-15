@@ -24,6 +24,7 @@ export class ControlBridge {
    */
   readonly #adapted = new Set<string>()
   #onAdapt: ((skill: string) => void) | null = null
+  #onOpenPreview: ((url: string) => void) | null = null
 
   constructor(automation: AutomationService) {
     this.#automation = automation
@@ -96,6 +97,11 @@ export class ControlBridge {
   }
 
   /** Called the first time each distinct tool is used. */
+  /** How the bridge asks the UI to open the preview pane at a url. */
+  onOpenPreview(handler: (url: string) => void): void {
+    this.#onOpenPreview = handler
+  }
+
   onAdapt(handler: (skill: string) => void): void {
     this.#onAdapt = handler
   }
@@ -121,9 +127,28 @@ export class ControlBridge {
     }
 
     switch (tool) {
-      case 'preview_navigate':
-        await a.navigate(String(args.url))
-        return { url: args.url }
+      case 'preview_navigate': {
+        const url = String(args.url)
+        /*
+         * Open the pane rather than refusing.
+         *
+         * Watching a live session found this: with the preview closed, every preview_
+         * tool was a dead end, and the agent correctly reported that it could not open
+         * the pane itself and a human would have to. That is a strange shape for the one
+         * browser the editor points it at. Navigating is the entry point, so navigating
+         * opens it; the other tools still say "not open", which is the right answer when
+         * there is no page to act on.
+         */
+        if (!a.attached && this.#onOpenPreview) {
+          this.#onOpenPreview(url)
+          const opened = await a.waitForAttach()
+          // If it never came up, fall through: navigate throws the usual explained error.
+          if (opened) return { url, openedPreview: true }
+        }
+
+        await a.navigate(url)
+        return { url }
+      }
 
       case 'preview_reload':
         await a.reload()

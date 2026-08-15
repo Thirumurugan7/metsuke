@@ -556,6 +556,11 @@ export interface EventChannels {
   'alert:payload': [payload: NotificationPayload]
   /** Main renderer: focus the Claude terminal that asked for attention. */
   'notify:goto': [sessionId: string | null]
+  /**
+   * Claude asked to navigate while the pane was closed. The renderer opens it and loads
+   * the url, which is the only way the agent can reach the browser it is told to use.
+   */
+  'preview:open': [url: string]
   'preview:navigated': [url: string]
   /** The user clicked an element while the picker was active. */
   'preview:elementPicked': [element: PickedElement]
@@ -646,6 +651,7 @@ export const EVENT_CHANNELS = [
   'terminal:data',
   'terminal:exit',
   'threads:changed',
+  'preview:open',
   'preview:navigated',
   'preview:console',
   'preview:elementPicked',

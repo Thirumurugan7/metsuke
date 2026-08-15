@@ -946,6 +946,12 @@ export function wireEvents(): () => void {
     }),
 
     // Picking an element also ends inspect mode: Chromium exits it after one click.
+    window.api.on('preview:open', (url) => {
+      // Claude navigating with the pane shut. Make it visible as well as loaded: opening
+      // a pane the user cannot see would be worse than refusing to open one at all.
+      useStore.setState({ previewVisible: true })
+      void useStore.getState().showInPreview(url)
+    }),
     window.api.on('preview:elementPicked', (element) =>
       useStore.setState({ pickedElement: element, inspecting: false })
     ),

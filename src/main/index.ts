@@ -243,6 +243,10 @@ app.whenReady().then(async () => {
   // Claude reaching for a capability it has not used yet is the moment the wheel turns.
   bridge.onAdapt((skill) => window?.webContents.send('adapt:fired', { skill, at: Date.now() }))
 
+  // Claude navigating with the pane shut opens the pane, rather than telling the user to
+  // go and click something. See the preview_navigate case in the bridge.
+  bridge.onOpenPreview((url) => window?.webContents.send('preview:open', url))
+
   registerIpc(services, () => window)
   createWindow()
 
