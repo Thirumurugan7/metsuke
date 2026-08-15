@@ -12,7 +12,7 @@ cd site && python3 -m http.server 8090
 Replace the repository placeholder in two places:
 
 - `site/download.js` — the `REPO` constant at the top
-- `site/index.html` — five `thirumurugan7/metsuke` occurrences in links
+- `site/index.html` — five `Thirumurugan7/metsuke` occurrences in links
 
 Download links are resolved at page load from the GitHub Releases API, so the page
 never needs editing when a version ships. If the API is unreachable, or no release

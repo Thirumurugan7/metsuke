@@ -8,7 +8,7 @@
  */
 
 // ── Set this to your repository ──────────────────────────────────────────────
-const REPO = 'thirumurugan7/metsuke'
+const REPO = 'Thirumurugan7/metsuke'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RELEASES_URL = `https://github.com/${REPO}/releases`

@@ -53,7 +53,7 @@ const TASKS = [
         done: true,
         text: 'Set the repo placeholders on the site',
         detail:
-          'Done. Eleven placeholders across the site now point at thirumurugan7/metsuke, and package.json gained repository, homepage and bugs. That last part mattered more than the links: with no repository to resolve, electron-builder threw at the publish step and exited non-zero after producing perfectly good artifacts, and it never wrote latest-mac.yml, which is the file electron-updater actually reads. Verified with a full two-architecture build that exits clean and writes a feed listing all four artifacts with their sizes and hashes. The repo does not exist yet, so the links 404 until you create it, and nothing here has to change when you do.'
+          'Done. Eleven placeholders across the site now point at Thirumurugan7/metsuke, and package.json gained repository, homepage and bugs. That last part mattered more than the links: with no repository to resolve, electron-builder threw at the publish step and exited non-zero after producing perfectly good artifacts, and it never wrote latest-mac.yml, which is the file electron-updater actually reads. Verified with a full two-architecture build that exits clean and writes a feed listing all four artifacts with their sizes and hashes. The repo does not exist yet, so the links 404 until you create it, and nothing here has to change when you do.'
       },
       {
         id: 'run-ci',
