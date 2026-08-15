@@ -97,68 +97,18 @@
 
       <!-- Product shot ----------------------------------------------------- -->
       <div class="wrap shot-wrap">
-        <div class="mock" role="img" aria-label="The Metsuke editor with the file tree, editor, preview pane and a Claude terminal">
-          <div class="mock-bar">
-            <span class="dot" style="background: #ff5f57"></span>
-            <span class="dot" style="background: #febc2e"></span>
-            <span class="dot" style="background: #28c840"></span>
-            <span class="mock-title">Metsuke</span>
-            <span class="mock-branch">⑂ main · 3 changes</span>
-          </div>
-
-          <div class="mock-body">
-            <div class="mock-rail">
-              <span class="on"><i>▤</i>Files</span>
-              <span><i>⑂</i>Git</span>
-              <span><i>⌕</i>Search</span>
-              <span><i>⚓</i>Ports</span>
-            </div>
-
-            <div class="mock-side">
-              <div>▾ src</div>
-              <div class="ind">▾ components</div>
-              <div class="ind2">Signup.tsx <b class="m">M</b></div>
-              <div class="ind2">Button.tsx</div>
-              <div class="ind">App.tsx <b class="m">M</b></div>
-              <div class="ind">api.ts</div>
-              <div>package.json</div>
-            </div>
-
-            <div class="mock-editor">
-              <div class="tabs"><span class="tab on">Signup.tsx</span><span class="tab">api.ts</span></div>
-              <pre><span class="ln">12</span>  <span class="k">const</span> [email, setEmail] = <span class="f">useState</span>(<span class="s">''</span>)
-<span class="ln">13</span>  <span class="k">const</span> [accepted, setAccepted] = <span class="f">useState</span>(<span class="n">false</span>)
-<span class="ln">14</span>
-<span class="ln">15</span>  <span class="k">return</span> (
-<span class="ln">16</span>    &lt;<span class="t">form</span> onSubmit={submit}&gt;
-<span class="ln">17</span>      &lt;<span class="t">input</span> value={email} required /&gt;
-<span class="ln">18</span>      &lt;<span class="t">button</span>&gt;Create account&lt;/<span class="t">button</span>&gt;
-<span class="ln">19</span>    &lt;/<span class="t">form</span>&gt;
-<span class="ln">20</span>  )</pre>
-            </div>
-
-            <div class="mock-preview">
-              <div class="mock-url"><span>localhost:3000</span><b class="live">● live</b></div>
-              <div class="mock-page">
-                <strong>Create account</strong>
-                <label>Email address</label>
-                <div class="field">ada@example.com</div>
-                <label>Password</label>
-                <div class="field">••••••••</div>
-                <div class="fake-btn">Create account</div>
-                <div class="picked">button#submit</div>
-              </div>
-            </div>
-
-            <div class="mock-term">
-              <span class="ttab on">claude</span><span class="ttab">shell</span><span class="ttab">UI audit</span>
-              <div class="tline"><b>›</b> claude</div>
-              <div class="tline d">⏺ preview_fill  filled 4 fields on /signup</div>
-              <div class="tline d">⏺ preview_state  form rejected: "You must accept the terms"</div>
-              <div class="tline d">⏺ 1 console error on /checkout, 1 request returned 500</div>
-            </div>
-          </div>
-        </div>
+        <picture>
+          <source srcset="screenshot.webp" type="image/webp" />
+          <img
+            class="shot"
+            src="screenshot.png"
+            width="2940"
+            height="1846"
+            loading="lazy"
+            decoding="async"
+            alt="The Metsuke editor: the file tree and an open TypeScript file on the left, a running claude session in the terminal below it, and the preview pane on the right showing a page the editor is driving."
+          />
+        </picture>
       </div>
 
       <!-- How it works ----------------------------------------------------- -->

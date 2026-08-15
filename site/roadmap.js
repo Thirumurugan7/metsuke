@@ -268,8 +268,10 @@ const TASKS = [
       {
         id: 'real-screenshot',
         who: 'me',
+        done: true,
         text: 'Put a real screenshot on the site',
-        detail: 'The hero is an HTML mock. Honest, but a photograph of the running app is better.'
+        detail:
+          'Done. The hand-built HTML mock is gone and the hero is a capture of the running app with this repository open in it: the file tree, AutomationService.ts in the editor, a live claude session in the terminal, and the preview pane showing this checklist. webp at 189KB with a png fallback, and about 130 lines of markup and CSS for the mock deleted with it. Verified by loading the page in the app\'s own preview pane and looking at it.'
       },
       {
         id: 'a11y',
