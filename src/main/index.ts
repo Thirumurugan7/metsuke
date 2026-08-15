@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerIpc, type AppServices } from './ipc'
+import { installCrashHandlers, type CrashHandlers } from './crash'
 import { TerminalService } from './services/TerminalService'
 import { PortService } from './services/PortService'
 import { AutomationService } from './services/AutomationService'
@@ -47,6 +48,13 @@ if (!app.isPackaged && !pinnedProfile) {
 }
 
 let window: BrowserWindow | null = null
+
+/*
+ * Installed at ready, before the first window, and held here because createWindow has to
+ * hand each new renderer to it. Null until then, which is why the call site is optional:
+ * a crash before ready has no window to rebuild and nowhere to show a dialog anyway.
+ */
+let crash: CrashHandlers | null = null
 
 const services: AppServices = {
   terminals: new TerminalService(),
@@ -123,14 +131,14 @@ function createWindow(): void {
         console.error(`[renderer:${tag}] ${message}  (${source}:${line})`)
       }
     })
-    window.webContents.on('render-process-gone', (_e, details) =>
-      console.error('[renderer] process gone:', details.reason)
-    )
-
     void window.loadURL(devServer)
   } else {
     void window.loadFile(path.join(dirname, '../renderer/index.html'))
   }
+
+  // After load, not before: a crash during startup should still be recorded, and the
+  // handler is installed once per window because each one gets its own renderer.
+  crash?.watch(window)
 }
 
 /*
@@ -158,6 +166,9 @@ if (process.env['ELECTRON_RENDERER_URL']) {
 }
 
 app.whenReady().then(async () => {
+  // First, so that anything below failing is recorded rather than silent.
+  crash = installCrashHandlers(() => createWindow())
+
   // The webview's own preferences are set from the main process; the renderer cannot
   // widen them. webSecurity is off *inside the preview only*, so dev servers with
   // loose CORS and self-signed certs work without fighting the browser.

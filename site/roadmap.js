@@ -253,9 +253,10 @@ const TASKS = [
       {
         id: 'crash-handling',
         who: 'me',
+        done: true,
         text: 'Handle a main-process crash',
         detail:
-          'A renderer crash reloads and reattaches. A main crash takes everything with it and reports nothing.'
+          'Done, and the response now differs by what died. A renderer crash rebuilds the window, which is invisible recovery: verified by killing the renderer over CDP and watching the workspace come back with its terminal reattached rather than duplicated. A second crash within ten seconds stops instead of looping, since reloading into a renderer that crashes on load is a flickering window and a pinned core. An uncaught exception in main is fatal by definition and offers a restart, naming the actual error rather than apologising. An unhandled rejection is recorded but not fatal, because killing an editor mid-session over one rejected promise is worse than the bug. Everything lands in crashes.log in userData, oldest entries dropped first so the newest crash always survives. The fatal dialog itself was read rather than fired, since triggering it means a modal on someone\'s screen and an app that exits.'
       },
       {
         id: 'onboarding',
