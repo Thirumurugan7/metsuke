@@ -196,7 +196,9 @@ it, because that work never enters the parent conversation.
 Not done: nothing is published anywhere. No GitHub repo, no installers built for any
 platform, no code signing, no auto-update. See the roadmap.
 
-Known open bugs: the video decode logs `Unsupported pixel format` harmlessly on every
-playback. The `preview_scroll` stall was intermittent and has not reappeared since the
+Known open bugs: `Unsupported pixel format: -1` in the dev log is Chromium's, not ours.
+It survives h264 with audio, h264 without, and VP9, and it appears when only the preview
+loads a page, so ignore it rather than re-encoding anything. The `preview_scroll` stall
+was intermittent and has not reappeared since the
 frame-production switches landed, but it was never reproduced on demand either, so treat
 a recurrence as possible; it now fails with a named timeout rather than going quiet.

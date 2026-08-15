@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { playAdaptSound } from '../state/adaptSound'
-import wheelUrl from '../assets/mahoraga.mp4'
+import wheelUrl from '../assets/mahoraga.webm'
 
 /** How long the flourish stays on screen. The clip is longer; it is cut short on purpose. */
 const VISIBLE_MS = 4200

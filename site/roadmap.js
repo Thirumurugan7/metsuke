@@ -222,9 +222,10 @@ const TASKS = [
       {
         id: 'video-pixel-format',
         who: 'me',
-        text: 'Re-encode the wheel clip to silence the decoder',
+        done: true,
+        text: 'Work out what logs "Unsupported pixel format"',
         detail:
-          'Every playback logs "Unsupported pixel format: -1". Harmless, the video decodes fine at 560x560, but it fills the dev log and makes real errors harder to spot.'
+          'Closed, but not the way it was written: re-encoding cannot silence it, because the message was never about our clip. It comes from Chromium\'s own ffmpeg_common.cc when a stream config is built before a pixel format is known. Tested three ways, h264 with audio, h264 without, and VP9 in webm, and it appeared identically in all three; it also appeared three times in a session where the flourish never played and only the preview loaded a page. Nothing in this codebase can remove it, and the levers that would, like dropping the Chromium log level, would take real errors with it. The clip is now VP9 with the dead audio track gone, 271KB against 751KB, which was worth doing on its own.'
       },
       {
         id: 'preview-screenshot-occluded',
