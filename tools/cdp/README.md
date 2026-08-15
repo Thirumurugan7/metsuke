@@ -25,7 +25,9 @@ holds its debugger, and a second connection detaches it. Drive the preview throu
 control bridge instead, which goes via Electron's own attachment:
 
 ```bash
-CFG="$HOME/Library/Application Support/Metsuke/mcp-preview.json"
+# "Metsuke (dev)" is not a typo: a run from the repo keeps its own userData directory,
+# so launching the packaged app cannot overwrite the bridge port and token underneath it.
+CFG="$HOME/Library/Application Support/Metsuke (dev)/mcp-preview.json"
 URL=$(python3 -c "import json;print(json.load(open('$CFG'))['mcpServers']['preview']['env']['METSUKE_CONTROL_URL'])")
 TOK=$(python3 -c "import json;print(json.load(open('$CFG'))['mcpServers']['preview']['env']['METSUKE_CONTROL_TOKEN'])")
 curl -s -X POST "$URL/call" -H "authorization: Bearer $TOK" \

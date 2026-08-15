@@ -105,13 +105,32 @@ traffic-light inset must not apply elsewhere.
 **Subagent reports need re-checking.** One reported verifying video playback that was
 demonstrably broken minutes later. Re-run the check yourself.
 
+**A backgrounded window stops producing frames,** and a CDP call that needs one then
+never acks. `Page.captureScreenshot` does not fail, it hangs, and so did `preview_scroll`.
+Main launches with `disable-backgrounding-occluded-windows`, `disable-renderer-backgrounding`
+and `disable-background-timer-throttling` for exactly this. Do not remove them to save
+battery on a hidden window: an agent driving the preview while the user looks elsewhere is
+the normal case here, not the edge case.
+
+**The debugger protocol has no deadline of its own.** Every call goes through
+`withTimeout` in `AutomationService.#send`, 15s, so a stuck command names itself instead
+of leaving the bridge pending until the caller gives up with an empty body.
+
+**A run from the repo uses its own userData,** `Metsuke (dev)`, so an installed build
+cannot rewrite the bridge port and token underneath it. It keys off `app.isPackaged`, not
+the dev server, because `electron-vite preview` is still a run from the repo, and it skips
+an explicit `--user-data-dir` so the UI suite keeps its throwaway profile. The directory
+has to be created there and then: Chromium writes `DevToolsActivePort` into it before any
+app code runs. Chromium also creates the plain `Metsuke` directory at init regardless and
+leaves it empty; that is cosmetic, not a leak.
+
 ---
 
 ## Verifying changes
 
 ```bash
 npm run dev          # app, with CDP on 9222
-npm test             # 143 unit tests
+npm test             # 147 unit tests
 npm run test:ui      # visual regression over the built app
 npm run typecheck    # both projects
 npm run dist:dir     # fast packaging smoke test
@@ -175,9 +194,9 @@ report is kept in full (capped at 20k characters) and the sidebar row expands to
 it, because that work never enters the parent conversation.
 
 Not done: nothing is published anywhere. No GitHub repo, no installers built for any
-platform, no code signing, no auto-update. The name uses Anthropic's trademark and should
-change. There is no LICENSE file despite the README claiming MIT. See the roadmap.
+platform, no code signing, no auto-update. See the roadmap.
 
-Known open bugs: `preview_scroll` intermittently hangs the bridge; the video decode logs
-`Unsupported pixel format` harmlessly on every playback; dev and packaged builds share a
-userData directory and clobber each other's control config.
+Known open bugs: the video decode logs `Unsupported pixel format` harmlessly on every
+playback. The `preview_scroll` stall was intermittent and has not reappeared since the
+frame-production switches landed, but it was never reproduced on demand either, so treat
+a recurrence as possible; it now fails with a named timeout rather than going quiet.

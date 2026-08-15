@@ -165,9 +165,10 @@ const TASKS = [
       {
         id: 'userdata-clash',
         who: 'me',
+        done: true,
         text: 'Stop dev and packaged builds clobbering each other',
         detail:
-          'Both write the same userData directory, so launching the packaged app overwrote the dev app\'s control-bridge config and broke its notification hooks. I hit this during testing and worked around it by restarting.'
+          'Done. A run from the repo now keeps its own userData directory, "Metsuke (dev)", so an installed build cannot rewrite the bridge port and token under a running dev session. It keys off isPackaged rather than the dev server, because electron-vite preview runs the built output and is still a run from the repo, and it leaves an explicit --user-data-dir alone so the UI suite keeps its throwaway profile. The directory is created rather than left to whoever writes first: Chromium writes DevToolsActivePort into it during startup and logged an error on every launch until it existed.'
       },
       {
         id: 'main-restart-sessions',
@@ -203,9 +204,10 @@ const TASKS = [
       {
         id: 'preview-scroll-hang',
         who: 'me',
+        done: true,
         text: 'Fix preview_scroll intermittently hanging the bridge',
         detail:
-          'Noticed while building the adaptation flourish: the call returns an empty body after the curl timeout, then succeeds on a later attempt. Looks like a real intermittent fault in AutomationService.scroll rather than anything to do with that feature.'
+          'Done, with one honest caveat. Chromium had no deadline on a debugger command, so a call it never acknowledged left the bridge request pending forever, which is why the symptom was an empty body after the caller gave up rather than an error. Every CDP call now has a 15 second deadline and fails naming the method that stuck. The likely cause of the stall itself was the same frame starvation that hung screenshots, and it is addressed by the same switches; 20 consecutive scrolls through the bridge with the window in the background came back in about 30ms each. The stall was intermittent to begin with, so that is evidence rather than proof, and if it does come back it now says so instead of going quiet.'
       },
       {
         id: 'video-pixel-format',
@@ -217,9 +219,10 @@ const TASKS = [
       {
         id: 'preview-screenshot-occluded',
         who: 'me',
+        done: true,
         text: 'Fix screenshots of a backgrounded window',
         detail:
-          'Page.captureScreenshot hangs when the window is occluded, because the compositor stops producing frames. This bit me repeatedly and it will bite Claude too: preview_screenshot is unreliable whenever the editor is not in front.'
+          'Done. The app launches with backgrounding of occluded windows, renderer backgrounding and background timer throttling all disabled, which are the three switches the UI suite already needed to capture an off-screen window, now applied to every build. Verified by reproducing it and then not: the same capture that timed out against an unfocused window returned in 0.57s afterwards, and three preview_screenshot calls through the bridge came back in about 0.1s each with the editor behind another window. The cost is that a hidden window keeps rendering, which is the point of it.'
       }
     ]
   },

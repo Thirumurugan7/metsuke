@@ -1,9 +1,13 @@
 import { webContents, type WebContents } from 'electron'
 import type { ConsoleMessage, NetworkRequest } from '@shared/ipc'
+import { withTimeout } from './withTimeout'
 
 /** Console and network history are ring buffers; old entries fall off the back. */
 const MAX_CONSOLE = 2000
 const MAX_NETWORK = 1000
+
+/** How long any single CDP command may take before it is called stuck. */
+const CDP_TIMEOUT_MS = 15_000
 
 /** A handle to one element from a snapshot, e.g. "e12". */
 export type ElementRef = string
@@ -352,8 +356,20 @@ export class AutomationService {
     this.#wc = null
   }
 
+  /*
+   * Every CDP call goes through one deadline.
+   *
+   * sendCommand has none of its own, so a command Chromium never acks leaves the bridge
+   * request pending and the tool call appears to return nothing at all. Fifteen seconds
+   * is well past any healthy call, including a full-page screenshot, and a failure that
+   * names the method is something an agent can act on, which is the actual difference.
+   */
   async #send<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
-    return (await this.#target().debugger.sendCommand(method, params)) as T
+    return (await withTimeout(
+      this.#target().debugger.sendCommand(method, params),
+      CDP_TIMEOUT_MS,
+      method
+    )) as T
   }
 
   // -------------------------------------------------------------------------

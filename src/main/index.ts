@@ -1,4 +1,5 @@
 import { app, BrowserWindow, shell } from 'electron'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerIpc, type AppServices } from './ipc'
@@ -12,6 +13,38 @@ import { ControlBridge } from './mcp/bridge'
 import { writeMcpConfig, writeHookSettings } from './mcp/config'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
+
+/*
+ * A run from the repo and an installed build are two different apps that happen to
+ * share a name, and userData is not a cache: it holds mcp-preview.json, which carries
+ * the control bridge's port and token, and claude-hooks.json, which points every hook
+ * at them. With one directory between them, launching the packaged app rewrote both
+ * under the running dev app, and its notification hooks then failed silently against a
+ * bridge that had never been listening on that port. It cost an afternoon.
+ *
+ * isPackaged rather than ELECTRON_RENDERER_URL, because `electron-vite preview` runs
+ * the built output with no dev server and is still a run from the repo.
+ *
+ * This has to happen before anything reads the path. Paths are readable before ready,
+ * so module scope is the only place it is certainly early enough.
+ *
+ * An explicit --user-data-dir is left alone. The UI suite passes one to get a throwaway
+ * profile, and suffixing it would move the profile to a sibling directory the suite
+ * never made and does not clean up.
+ *
+ * The directory is created here rather than left to whoever writes first. Chromium's
+ * devtools handler writes DevToolsActivePort into userData during startup, ahead of
+ * anything the app does, and logged a "No such file or directory" error on every launch
+ * until this line existed. The port is hardcoded to 9222 so nothing broke, which is
+ * exactly why it would have stayed in the log unexplained.
+ */
+const pinnedProfile = process.argv.some((arg) => arg.startsWith('--user-data-dir'))
+
+if (!app.isPackaged && !pinnedProfile) {
+  const devUserData = `${app.getPath('userData')} (dev)`
+  fs.mkdirSync(devUserData, { recursive: true })
+  app.setPath('userData', devUserData)
+}
 
 let window: BrowserWindow | null = null
 
@@ -99,6 +132,23 @@ function createWindow(): void {
     void window.loadFile(path.join(dirname, '../renderer/index.html'))
   }
 }
+
+/*
+ * Keep frames coming when the window is not in front.
+ *
+ * Chromium stops producing frames for a window it considers occluded or backgrounded,
+ * and Page.captureScreenshot has nothing to return, so it does not fail: it hangs until
+ * the caller times out. preview_screenshot was therefore unreliable in precisely the
+ * situation this editor is built for, an agent working while you look at something else,
+ * and the failure told you nothing about why.
+ *
+ * These are the three switches the UI suite already relies on to capture an off-screen
+ * window, applied to every build rather than just the tests. The cost is that a hidden
+ * window keeps rendering and its timers keep firing, which is the point.
+ */
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
 
 // In dev, expose the editor's own window over CDP. This is what lets Claude inspect
 // and screenshot Metsuke's UI while building it — the same trick the preview pane

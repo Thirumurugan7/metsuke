@@ -43,8 +43,9 @@ export const test = base.extend<{ reset: void }, { app: AppFixture }>({
 
       /*
        * A throwaway profile. Electron honours Chromium's --user-data-dir, so the run
-       * starts from genuine first-run state and none of this can reach the real config,
-       * which dev and packaged builds already share and clobber.
+       * starts from genuine first-run state and none of this can reach the real config.
+       * Main sees the flag and leaves the path alone rather than suffixing it the way it
+       * does for an ordinary dev run.
        */
       const electronApp = await electron.launch({
         args: [
