@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
+import { useFocusTrap } from '../a11y/useFocusTrap'
 
 /**
  * What landing a thread would do, and the button that does it.
@@ -28,6 +29,9 @@ export function LandThread(): JSX.Element | null {
     setBusy(false)
   }, [id])
 
+  const sheet = useRef<HTMLDivElement>(null)
+  useFocusTrap(sheet, Boolean(id && thread))
+
   useEffect(() => {
     if (!id) return
     const onKey = (e: KeyboardEvent): void => {
@@ -52,6 +56,7 @@ export function LandThread(): JSX.Element | null {
   return (
     <div className="sheet-scrim" onMouseDown={close}>
       <div
+        ref={sheet}
         className="sheet land-sheet"
         role="dialog"
         aria-modal="true"

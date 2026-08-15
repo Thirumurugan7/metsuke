@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { call, useStore } from '../state/store'
 import { ThemePicker } from '../theme/ThemePicker'
+import { useFocusTrap } from '../a11y/useFocusTrap'
 import type { NotifyEvent, UpdateState } from '@shared/ipc'
 
 /** One line under the toggle saying where the last check got to. */
@@ -47,6 +48,8 @@ export function NotificationSettings(): JSX.Element | null {
     update,
     setUpdatesEnabled
   } = useStore()
+  const modal = useRef<HTMLDivElement>(null)
+  useFocusTrap(modal, settingsOpen)
   const [token, setToken] = useState('')
   const [testing, setTesting] = useState<string | null>(null)
   const [result, setResult] = useState<string | null>(null)
@@ -88,8 +91,10 @@ export function NotificationSettings(): JSX.Element | null {
   return (
     <div className="overlay" onMouseDown={() => setSettingsOpen(false)}>
       <div
+        ref={modal}
         className="settings-modal"
         role="dialog"
+        aria-modal="true"
         aria-label="Settings"
         onMouseDown={(e) => e.stopPropagation()}
       >

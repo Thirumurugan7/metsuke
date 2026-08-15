@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { call, useStore } from '../state/store'
 import { rank } from '../state/fuzzy'
+import { useFocusTrap } from '../a11y/useFocusTrap'
 
 export function QuickOpen(): JSX.Element | null {
   const { quickOpen, workspace, setQuickOpen, openFile } = useStore()
@@ -8,6 +9,8 @@ export function QuickOpen(): JSX.Element | null {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
   const input = useRef<HTMLInputElement>(null)
+  const dialog = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialog, quickOpen, input)
 
   // Index lazily, on open, so startup is not delayed by walking a large repo.
   useEffect(() => {
@@ -29,7 +32,14 @@ export function QuickOpen(): JSX.Element | null {
 
   return (
     <div className="overlay" onMouseDown={() => setQuickOpen(false)}>
-      <div className="quick-open" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label="Go to file">
+      <div
+        ref={dialog}
+        className="quick-open"
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Go to file"
+      >
         <input
           ref={input}
           autoFocus

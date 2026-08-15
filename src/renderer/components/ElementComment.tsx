@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
+import { useFocusTrap } from '../a11y/useFocusTrap'
 
 /**
  * The note you attach to an element you clicked in the preview.
@@ -13,6 +14,8 @@ export function ElementComment(): JSX.Element | null {
   const [comment, setComment] = useState('')
   const [sending, setSending] = useState(false)
   const box = useRef<HTMLTextAreaElement>(null)
+  const dialog = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialog, pickedElement !== null, box)
 
   useEffect(() => {
     if (pickedElement) {
@@ -43,8 +46,10 @@ export function ElementComment(): JSX.Element | null {
   return (
     <div className="overlay comment-overlay" onMouseDown={clearPickedElement}>
       <div
+        ref={dialog}
         className="comment-box"
         role="dialog"
+        aria-modal="true"
         aria-label="Comment on element"
         onMouseDown={(e) => e.stopPropagation()}
       >

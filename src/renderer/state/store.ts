@@ -257,6 +257,15 @@ interface State {
   // -- editor ---------------------------------------------------------------
   openFiles: OpenFile[]
   activePath: string | null
+  /**
+   * Which tree row owns the single tab stop.
+   *
+   * The file tree is one control, not one control per file: without this every row was
+   * tabbable, so Tab through a large repo meant hundreds of stops before reaching the
+   * editor. Null until something is focused, when the first root row takes it.
+   */
+  treeFocus: string | null
+  setTreeFocus: (path: string | null) => void
   dirty: Set<string>
   /**
    * Set when a file changed on disk underneath a clean editor buffer — typically
@@ -418,6 +427,8 @@ export const useStore = create<State>((set, get) => ({
   expanded: new Set(),
   openFiles: [],
   activePath: null,
+  treeFocus: null,
+  setTreeFocus: (treeFocus) => set({ treeFocus }),
   dirty: new Set(),
   externalEdit: null,
   revealLine: null,

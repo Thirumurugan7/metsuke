@@ -46,7 +46,8 @@ interface Draft {
 }
 
 export function Explorer(): JSX.Element {
-  const { workspace, tree, openFolder, loadDir, refreshGit, setError } = useStore()
+  const { workspace, tree, openFolder, loadDir, refreshGit, setError, toggleDir, setTreeFocus } =
+    useStore()
   const [menu, setMenu] = useState<MenuState | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -105,6 +106,67 @@ export function Explorer(): JSX.Element {
     await refreshGit()
   }
 
+  /*
+   * Arrow-key navigation, which is what makes a tree a tree rather than a list of tab
+   * stops. Rows are read from the DOM in render order instead of from a flattened model,
+   * because the rendering is recursive and the DOM already holds exactly the rows that
+   * are visible: collapsed directories contribute nothing to it.
+   */
+  const onTreeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    const keys = ['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End']
+    if (!keys.includes(event.key)) return
+
+    const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="treeitem"]'))
+    if (rows.length === 0) return
+
+    const index = rows.indexOf(document.activeElement as HTMLElement)
+    const row = index >= 0 ? rows[index] : null
+    const path = row?.dataset['path'] ?? ''
+    const isDir = row?.dataset['dir'] === 'true'
+    const isOpen = row?.dataset['open'] === 'true'
+
+    const move = (to: number): void => {
+      const target = rows[Math.max(0, Math.min(rows.length - 1, to))]
+      if (!target) return
+      event.preventDefault()
+      target.focus()
+      setTreeFocus(target.dataset['path'] ?? null)
+    }
+
+    switch (event.key) {
+      case 'ArrowDown':
+        return move(index + 1)
+      case 'ArrowUp':
+        return move(index - 1)
+      case 'Home':
+        return move(0)
+      case 'End':
+        return move(rows.length - 1)
+      case 'ArrowRight':
+        // Open a closed directory, step into an open one, and do nothing on a file.
+        if (isDir && !isOpen) {
+          event.preventDefault()
+          void toggleDir(path)
+          return
+        }
+        if (isDir) return move(index + 1)
+        return
+      case 'ArrowLeft': {
+        if (isDir && isOpen) {
+          event.preventDefault()
+          void toggleDir(path)
+          return
+        }
+        // Otherwise go to the parent directory's row, which is the nearest row above
+        // whose path is this one's parent.
+        const parent = parentOf(path)
+        const target = rows.findIndex((r) => r.dataset['path'] === parent)
+        if (target >= 0) return move(target)
+        return
+      }
+    }
+  }
+
   return (
     <div className="explorer">
       <div className="explorer-toolbar">
@@ -134,7 +196,7 @@ export function Explorer(): JSX.Element {
         </button>
       </div>
 
-      <div className="tree" role="tree" aria-label="Files">
+      <div className="tree" role="tree" aria-label="Files" onKeyDown={onTreeKeyDown}>
         {draft?.parent === '' && (
           <DraftRow
             depth={0}
@@ -232,9 +294,13 @@ function Row({
   onCancelDraft: () => void
   onCancelRename: () => void
 }): JSX.Element {
-  const { expanded, tree, activePath, git, toggleDir, openFile } = useStore()
+  const { expanded, tree, activePath, git, toggleDir, openFile, treeFocus, setTreeFocus } =
+    useStore()
   const isOpen = expanded.has(entry.path)
   const badge = statusBadge(entry.path, git)
+  // Before anything has been focused, the first root row holds the tab stop, so Tab into
+  // the tree always lands somewhere rather than being swallowed.
+  const tabbable = treeFocus ? treeFocus === entry.path : (tree[''] ?? [])[0]?.path === entry.path
 
   if (renaming === entry.path) {
     return (
@@ -256,7 +322,12 @@ function Row({
         role="treeitem"
         aria-expanded={entry.isDirectory ? isOpen : undefined}
         aria-selected={activePath === entry.path}
-        tabIndex={0}
+        data-path={entry.path}
+        data-dir={entry.isDirectory ? 'true' : 'false'}
+        data-open={isOpen ? 'true' : 'false'}
+        /* One tab stop for the whole tree; the arrow keys move within it. */
+        tabIndex={tabbable ? 0 : -1}
+        onFocus={() => setTreeFocus(entry.path)}
         onClick={() => (entry.isDirectory ? void toggleDir(entry.path) : void openFile(entry.path))}
         onKeyDown={(e) => {
           if (e.key !== 'Enter' && e.key !== ' ') return

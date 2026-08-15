@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import './onboarding.css'
+import { useFocusTrap } from '../a11y/useFocusTrap'
 
 const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
 
@@ -171,6 +172,8 @@ const SECTIONS: Section[] = [
 
 export function Guide(): JSX.Element | null {
   const { guideOpen, setGuideOpen } = useStore()
+  const dialog = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialog, guideOpen)
   const [active, setActive] = useState(SECTIONS[0].id)
 
   useEffect(() => {
@@ -187,7 +190,14 @@ export function Guide(): JSX.Element | null {
 
   return (
     <div className="overlay guide-overlay" onMouseDown={() => setGuideOpen(false)}>
-      <div className="guide" role="dialog" aria-label="Guide" onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        ref={dialog}
+        className="guide"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Guide"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="guide-head">
           <h2>How to use this</h2>
           <button className="icon-only" aria-label="Close guide" onClick={() => setGuideOpen(false)}>

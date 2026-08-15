@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
+import { useFocusTrap } from '../a11y/useFocusTrap'
 import type { ThreadMode } from '@shared/ipc'
 
 /**
@@ -57,6 +58,8 @@ export function NewThread(): JSX.Element | null {
   const [parentId, setParentId] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
+  const sheet = useRef<HTMLDivElement>(null)
+  useFocusTrap(sheet, open, titleRef)
 
   const instances = threads.filter((t) => t.mode === 'instance' && t.endedAt === null)
 
@@ -104,6 +107,7 @@ export function NewThread(): JSX.Element | null {
   return (
     <div className="sheet-scrim" onMouseDown={() => setOpen(false)}>
       <div
+        ref={sheet}
         className="sheet"
         role="dialog"
         aria-modal="true"
