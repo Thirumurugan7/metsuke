@@ -17,6 +17,7 @@ import type {
   UpdateState,
   Workspace
 } from '@shared/ipc'
+import type { Feature } from '@shared/telemetry'
 
 /**
  * Unwrap an IPC Result, surfacing the error through the store's banner rather than
@@ -314,6 +315,13 @@ interface State {
   /** Whether the guide overlay is up. */
   guideOpen: boolean
 
+  // -- telemetry ------------------------------------------------------------
+  /** Null until main answers. `unasked` is what puts the consent card on screen. */
+  telemetry: { consent: 'unasked' | 'granted' | 'denied'; configured: boolean; installId: string | null } | null
+  setTelemetryConsent: (granted: boolean) => Promise<void>
+  /** Count something the renderer can see. Never carries content, only a name. */
+  trackFeature: (feature: Feature, theme?: string) => void
+
   // -- updates --------------------------------------------------------------
   /** Null until main answers, which keeps the status bar quiet during startup. */
   update: (UpdateState & { enabled: boolean }) | null
@@ -451,6 +459,7 @@ export const useStore = create<State>((set, get) => ({
   notifySettings: null,
   notificationLog: [],
   update: null,
+  telemetry: null,
   settingsOpen: false,
   guideOpen: false,
   systemCheck: null,
@@ -573,12 +582,28 @@ export const useStore = create<State>((set, get) => ({
   showDiff: (diffPath) => set({ diffPath }),
 
   /** Clicking the active view's icon collapses the sidebar, as VS Code does. */
-  setSidebar: (view) =>
+  setSidebar: (view) => {
+    // Counted when a panel is opened, not when it is toggled shut, so the number means
+    // "people used this" rather than "people clicked this".
+    const opening = !(get().sidebar === view && get().sidebarVisible)
+    if (opening) {
+      const feature = ({
+        explorer: 'panel_files',
+        git: 'panel_git',
+        search: 'panel_search',
+        ports: 'panel_ports',
+        threads: 'panel_threads',
+        claude: 'panel_claude'
+      } as const)[view]
+      if (feature) get().trackFeature(feature)
+    }
+
     set((s) =>
       s.sidebar === view && s.sidebarVisible
         ? { sidebarVisible: false }
         : { sidebar: view, sidebarVisible: true }
-    ),
+    )
+  },
 
   togglePanel: (panel) =>
     set((s) => {
@@ -603,7 +628,10 @@ export const useStore = create<State>((set, get) => ({
     localStorage.setItem(LAYOUT_KEY, JSON.stringify({ sidebarWidth, previewWidth, terminalHeight }))
   },
 
-  setQuickOpen: (quickOpen) => set({ quickOpen }),
+  setQuickOpen: (quickOpen) => {
+    if (quickOpen) get().trackFeature('quick_open')
+    set({ quickOpen })
+  },
   setPreviewAttached: (previewAttached) => set({ previewAttached }),
 
   triggerAdaptation: (skill) => {
@@ -850,6 +878,19 @@ export const useStore = create<State>((set, get) => ({
     await get().loadNotifySettings()
   },
 
+  // -- telemetry ------------------------------------------------------------
+
+  setTelemetryConsent: async (granted) => {
+    if ((await call('telemetry:setConsent', granted)) === null) return
+    const state = await call('telemetry:get')
+    if (state) set({ telemetry: state })
+  },
+
+  trackFeature: (feature, theme) => {
+    // Fire and forget by design: a counter must never be able to fail a click.
+    void window.api.invoke('telemetry:record', { name: 'feature_used', feature, theme })
+  },
+
   // -- updates --------------------------------------------------------------
 
   setUpdatesEnabled: async (enabled) => {
@@ -862,8 +903,14 @@ export const useStore = create<State>((set, get) => ({
     await call('updates:install')
   },
 
-  setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
-  setGuideOpen: (guideOpen) => set({ guideOpen }),
+  setSettingsOpen: (settingsOpen) => {
+    if (settingsOpen) get().trackFeature('settings_opened')
+    set({ settingsOpen })
+  },
+  setGuideOpen: (guideOpen) => {
+    if (guideOpen) get().trackFeature('guide_opened')
+    set({ guideOpen })
+  },
 
   loadSystemCheck: async () => {
     // Probing runs a login shell, which is slow enough to be worth doing once.

@@ -1,16 +1,20 @@
 import { app, BrowserWindow, shell } from 'electron'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerIpc, type AppServices } from './ipc'
 import { installCrashHandlers, type CrashHandlers } from './crash'
 import { UpdateService } from './updates'
+import { TelemetryService } from './services/TelemetryService'
+import { TELEMETRY_ENDPOINT } from './telemetryConfig'
 import { attachPtyHost } from './ptyHostLauncher'
 import { TerminalService } from './services/TerminalService'
 import { PortService } from './services/PortService'
 import { AutomationService } from './services/AutomationService'
 import { NotificationService } from './services/NotificationService'
 import { classifyHook } from './services/hookEvent'
+import { systemCheck } from './services/systemCheck'
 import { AlertWindow } from './AlertWindow'
 import { ControlBridge } from './mcp/bridge'
 import { writeMcpConfig, writeHookSettings } from './mcp/config'
@@ -64,6 +68,16 @@ const services: AppServices = {
   automation: new AutomationService(),
   notifications: new NotificationService(),
   updates: new UpdateService(app.getPath('userData')),
+  telemetry: new TelemetryService(app.getPath('userData'), {
+    endpoint: TELEMETRY_ENDPOINT,
+    appVersion: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    // Major version only. "14" says which OS to support; "14.6.1 build 23G93" is close
+    // enough to unique to be an identifier.
+    osVersion: os.release().split('.')[0] ?? '',
+    homeDir: app.getPath('home')
+  }),
   alerts: new AlertWindow(),
   workspace: null,
   mcpConfigPath: null,
@@ -170,7 +184,17 @@ if (process.env['ELECTRON_RENDERER_URL']) {
 
 app.whenReady().then(async () => {
   // First, so that anything below failing is recorded rather than silent.
-  crash = installCrashHandlers(() => createWindow())
+  crash = installCrashHandlers(
+    () => createWindow(),
+    (kind, error) =>
+      services.telemetry.record({
+        name: 'error',
+        kind,
+        errorName: error.name || 'Error',
+        message: error.message || String(error),
+        stack: error.stack
+      })
+  )
 
   // The webview's own preferences are set from the main process; the renderer cannot
   // widen them. webSecurity is off *inside the preview only*, so dev servers with
@@ -189,6 +213,18 @@ app.whenReady().then(async () => {
   services.mcpConfigPath = await writeMcpConfig(bridge)
   services.hookSettingsPath = await writeHookSettings()
   await services.notifications.load()
+  await services.telemetry.load()
+
+  // One per launch, once the machine has been probed, so the counts can answer the
+  // question the welcome screen exists for: how many people have Claude Code installed.
+  void systemCheck().then((check) =>
+    services.telemetry.record({
+      name: 'app_launched',
+      firstRun: services.telemetry.firstRun,
+      claudeInstalled: check.claude.installed,
+      gitInstalled: check.git.installed
+    })
+  )
 
   /*
    * Ptys move into their own process here, before anything can spawn one. Sessions from
@@ -259,7 +295,17 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
+const launchedAt = Date.now()
+
 app.on('before-quit', () => {
+  services.telemetry.record({
+    name: 'app_closed',
+    sessionSeconds: Math.round((Date.now() - launchedAt) / 1000)
+  })
+  // Fire and forget: a quit must not wait on the network, and anything unsent is
+  // written to disk by shutdown() for the next run to carry.
+  void services.telemetry.shutdown()
+
   services.alerts.destroy()
   services.terminals.disposeAll()
   services.ports.stop()

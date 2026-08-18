@@ -92,6 +92,10 @@ export function App(): JSX.Element {
     void window.api
       .invoke('updates:get')
       .then((result) => result.ok && useStore.setState({ update: result.value }))
+    // Consent state, which decides whether the welcome screen asks the question.
+    void window.api
+      .invoke('telemetry:get')
+      .then((result) => result.ok && useStore.setState({ telemetry: result.value }))
   }, [])
 
   // Keep the OS window title in step, with the standard dirty marker.

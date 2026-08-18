@@ -234,39 +234,37 @@ read it and drive the preview. That is the same trust boundary as your shell.
 in `src/shared/ipc.ts`. Terminals are the real exception, and an obvious one: a terminal
 is a shell, and `claude` running in it has whatever permissions you gave it.
 
-### Telemetry
+### What it sends, and what it never sends
 
-There is none. No analytics, no crash reporting, no account, and no server of ours for
-anything to reach. Crashes are written to `crashes.log` in the app's data directory and
-stay on your machine; if you want anyone to see one, you send it.
+Two things leave your machine on the app's own initiative, both of which you control.
 
-The app makes exactly one request of its own accord: an update check against GitHub's
-release feed, on launch and every six hours. That reveals your IP and your current
-version to GitHub, which is the honest cost of an editor that can update itself. It is a
-checkbox in Settings, it downloads in the background, and it never installs on its own,
-because installing quits the app and quitting kills every terminal and every running
-`claude` session.
+**Update checks** ask GitHub for the latest release on launch and every six hours. That
+reveals your IP and your current version to GitHub, which is the cost of an editor that
+can update itself. Switch it off in Settings.
 
-Everything else that leaves your machine is something you did: the `claude` CLI talking
-to Anthropic as it always does, whatever you load in the preview pane, and a Telegram
-notification if you configure one with your own bot token.
+**Usage reporting** is off until you answer the question on first run, and both answers
+are one click. If you say yes it sends, in batches, over HTTPS:
 
-This is a claim that gets harder to make later, so it is written down while it is cheap
-to keep. Anything added to that list will be opt-out at worst, and it will be in this
-file.
+- launches, how long a run lasted, the app version, your OS and architecture
+- whether `claude` and `git` were found on your machine
+- which panels and features get used, as counts
+- errors and crashes: the error type, message, and stack trace from our own code
 
-## Layout
+It never sends anything you or Claude wrote. No file contents, no prompts, no terminal
+output, no file paths, no project or repository names, no URLs, and nothing that
+identifies you. That is not a policy, it is the shape of the data: `src/shared/telemetry.ts`
+is a closed list of events with no free-text field anywhere in it, and the server rejects
+anything that does not match. Strings that could carry a path, an email or a token are
+scrubbed before they are queued, so even a queued event on your disk is already safe to
+read. There is a test suite for exactly that.
 
-| Path | What lives there |
-|---|---|
-| `src/main/` | Node side: window, filesystem, git, ptys, watching, ports, CDP |
-| `src/main/services/` | One file per capability, each testable against a temp directory |
-| `src/main/mcp/` | The MCP server and the loopback bridge to it |
-| `src/preload/` | The only door between renderer and main; validates channel names |
-| `src/renderer/` | React UI |
-| `src/shared/ipc.ts` | The IPC contract, imported by both sides |
+You are identified by a random id generated on your machine. Turning reporting off
+deletes it, so turning it back on gives you a new one rather than resuming the old.
 
-Design notes: `docs/superpowers/specs/2026-08-10-claude-code-editor-design.md`.
+Beyond those two: no analytics on the website beyond what your own host logs, no account,
+no crash reporting service, and nothing else phoning anywhere. Crashes are written to
+`crashes.log` in the app's data directory whether or not reporting is on, and that copy
+never leaves unless you send it.
 
 ## Licenses
 

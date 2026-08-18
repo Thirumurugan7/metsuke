@@ -308,12 +308,20 @@
               SmartScreen complains once. On Linux, <code>chmod +x</code> the AppImage.
             </p>
             <p>
-              <b>No analytics, no crash reporting, no account, no server.</b> The one request
-              it makes on its own is an update check against GitHub, which you can switch off
-              in Settings, and it never installs without being asked. Everything else that
-              leaves your machine is something you did: the <code>claude</code> CLI talking to
-              Anthropic as it always does, whatever you load in the preview, and a Telegram
-              notification if you set one up with your own bot token.
+              <b>Usage reporting is off until you answer the question on first run.</b> If you
+              say yes it sends counts: launches, version and OS, whether Claude Code was found,
+              which features you use, and crashes with the stack trace from our own code. Never
+              your code, your prompts, your terminal output, your file paths or your project
+              names, and nothing that identifies you. Both answers are one click, and Settings
+              changes your mind later.
+            </p>
+            <p>
+              <b>No account, no analytics service, no crash reporting service.</b> The only
+              other request it makes by itself is an update check against GitHub, which is also
+              a switch. Everything else that leaves your machine is something you did: the
+              <code>claude</code> CLI talking to Anthropic as it always does, whatever you load
+              in the preview, and a Telegram notification if you set one up with your own bot
+              token.
             </p>
             <p>
               <b>The preview hands Claude real control of the page.</b> It reads the DOM,

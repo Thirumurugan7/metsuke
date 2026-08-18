@@ -8,6 +8,14 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     resolve: { alias: { '@shared': shared } },
+    /*
+     * Telemetry's destination is compiled in, and defaults to nothing. Release CI sets
+     * METSUKE_TELEMETRY_ENDPOINT; a dev build and anybody else's build get an empty
+     * string, which switches the whole subsystem off however consent is set.
+     */
+    define: {
+      __TELEMETRY_ENDPOINT__: JSON.stringify(process.env.METSUKE_TELEMETRY_ENDPOINT ?? '')
+    },
     build: {
       rollupOptions: {
         input: {

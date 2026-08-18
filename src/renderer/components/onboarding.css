@@ -248,3 +248,54 @@
     flex-wrap: wrap;
   }
 }
+
+/* -- telemetry consent ------------------------------------------------------
+   Asked once, on first run, before anything has been sent. Sized to be read
+   rather than dismissed: the two answers are the same weight, because a "no"
+   dressed as a grey link is a way of asking without meaning it. */
+
+.consent {
+  background: var(--bg-raised, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 26px 0 0;
+  padding: 18px 20px;
+}
+.consent-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.consent-lede {
+  color: var(--fg-dim);
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0 0 14px;
+}
+.consent-cols {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  margin-bottom: 16px;
+}
+.consent-cols h3 {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+.consent-cols ul {
+  color: var(--fg-dim);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  padding-left: 16px;
+}
+.consent-cols li {
+  margin-bottom: 3px;
+}
+.consent-actions {
+  display: flex;
+  gap: 10px;
+}

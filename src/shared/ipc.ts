@@ -6,6 +6,8 @@
  * Invoke channels are request/response. Event channels are main -> renderer pushes.
  */
 
+import type { TelemetryEvent } from './telemetry'
+
 // ---------------------------------------------------------------------------
 // Result
 // ---------------------------------------------------------------------------
@@ -495,6 +497,14 @@ export interface InvokeChannels {
   /** The configured sound as base64, so the renderer can play it under a strict CSP. */
   'notify:sound': { args: []; result: { mimeType: string; base64: string } | null }
 
+  // -- telemetry -------------------------------------------------------------
+  /** Consent state plus whether a destination is even configured for this build. */
+  'telemetry:get': { args: []; result: { consent: 'unasked' | 'granted' | 'denied'; configured: boolean; installId: string | null } }
+  /** The user's answer. Recorded once; changeable from Settings afterwards. */
+  'telemetry:setConsent': { args: [granted: boolean]; result: void }
+  /** Record an event that only the renderer can see, such as which panel was opened. */
+  'telemetry:record': { args: [event: TelemetryEvent]; result: void }
+
   // -- updates ---------------------------------------------------------------
   /** Current update state, plus whether checking is switched on at all. */
   'updates:get': { args: []; result: UpdateState & { enabled: boolean } }
@@ -626,6 +636,9 @@ export const INVOKE_CHANNELS = [
   'notify:test',
   'notify:pickSound',
   'notify:sound',
+  'telemetry:get',
+  'telemetry:setConsent',
+  'telemetry:record',
   'updates:get',
   'updates:setEnabled',
   'updates:check',

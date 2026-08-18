@@ -15,6 +15,8 @@ import { AutomationService } from './services/AutomationService'
 import { NotificationService } from './services/NotificationService'
 import { AlertWindow } from './AlertWindow'
 import { UpdateService } from './updates'
+import { TelemetryService } from './services/TelemetryService'
+import { TELEMETRY_ENDPOINT } from './telemetryConfig'
 import { GitError } from './services/GitService'
 import { systemCheck, clearSystemCheck } from './services/systemCheck'
 import { ClaudeService } from './services/ClaudeService'
@@ -27,6 +29,7 @@ export interface AppServices {
   automation: AutomationService
   notifications: NotificationService
   updates: UpdateService
+  telemetry: TelemetryService
   alerts: AlertWindow
   /** The currently open folder, or null. */
   workspace: WorkspaceContext | null
@@ -326,6 +329,16 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
       services.alerts.present(payload, { takeFocus: services.notifications.focusWindow })
     }
   })
+
+  handle('telemetry:get', () => ({
+    consent: services.telemetry.consent,
+    configured: TELEMETRY_ENDPOINT.length > 0,
+    installId: services.telemetry.installId
+  }))
+  handle('telemetry:setConsent', (granted) => services.telemetry.setConsent(granted))
+  // The renderer sees things main cannot: which panel is open, which theme, which
+  // overlay. It cannot invent an event shape, only pick one from the schema.
+  handle('telemetry:record', (event) => services.telemetry.record(event))
 
   handle('updates:get', () => services.updates.state)
   handle('updates:setEnabled', (enabled) => services.updates.setEnabled(enabled))

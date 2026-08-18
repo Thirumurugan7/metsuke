@@ -142,7 +142,7 @@ const TASKS = [
         done: true,
         text: 'State the telemetry position',
         detail:
-          'Done. The README and the download page both say it plainly: no analytics, no crash reporting, no account, no server. Verified rather than asserted, by grepping every outbound call in the codebase: there are three, and two are the loopback bridge and a bundled audio asset. The only request that leaves the machine is a Telegram notification, which is opt-in and uses your own bot token. Wiring auto-update will add a GitHub request and this claim has to be amended when it does.'
+          'Done, and then rewritten when the position changed. It said no analytics and no crash reporting, which was true and verified at the time. Usage reporting now exists, so the README, the download page, the welcome screen and the settings panel were all updated in the same commit that added it: off until asked, both answers one click, a closed list of events with no free-text field, and every string scrubbed of paths, emails and tokens before it is even queued. The claim and the code have to move together or the claim is worthless.'
       }
     ]
   },

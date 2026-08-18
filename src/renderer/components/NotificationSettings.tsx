@@ -123,18 +123,18 @@ export function NotificationSettings(): JSX.Element | null {
                 Check for new versions
                 <small>
                   {/*
-                    Named plainly because it is the only request this app makes on its
-                    own, and the README says as much. Nothing installs without being
-                    asked: installing restarts the editor and ends every session.
+                    Nothing installs without being asked: installing restarts the editor
+                    and ends every session.
                   */}
                   Asks GitHub on launch and every few hours, downloads in the background,
-                  and waits for you to install it. This is the only thing the editor sends
-                  anywhere by itself.
+                  and waits for you to install it.
                 </small>
               </span>
             </label>
             <p className="settings-note">{updateStatusLine(update)}</p>
           </section>
+
+          <TelemetrySection />
 
           <section>
             <h3>Notify me when…</h3>
@@ -357,5 +357,48 @@ export function NotificationSettings(): JSX.Element | null {
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * The same question the welcome screen asks, available for the rest of time.
+ *
+ * Hidden entirely when no endpoint is compiled in, because offering to send data to
+ * nowhere is a worse experience than not mentioning it.
+ */
+function TelemetrySection(): JSX.Element | null {
+  const telemetry = useStore((s) => s.telemetry)
+  const setTelemetryConsent = useStore((s) => s.setTelemetryConsent)
+
+  if (!telemetry?.configured) return null
+
+  return (
+    <section>
+      <h3>Usage reporting</h3>
+      <label className="settings-row">
+        <input
+          type="checkbox"
+          checked={telemetry.consent === 'granted'}
+          onChange={(e) => void setTelemetryConsent(e.target.checked)}
+        />
+        <span>
+          Send anonymous usage and crash reports
+          <small>
+            Launches, version and OS, whether Claude Code was found, which features get
+            used, and errors with the stack trace from our own code. Never your code,
+            prompts, terminal output, file paths or project names. Switching it off
+            deletes the install id, so turning it back on is a new anonymous identity
+            rather than the old one resumed.
+          </small>
+        </span>
+      </label>
+      <p className="settings-note">
+        {telemetry.consent === 'granted'
+          ? `On. This install is ${telemetry.installId?.slice(0, 8) ?? 'unknown'}, which is a random id and nothing else.`
+          : telemetry.consent === 'denied'
+            ? 'Off. Nothing has been sent, and nothing is stored about this install.'
+            : 'Not answered yet. Nothing is being sent.'}
+      </p>
+    </section>
   )
 }

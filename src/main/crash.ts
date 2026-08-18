@@ -26,7 +26,14 @@ export interface CrashHandlers {
  *   promise would be worse than the bug, so it is recorded and left alone.
  * - A GPU or utility child process dying is Chromium's business; it respawns them.
  */
-export function installCrashHandlers(recreateWindow: () => void): CrashHandlers {
+export function installCrashHandlers(
+  recreateWindow: () => void,
+  /**
+   * Told about every crash, for whoever is counting. Separate from the log on purpose:
+   * the log is for the user to send you, this is for the ones who never file anything.
+   */
+  report: (kind: 'uncaught-exception' | 'unhandled-rejection' | 'renderer-gone', error: Error) => void = () => {}
+): CrashHandlers {
   const log = new CrashLog(path.join(app.getPath('userData'), 'crashes.log'))
 
   // Reporting a crash must never be what crashes it, so every path here is defensive.
@@ -38,6 +45,7 @@ export function installCrashHandlers(recreateWindow: () => void): CrashHandlers 
     reporting = true
 
     console.error(`[crash] ${kind}:`, error)
+    report(kind, error instanceof Error ? error : new Error(String(error)))
     await log.record(kind, error, context).catch(() => {})
 
     const message = error instanceof Error ? error.message : String(error)
@@ -67,6 +75,7 @@ export function installCrashHandlers(recreateWindow: () => void): CrashHandlers 
   process.on('unhandledRejection', (reason) => {
     // Deliberately not fatal. Recorded so a pattern of them is visible after the fact.
     console.error('[crash] unhandled rejection:', reason)
+    report('unhandled-rejection', reason instanceof Error ? reason : new Error(String(reason)))
     void log.record('unhandled-rejection', reason as Error).catch(() => {})
   })
 
@@ -86,6 +95,7 @@ export function installCrashHandlers(recreateWindow: () => void): CrashHandlers 
       const now = Date.now()
 
       console.error('[crash] renderer gone:', details.reason)
+      report('renderer-gone', new Error(details.reason))
       void log
         .record('renderer-gone', new Error(details.reason), {
           reason: details.reason,

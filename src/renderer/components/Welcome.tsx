@@ -85,6 +85,8 @@ export function Welcome(): JSX.Element {
           </p>
         )}
 
+        <TelemetryConsent />
+
         <p className="welcome-note">
           Metsuke is an independent open-source project, not affiliated with or endorsed by
           Anthropic. Claude and Claude Code are their trademarks, and running Claude Code here
@@ -92,5 +94,64 @@ export function Welcome(): JSX.Element {
         </p>
       </div>
     </div>
+  )
+}
+
+/**
+ * The question, asked once, before anything has been sent.
+ *
+ * On screen only when there is a destination configured and nobody has answered yet, so
+ * a build with no endpoint never mentions telemetry at all. Both buttons are the same
+ * size on purpose: "No thanks" is not a link in small grey text under a large blue
+ * button, because that pattern is a way of asking without meaning it.
+ *
+ * The list is exhaustive. Everything the app can send is in the schema, and the schema
+ * is the list below.
+ */
+function TelemetryConsent(): JSX.Element | null {
+  const telemetry = useStore((s) => s.telemetry)
+  const setTelemetryConsent = useStore((s) => s.setTelemetryConsent)
+
+  if (!telemetry || !telemetry.configured || telemetry.consent !== 'unasked') return null
+
+  return (
+    <section className="consent" aria-labelledby="consent-title">
+      <h2 className="consent-title" id="consent-title">
+        Help work out what to fix?
+      </h2>
+      <p className="consent-lede">
+        Metsuke can send anonymous usage and crash reports. It is off until you say
+        otherwise, and you can change your mind in Settings at any time.
+      </p>
+
+      <div className="consent-cols">
+        <div>
+          <h3>What it sends</h3>
+          <ul>
+            <li>Launches, how long a run lasted, and which version and OS</li>
+            <li>Whether Claude Code and git were found on your machine</li>
+            <li>Which panels and features you use, as counts</li>
+            <li>Errors and crashes, with the stack trace from our own code</li>
+          </ul>
+        </div>
+        <div>
+          <h3>What it never sends</h3>
+          <ul>
+            <li>Anything you or Claude wrote: no code, no prompts, no terminal output</li>
+            <li>File paths, project names, repository names or URLs</li>
+            <li>Your name, email, or anything that identifies you</li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="consent-actions">
+        <button className="primary" onClick={() => void setTelemetryConsent(true)}>
+          Allow
+        </button>
+        <button className="labelled" onClick={() => void setTelemetryConsent(false)}>
+          No thanks
+        </button>
+      </div>
+    </section>
   )
 }
