@@ -20,6 +20,7 @@ import { Welcome } from './components/Welcome'
 import { Guide } from './components/Guide'
 import { Adaptation } from './components/Adaptation'
 import { NotificationSettings } from './components/NotificationSettings'
+import { TelemetryConsent } from './components/TelemetryConsent'
 
 const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
 
@@ -290,6 +291,7 @@ export function App(): JSX.Element {
 
       <StatusBar cursor={cursor} />
       <Adaptation />
+      <TelemetryConsent />
       <Guide />
       <ElementComment />
       <QuickOpen />

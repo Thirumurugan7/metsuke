@@ -217,14 +217,20 @@ app.whenReady().then(async () => {
 
   // One per launch, once the machine has been probed, so the counts can answer the
   // question the welcome screen exists for: how many people have Claude Code installed.
-  void systemCheck().then((check) =>
-    services.telemetry.record({
-      name: 'app_launched',
-      firstRun: services.telemetry.firstRun,
-      claudeInstalled: check.claude.installed,
-      gitInstalled: check.git.installed
-    })
-  )
+  const recordLaunch = (): void => {
+    void systemCheck().then((check) =>
+      services.telemetry.record({
+        name: 'app_launched',
+        firstRun: services.telemetry.firstRun,
+        claudeInstalled: check.claude.installed,
+        gitInstalled: check.git.installed
+      })
+    )
+  }
+
+  // And again if consent arrives mid-session, since the call above was a no-op then.
+  services.telemetry.onActivated(recordLaunch)
+  recordLaunch()
 
   /*
    * Ptys move into their own process here, before anything can spawn one. Sessions from

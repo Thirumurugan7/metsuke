@@ -250,16 +250,25 @@
 }
 
 /* -- telemetry consent ------------------------------------------------------
-   Asked once, on first run, before anything has been sent. Sized to be read
-   rather than dismissed: the two answers are the same weight, because a "no"
-   dressed as a grey link is a way of asking without meaning it. */
+   Asked once, before anything has been sent. Sized to be read rather than
+   dismissed: the two answers are the same weight, because a "no" dressed as a
+   grey link is a way of asking without meaning it.
+
+   It floats above the app instead of sitting on the welcome screen, which only
+   appears when no folder is open — and the editor reopens your last folder, so
+   almost nobody would ever have been asked. */
 
 .consent {
-  background: var(--bg-raised, rgba(255, 255, 255, 0.03));
+  background: var(--bg-bar);
   border: 1px solid var(--border);
   border-radius: 10px;
-  margin: 26px 0 0;
+  bottom: 46px;
+  box-shadow: 0 18px 50px #000a;
+  max-width: min(560px, calc(100vw - 40px));
   padding: 18px 20px;
+  position: fixed;
+  right: 18px;
+  z-index: 90;
 }
 .consent-title {
   font-size: 15px;

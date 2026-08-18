@@ -69,6 +69,7 @@ export class TelemetryService {
   #installId: string | null = null
   #firstRun = false
   #queue: Array<TelemetryEvent & { at: number }> = []
+  #onActivated: (() => void) | null = null
   #timer: NodeJS.Timeout | null = null
   #flushing = false
 
@@ -94,6 +95,17 @@ export class TelemetryService {
   /** True when this is the first launch on this machine, for the onboarding prompt. */
   get firstRun(): boolean {
     return this.#firstRun
+  }
+
+  /**
+   * Called when consent is granted, never on load.
+   *
+   * The launch of the session somebody accepts during is otherwise lost: nothing is
+   * recorded before the answer, by design, so the run in which they say yes would report
+   * everything except the fact that it started.
+   */
+  onActivated(handler: () => void): void {
+    this.#onActivated = handler
   }
 
   async load(): Promise<void> {
@@ -129,6 +141,7 @@ export class TelemetryService {
 
     this.#installId = await this.#readOrCreateInstallId()
     this.#start()
+    this.#onActivated?.()
   }
 
   /** Queue an event. Silently ignored unless telemetry is active. */

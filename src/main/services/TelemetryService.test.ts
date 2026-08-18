@@ -100,6 +100,27 @@ describe('consent', () => {
     expect(t.installId).not.toBe(id)
   })
 
+  /*
+   * The run in which somebody says yes should not be the one run that reports no launch.
+   */
+  it('tells the app when consent arrives, so the current launch can still be recorded', async () => {
+    const t = service()
+    let activated = 0
+    t.onActivated(() => (activated += 1))
+    await t.load()
+
+    expect(activated).toBe(0)
+    await t.setConsent(true)
+    expect(activated).toBe(1)
+
+    // Not on load of an already-granted install: that launch is recorded normally.
+    const second = service()
+    let again = 0
+    second.onActivated(() => (again += 1))
+    await second.load()
+    expect(again).toBe(0)
+  })
+
   it('is inert when no endpoint is configured, however consent stands', async () => {
     const t = service({ endpoint: '' })
     await t.load()
