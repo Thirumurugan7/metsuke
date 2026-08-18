@@ -51,6 +51,10 @@ jobs:
       # the update metadata beside the installers.
       - name: Build installers
         run: npm run ${{ matrix.script }}
+        env:
+          # Compiled into the build. Unset in a fork or a local build, which is what
+          # makes those collect nothing at all regardless of what a user consents to.
+          METSUKE_TELEMETRY_ENDPOINT: ${{ secrets.METSUKE_TELEMETRY_ENDPOINT }}
 
       # The .yml files are the update feed: latest-mac.yml, latest.yml and
       # latest-linux.yml are what electron-updater reads to decide whether anything is

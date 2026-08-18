@@ -12,3 +12,10 @@ tsconfig.web.tsbuildinfo
 
 test-results/
 playwright-report/
+
+# Telemetry server: build output, the database, and anything holding real user data.
+server/dist/
+server/node_modules/
+*.db
+*.db-wal
+*.db-shm

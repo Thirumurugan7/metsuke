@@ -1,0 +1,23 @@
+{
+  "name": "metsuke-telemetry",
+  "version": "0.1.0",
+  "description": "Ingest and dashboard for Metsuke usage reporting",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server/src/server.js",
+    "dev": "tsc -p tsconfig.json && node dist/server/src/server.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9"
+  }
+}

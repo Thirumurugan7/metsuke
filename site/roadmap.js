@@ -77,6 +77,13 @@ const TASKS = [
           'Never compiled, never run. Same caveat as Windows. AppImage and .deb are configured but unproven.'
       },
       {
+        id: 'deploy-telemetry',
+        who: 'you',
+        text: 'Deploy the telemetry server and set the endpoint',
+        detail:
+          'server/ is a Node process and a SQLite file, with a dashboard behind a token. It needs somewhere to run with TLS in front of it, then two settings: DASHBOARD_TOKEN on the server, and METSUKE_TELEMETRY_ENDPOINT as a repository secret so release builds compile it in. Until both exist the app collects nothing, whatever anyone consents to, which is the correct default for a build nobody has deployed a server for.'
+      },
+      {
         id: 'outstanding-bugs',
         who: 'both',
         text: 'Triage the issues you parked',

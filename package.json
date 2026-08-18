@@ -25,6 +25,7 @@
     "test:watch": "vitest",
     "test:ui": "electron-vite build && playwright test",
     "test:ui:update": "electron-vite build && playwright test --update-snapshots",
+    "test:server": "npm --prefix server test",
     "licenses": "node tools/licenses.mjs",
     "licenses:check": "node tools/licenses.mjs --check",
     "rebuild": "electron-rebuild -f -w node-pty",
