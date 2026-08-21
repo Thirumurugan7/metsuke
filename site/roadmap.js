@@ -56,6 +56,13 @@ const TASKS = [
           'Done. Eleven placeholders across the site now point at Thirumurugan7/metsuke, and package.json gained repository, homepage and bugs. That last part mattered more than the links: with no repository to resolve, electron-builder threw at the publish step and exited non-zero after producing perfectly good artifacts, and it never wrote latest-mac.yml, which is the file electron-updater actually reads. Verified with a full two-architecture build that exits clean and writes a feed listing all four artifacts with their sizes and hashes. The repo does not exist yet, so the links 404 until you create it, and nothing here has to change when you do.'
       },
       {
+        id: 'deploy-site',
+        who: 'you',
+        text: 'Connect the repo to Vercel',
+        detail:
+          'vercel.json at the repo root does the whole configuration, so there is nothing to set in the dashboard beyond importing the repo. It exists mostly to stop Vercel being helpful: the root is an Electron app, and the default detection would npm install Electron, run the desktop build and deploy none of it. It also sets a strict CSP, verified by serving the site under those exact headers and loading it: no violations, styles applied, and the GitHub release lookup still allowed through, which is the one entry that matters. See docs/deploy.md.'
+      },
+      {
         id: 'run-ci',
         who: 'you',
         text: 'Run the release workflow once',
