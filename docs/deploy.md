@@ -6,7 +6,7 @@ is the one that keeps data, and the only one that needs a CDN is the one everybo
 | Piece | Where | Why there |
 |---|---|---|
 | The website | Vercel | Three static files, no build. Free, instant, and a domain is one click. |
-| The installers | GitHub Releases | Free and unmetered for public repos, on a CDN, and already wired three ways. |
+| The installers | GitHub Releases, in a *separate public repo* | Free, unmetered, on a CDN, and the update client speaks it natively. |
 | Telemetry + dashboard | A small VM with a disk | SQLite is a file. Serverless hosts have no persistent one. |
 
 ## The installers go on GitHub Releases
@@ -19,11 +19,18 @@ This is not a preference, it is what the code already does:
 - `electron-updater` in the app reads `latest-mac.yml`, `latest.yml` and
   `latest-linux.yml` from the release, which is why the workflow uploads them.
 
-**This requires the repository to be public.** Release assets on a private repo need an
-authenticated request, so public download links would 404 for everybody. If the code must
-stay private, the installers have to move to object storage (R2, S3, Backblaze) and three
-things change: `download.js`, the publish provider, and the update feed URL. Say so before
-the first release rather than after.
+**The code repository is private, so releases go somewhere else.** Assets on a private
+repo need an authenticated request: download links, and the update feed the app polls,
+would 404 for everybody.
+
+The answer is a second repository, `Thirumurugan7/metsuke-releases`, public, containing no
+code — releases and nothing else. `electron-builder.yml` publishes there, `download.js`
+looks there, and auto-update reads its feed from there. Nothing else changes, it stays
+free and unmetered, and the source stays private. Object storage (R2, S3) would also work
+but means rewriting the update client onto a generic provider for no gain.
+
+That public repo is also the only public face this project has, so it is the sensible
+home for the issue tracker and the third-party license file.
 
 Do not host installers on Vercel. They are 100MB+ each, four per release, and it is not a
 file host.
@@ -44,16 +51,27 @@ is load-bearing: without it the release lookup is blocked and every download but
 silently falls back to the releases page.
 
 1. Vercel → Add New Project → import the repo.
-2. Leave every setting alone. `vercel.json` overrides the framework preset.
-3. Deploy. Add a domain if you have one.
+2. **Set Root Directory to `site`.** That is the one setting that matters, and it is why
+   `vercel.json` lives in `site/` rather than at the repo root: Vercel reads the config
+   from whichever directory it was pointed at.
+3. Leave everything else alone. There is no `package.json` in `site/`, so nothing tries to
+   build the Electron app sitting one level up.
+4. Deploy. Add a domain if you have one.
 
 Pushes to the default branch redeploy. Pull requests get preview URLs.
 
 ## Telemetry, if you want it
 
-Not Vercel: functions are stateless and have no persistent disk, so a SQLite file would
-vanish between invocations. It wants the cheapest VM with a volume — Fly.io, Railway, or a
-$5 VPS behind Caddy.
+**Yes, separately, and only when you want it.** Vercel functions are stateless with no
+persistent disk, so the SQLite file would vanish between invocations. Three options:
+
+- **Do nothing.** The app compiles in an empty endpoint and collects nothing, whatever
+  anyone consents to. Costs nothing and blocks nothing else in this document.
+- **The cheapest VM with a volume** — Fly.io, Railway, or a $5 VPS behind Caddy. This is
+  what `server/` is written for: one process, one file, one backup.
+- **Keep it on Vercel** by swapping SQLite for a hosted Postgres (Neon, Supabase) and
+  running ingest as a function. That is a real rewrite of `server/src/db.ts`, worth it only
+  if you would rather have no server to patch.
 
 See `server/README.md`. Two settings make it real: `DASHBOARD_TOKEN` on the server, and
 `METSUKE_TELEMETRY_ENDPOINT` as a repository secret so release builds compile the endpoint

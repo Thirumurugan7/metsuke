@@ -7,8 +7,11 @@
  * the visitor one extra click and is never wrong.
  */
 
-// ── Set this to your repository ──────────────────────────────────────────────
-const REPO = 'Thirumurugan7/metsuke'
+// ── Where releases live ──────────────────────────────────────────────────────
+// Deliberately not the code repository: that one is private, and assets on a private
+// repo need an authenticated request, so every download link here would 404. This is a
+// public repo that holds releases and nothing else.
+const REPO = 'Thirumurugan7/metsuke-releases'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RELEASES_URL = `https://github.com/${REPO}/releases`
