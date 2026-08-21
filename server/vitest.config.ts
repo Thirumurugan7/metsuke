@@ -4,6 +4,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // Loads .env, so `npm run test:server` works without exporting anything by hand.
+    setupFiles: ['./test-setup.ts'],
     /*
      * These are integration tests against real Postgres, over the internet. Every query
      * is a round trip to Neon, and a test that writes five envelopes is five

@@ -67,8 +67,10 @@ forever.
 ## Tests
 
 ```bash
-DATABASE_URL=... npm test
+npm test
 ```
+
+It reads `.env` from the repository root, so there is nothing to export by hand.
 
 They run against real Postgres, each file in a schema it creates and drops, because a mock
 would agree with whatever the queries do — and the dialect is the part most likely to be
