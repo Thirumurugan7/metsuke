@@ -1,132 +1,170 @@
-import Database from 'better-sqlite3'
+import pg from 'pg'
 import type { TelemetryEnvelope, TelemetryEvent } from '../../src/shared/telemetry.js'
 
 /**
- * Storage for usage reporting.
+ * Storage for usage reporting: Neon Postgres.
  *
- * SQLite rather than Postgres on purpose. This is one box serving a desktop app's worth
- * of events: a file is the whole deployment, a backup is a copy, and there is no second
- * service to keep alive at three in the morning. If it ever outgrows that, the queries
- * below are ordinary SQL and the move is mechanical.
+ * It was SQLite, which was the right call for one box with a disk. Postgres is the right
+ * call for the shape this ended up in: the ingest endpoint and the dashboard run as
+ * serverless functions, and a function has no disk to keep a file on. Nothing about the
+ * data wanted a bigger database — this is a hosting decision, not a scale one.
  *
- * Two things are deliberately not stored. There is no IP column: the address is used to
- * rate limit and then dropped, so the database holds nothing that maps to a person or a
- * place. And there is no raw envelope blob, because keeping "the original just in case"
- * is how data nobody agreed to ends up on disk anyway.
+ * Connections go through Neon's pooler host, which is PgBouncer. That matters more than
+ * it looks: a function opens a connection per invocation, and a few hundred cold starts
+ * against a direct Postgres endpoint exhausts it.
+ *
+ * Two things are deliberately not stored, unchanged from before. There is no IP column:
+ * the address is used to rate limit and then dropped. And there is no raw envelope blob,
+ * because keeping the original "just in case" is how data nobody agreed to ends up on
+ * disk anyway.
  */
-export interface StoredEvent {
-  id: number
-  installId: string
-  sessionId: string
-  name: string
-  /** The event's own fields, minus the name. Validated against the schema first. */
-  props: Record<string, unknown>
-  appVersion: string
-  platform: string
-  arch: string
-  osVersion: string
-  /** Client clock. */
-  at: number
-  /** Server clock, which is the one to trust for anything time-ordered. */
-  receivedAt: number
+
+export type Db = pg.Pool
+
+let shared: pg.Pool | null = null
+
+/**
+ * The pool, made once per process.
+ *
+ * Serverless reuses a warm process for many requests, so building a pool per request
+ * would leak connections until the pooler refused them. `max: 1` because a function
+ * handles one request at a time and a bigger pool per instance is just more sockets
+ * against the same ceiling.
+ */
+export function getPool(connectionString = process.env['DATABASE_URL']): pg.Pool {
+  if (shared) return shared
+  if (!connectionString) throw new Error('DATABASE_URL is not set')
+
+  shared = new pg.Pool({
+    connectionString,
+    max: 1,
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 10_000,
+    ssl: { rejectUnauthorized: true }
+  })
+  return shared
 }
 
-export function openDatabase(file: string): Database.Database {
-  const db = new Database(file)
-  db.pragma('journal_mode = WAL')
-  db.pragma('synchronous = NORMAL')
+/** Create the tables. Safe to run on every boot; that is how migrations happen here. */
+export async function migrate(db: Db, schema = 'public'): Promise<void> {
+  await db.query(`CREATE SCHEMA IF NOT EXISTS ${quoteIdent(schema)}`)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS ${quoteIdent(schema)}.events (
+      id          BIGSERIAL PRIMARY KEY,
+      install_id  TEXT   NOT NULL,
+      session_id  TEXT   NOT NULL,
+      name        TEXT   NOT NULL,
+      props       JSONB  NOT NULL,
+      app_version TEXT   NOT NULL,
+      platform    TEXT   NOT NULL,
+      arch        TEXT   NOT NULL,
+      os_version  TEXT   NOT NULL,
+      at          BIGINT NOT NULL,
+      received_at BIGINT NOT NULL
+    )
+  `)
+  await db.query(`CREATE INDEX IF NOT EXISTS events_received ON ${quoteIdent(schema)}.events (received_at)`)
+  await db.query(`CREATE INDEX IF NOT EXISTS events_name ON ${quoteIdent(schema)}.events (name, received_at)`)
+  await db.query(`CREATE INDEX IF NOT EXISTS events_install ON ${quoteIdent(schema)}.events (install_id, received_at)`)
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS events (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      install_id  TEXT NOT NULL,
-      session_id  TEXT NOT NULL,
-      name        TEXT NOT NULL,
-      props       TEXT NOT NULL,
-      app_version TEXT NOT NULL,
-      platform    TEXT NOT NULL,
-      arch        TEXT NOT NULL,
-      os_version  TEXT NOT NULL,
-      at          INTEGER NOT NULL,
-      received_at INTEGER NOT NULL
-    );
-
-    CREATE INDEX IF NOT EXISTS events_received ON events (received_at);
-    CREATE INDEX IF NOT EXISTS events_name     ON events (name, received_at);
-    CREATE INDEX IF NOT EXISTS events_install  ON events (install_id, received_at);
-
-    /* One row per install, so "how many people" does not mean scanning every event. */
-    CREATE TABLE IF NOT EXISTS installs (
+  // One row per install, so "how many people" is not a scan of every event.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS ${quoteIdent(schema)}.installs (
       install_id  TEXT PRIMARY KEY,
-      first_seen  INTEGER NOT NULL,
-      last_seen   INTEGER NOT NULL,
+      first_seen  BIGINT NOT NULL,
+      last_seen   BIGINT NOT NULL,
       app_version TEXT NOT NULL,
       platform    TEXT NOT NULL,
       arch        TEXT NOT NULL,
       os_version  TEXT NOT NULL
-    );
+    )
   `)
 
-  return db
+  // Roadmap ticks: one row, one JSON blob, shared by whoever has the link. Here rather
+  // than in its own database because it is three fields and a second Neon project would
+  // be a second thing to remember.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS ${quoteIdent(schema)}.roadmap_ticks (
+      id         TEXT PRIMARY KEY,
+      state      JSONB NOT NULL,
+      updated_at BIGINT NOT NULL
+    )
+  `)
 }
 
+/** Postgres identifier quoting. Schema names here are ours, but never interpolate raw. */
+function quoteIdent(name: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) throw new Error(`unsafe identifier: ${name}`)
+  return `"${name}"`
+}
+
+/**
+ * Every query goes through here so the schema can be swapped for tests.
+ *
+ * Tests run against a throwaway schema in the same database, which is what makes it
+ * possible to test against real Postgres rather than a mock that agrees with whatever the
+ * code does.
+ */
+export function tables(schema = process.env['DB_SCHEMA'] ?? 'public'): { events: string; installs: string; ticks: string } {
+  const s = quoteIdent(schema)
+  return { events: `${s}.events`, installs: `${s}.installs`, ticks: `${s}.roadmap_ticks` }
+}
+
+// ---------------------------------------------------------------------------
+// Writing
+// ---------------------------------------------------------------------------
+
 /** Write one envelope's worth of events. Returns how many were stored. */
-export function insertEnvelope(
-  db: Database.Database,
+export async function insertEnvelope(
+  db: Db,
   envelope: TelemetryEnvelope,
   events: TelemetryEvent[],
-  receivedAt = Date.now()
-): number {
-  const insertEvent = db.prepare(`
-    INSERT INTO events (install_id, session_id, name, props, app_version, platform, arch, os_version, at, received_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `)
+  receivedAt = Date.now(),
+  schema?: string
+): Promise<number> {
+  const t = tables(schema)
+  const client = await db.connect()
 
-  const touchInstall = db.prepare(`
-    INSERT INTO installs (install_id, first_seen, last_seen, app_version, platform, arch, os_version)
-    VALUES (@id, @now, @now, @version, @platform, @arch, @os)
-    ON CONFLICT(install_id) DO UPDATE SET
-      last_seen = @now,
-      app_version = @version,
-      platform = @platform,
-      arch = @arch,
-      os_version = @os
-  `)
+  try {
+    await client.query('BEGIN')
 
-  const write = db.transaction((batch: TelemetryEvent[]) => {
-    for (const event of batch) {
+    for (const event of events) {
       const { name, ...props } = event as { name: string } & Record<string, unknown>
       const at = typeof props['at'] === 'number' ? (props['at'] as number) : receivedAt
       delete props['at']
 
-      insertEvent.run(
-        envelope.installId,
-        envelope.sessionId,
-        name,
-        JSON.stringify(props),
-        envelope.appVersion,
-        envelope.platform,
-        envelope.arch,
-        envelope.osVersion,
-        at,
-        receivedAt
+      await client.query(
+        `INSERT INTO ${t.events} (install_id, session_id, name, props, app_version, platform, arch, os_version, at, received_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [envelope.installId, envelope.sessionId, name, JSON.stringify(props), envelope.appVersion, envelope.platform, envelope.arch, envelope.osVersion, at, receivedAt]
       )
     }
 
-    touchInstall.run({
-      id: envelope.installId,
-      now: receivedAt,
-      version: envelope.appVersion,
-      platform: envelope.platform,
-      arch: envelope.arch,
-      os: envelope.osVersion
-    })
+    await client.query(
+      `INSERT INTO ${t.installs} (install_id, first_seen, last_seen, app_version, platform, arch, os_version)
+       VALUES ($1, $2, $2, $3, $4, $5, $6)
+       ON CONFLICT (install_id) DO UPDATE SET
+         last_seen = EXCLUDED.last_seen,
+         app_version = EXCLUDED.app_version,
+         platform = EXCLUDED.platform,
+         arch = EXCLUDED.arch,
+         os_version = EXCLUDED.os_version`,
+      [envelope.installId, receivedAt, envelope.appVersion, envelope.platform, envelope.arch, envelope.osVersion]
+    )
 
-    return batch.length
-  })
-
-  return write(events)
+    await client.query('COMMIT')
+    return events.length
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
+  } finally {
+    client.release()
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Reading
+// ---------------------------------------------------------------------------
 
 export interface Summary {
   installs: number
@@ -142,153 +180,180 @@ export interface Summary {
 }
 
 const DAY = 86_400_000
+const num = (value: unknown): number => (value === null || value === undefined ? 0 : Number(value))
 
-export function summary(db: Database.Database, now = Date.now()): Summary {
-  const count = (sql: string, ...args: unknown[]): number =>
-    (db.prepare(sql).get(...(args as [])) as { n: number }).n
+export async function summary(db: Db, now = Date.now(), schema?: string): Promise<Summary> {
+  const t = tables(schema)
+  const week = now - 7 * DAY
+  const month = now - 30 * DAY
 
-  const installs = count('SELECT COUNT(*) AS n FROM installs')
-  const installsActive7d = count('SELECT COUNT(*) AS n FROM installs WHERE last_seen >= ?', now - 7 * DAY)
-  const installsActive30d = count('SELECT COUNT(*) AS n FROM installs WHERE last_seen >= ?', now - 30 * DAY)
-  const newInstalls7d = count('SELECT COUNT(*) AS n FROM installs WHERE first_seen >= ?', now - 7 * DAY)
-  const launches7d = count(
-    "SELECT COUNT(*) AS n FROM events WHERE name = 'app_launched' AND received_at >= ?",
-    now - 7 * DAY
+  const { rows } = await db.query(
+    `SELECT
+       (SELECT COUNT(*) FROM ${t.installs})                                              AS installs,
+       (SELECT COUNT(*) FROM ${t.installs} WHERE last_seen >= $1)                        AS active7,
+       (SELECT COUNT(*) FROM ${t.installs} WHERE last_seen >= $2)                        AS active30,
+       (SELECT COUNT(*) FROM ${t.installs} WHERE first_seen >= $1)                       AS new7,
+       (SELECT COUNT(*) FROM ${t.events} WHERE name = 'app_launched' AND received_at >= $1)      AS launches7,
+       (SELECT COUNT(*) FROM ${t.events} WHERE name = 'error' AND received_at >= $1)             AS errors7,
+       (SELECT COUNT(DISTINCT install_id) FROM ${t.events} WHERE name = 'error' AND received_at >= $1) AS installs_errors7,
+       -- Median, not mean: one person who left it open over a weekend should not be able
+       -- to claim everybody uses it for nine hours.
+       (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY (props->>'sessionSeconds')::numeric)
+          FROM ${t.events} WHERE name = 'app_closed' AND received_at >= $1)              AS median_seconds,
+       (SELECT COUNT(*) FROM ${t.events}
+          WHERE name = 'app_launched' AND received_at >= $2 AND props->>'claudeInstalled' = 'true') AS claude_yes,
+       (SELECT COUNT(*) FROM ${t.events} WHERE name = 'app_launched' AND received_at >= $2)        AS claude_total`,
+    [week, month]
   )
-  const errors7d = count("SELECT COUNT(*) AS n FROM events WHERE name = 'error' AND received_at >= ?", now - 7 * DAY)
-  const installsWithErrors7d = count(
-    "SELECT COUNT(DISTINCT install_id) AS n FROM events WHERE name = 'error' AND received_at >= ?",
-    now - 7 * DAY
-  )
 
-  // Median rather than mean: one person who left it open over a weekend should not be
-  // able to claim everybody uses it for nine hours.
-  const sessions = db
-    .prepare(
-      "SELECT json_extract(props, '$.sessionSeconds') AS s FROM events WHERE name = 'app_closed' AND received_at >= ? ORDER BY s"
-    )
-    .all(now - 7 * DAY) as Array<{ s: number }>
-  const medianSessionMinutes =
-    sessions.length === 0 ? 0 : Math.round((sessions[Math.floor(sessions.length / 2)]?.s ?? 0) / 6) / 10
-
-  const claude = db
-    .prepare(
-      `SELECT
-         SUM(CASE WHEN json_extract(props, '$.claudeInstalled') IN (1, 'true') THEN 1 ELSE 0 END) AS yes,
-         COUNT(*) AS total
-       FROM events WHERE name = 'app_launched' AND received_at >= ?`
-    )
-    .get(now - 30 * DAY) as { yes: number | null; total: number }
+  const r = rows[0]
+  const claudeTotal = num(r.claude_total)
 
   return {
-    installs,
-    installsActive7d,
-    installsActive30d,
-    newInstalls7d,
-    launches7d,
-    medianSessionMinutes,
-    claudeInstalledShare: claude.total > 0 ? (claude.yes ?? 0) / claude.total : null,
-    errors7d,
-    installsWithErrors7d
+    installs: num(r.installs),
+    installsActive7d: num(r.active7),
+    installsActive30d: num(r.active30),
+    newInstalls7d: num(r.new7),
+    launches7d: num(r.launches7),
+    medianSessionMinutes: r.median_seconds === null ? 0 : Math.round(num(r.median_seconds) / 6) / 10,
+    claudeInstalledShare: claudeTotal > 0 ? num(r.claude_yes) / claudeTotal : null,
+    errors7d: num(r.errors7),
+    installsWithErrors7d: num(r.installs_errors7)
   }
 }
 
 /**
- * Daily active installs, for the one chart that answers "is this growing".
+ * Daily active installs, bucketed by when the event happened rather than when it arrived.
  *
- * Bucketed by when the event happened rather than when it arrived. Batches are sent on a
- * timer and a machine that was offline for a week delivers the whole week at once, so
- * grouping on arrival draws a spike on the day someone reconnected and nothing on the
- * days they were actually working.
- *
- * The client clock is not trusted for anything else, so it is clamped: an event claiming
- * to be from the future, or from before the window, is bucketed by arrival instead. That
- * bounds what a wrong clock or a hand-edited payload can do to the chart.
+ * Batches are sent on a timer and a machine that was offline for a week delivers the
+ * whole week at once, so grouping on arrival draws a spike on the day someone reconnected
+ * and nothing on the days they were working. The client clock is clamped: an event
+ * claiming to be from the future, or from before the window, is bucketed by arrival, which
+ * bounds what a wrong clock can do to the chart.
  */
-export function activeByDay(db: Database.Database, days = 30, now = Date.now()): Array<{ day: string; installs: number; launches: number }> {
+export async function activeByDay(db: Db, days = 30, now = Date.now(), schema?: string): Promise<Array<{ day: string; installs: number; launches: number }>> {
+  const t = tables(schema)
   const since = now - days * DAY
-  return db
-    .prepare(
-      `SELECT date(
-                CASE WHEN at BETWEEN ? AND ? THEN at ELSE received_at END / 1000,
-                'unixepoch'
-              ) AS day,
-              COUNT(DISTINCT install_id) AS installs,
-              SUM(CASE WHEN name = 'app_launched' THEN 1 ELSE 0 END) AS launches
-       FROM events
-       WHERE received_at >= ? OR at >= ?
-       GROUP BY day
-       HAVING day >= date(? / 1000, 'unixepoch')
-       ORDER BY day`
-    )
-    .all(since, now + DAY, since, since, since) as Array<{ day: string; installs: number; launches: number }>
+
+  const { rows } = await db.query(
+    `SELECT to_char(to_timestamp(
+              (CASE WHEN at BETWEEN $1 AND $2 THEN at ELSE received_at END) / 1000.0
+            ) AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day,
+            COUNT(DISTINCT install_id) AS installs,
+            COUNT(*) FILTER (WHERE name = 'app_launched') AS launches
+     FROM ${t.events}
+     WHERE received_at >= $1 OR at >= $1
+     GROUP BY day
+     HAVING to_char(to_timestamp(
+              (CASE WHEN at BETWEEN $1 AND $2 THEN at ELSE received_at END) / 1000.0
+            ) AT TIME ZONE 'UTC', 'YYYY-MM-DD') >= to_char(to_timestamp($1 / 1000.0) AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+     ORDER BY day`,
+    [since, now + DAY]
+  )
+
+  return rows.map((r) => ({ day: r.day as string, installs: num(r.installs), launches: num(r.launches) }))
 }
 
 /** Feature counts, and how many distinct installs used each, which is the honest number. */
-export function featureUsage(db: Database.Database, days = 30, now = Date.now()): Array<{ feature: string; uses: number; installs: number }> {
-  return db
-    .prepare(
-      `SELECT json_extract(props, '$.feature') AS feature,
-              COUNT(*) AS uses,
-              COUNT(DISTINCT install_id) AS installs
-       FROM events
-       WHERE name = 'feature_used' AND received_at >= ?
-       GROUP BY feature
-       ORDER BY installs DESC, uses DESC`
-    )
-    .all(now - days * DAY) as Array<{ feature: string; uses: number; installs: number }>
-}
-
-/** Whatever is breaking, grouped so one loud install cannot dominate the list. */
-export function topErrors(db: Database.Database, days = 30, limit = 25, now = Date.now()): Array<{ errorName: string; message: string; kind: string; count: number; installs: number; lastSeen: number; stack: string | null }> {
-  return db
-    .prepare(
-      `SELECT json_extract(props, '$.errorName') AS errorName,
-              json_extract(props, '$.message')   AS message,
-              json_extract(props, '$.kind')      AS kind,
-              COUNT(*) AS count,
-              COUNT(DISTINCT install_id) AS installs,
-              MAX(received_at) AS lastSeen,
-              MAX(json_extract(props, '$.stack')) AS stack
-       FROM events
-       WHERE name = 'error' AND received_at >= ?
-       GROUP BY errorName, message, kind
-       ORDER BY installs DESC, count DESC
-       LIMIT ?`
-    )
-    .all(now - days * DAY, limit) as Array<{ errorName: string; message: string; kind: string; count: number; installs: number; lastSeen: number; stack: string | null }>
-}
-
-/** Simple breakdowns: version, platform, and how many installs each has. */
-export function breakdown(db: Database.Database, column: 'app_version' | 'platform' | 'arch' | 'os_version'): Array<{ value: string; installs: number }> {
-  return db
-    .prepare(`SELECT ${column} AS value, COUNT(*) AS installs FROM installs GROUP BY value ORDER BY installs DESC`)
-    .all() as Array<{ value: string; installs: number }>
+export async function featureUsage(db: Db, days = 30, now = Date.now(), schema?: string): Promise<Array<{ feature: string; uses: number; installs: number }>> {
+  const t = tables(schema)
+  const { rows } = await db.query(
+    `SELECT props->>'feature' AS feature, COUNT(*) AS uses, COUNT(DISTINCT install_id) AS installs
+     FROM ${t.events}
+     WHERE name = 'feature_used' AND received_at >= $1
+     GROUP BY feature
+     ORDER BY installs DESC, uses DESC`,
+    [now - days * DAY]
+  )
+  return rows.map((r) => ({ feature: r.feature as string, uses: num(r.uses), installs: num(r.installs) }))
 }
 
 /** Which preview tools agents actually reach for, which is worth knowing on its own. */
-export function previewToolUsage(db: Database.Database, days = 30, now = Date.now()): Array<{ tool: string; uses: number; installs: number }> {
-  return db
-    .prepare(
-      `SELECT json_extract(props, '$.tool') AS tool,
-              COUNT(*) AS uses,
-              COUNT(DISTINCT install_id) AS installs
-       FROM events
-       WHERE name = 'preview_tool_used' AND received_at >= ?
-       GROUP BY tool
-       ORDER BY uses DESC`
-    )
-    .all(now - days * DAY) as Array<{ tool: string; uses: number; installs: number }>
+export async function previewToolUsage(db: Db, days = 30, now = Date.now(), schema?: string): Promise<Array<{ tool: string; uses: number; installs: number }>> {
+  const t = tables(schema)
+  const { rows } = await db.query(
+    `SELECT props->>'tool' AS tool, COUNT(*) AS uses, COUNT(DISTINCT install_id) AS installs
+     FROM ${t.events}
+     WHERE name = 'preview_tool_used' AND received_at >= $1
+     GROUP BY tool
+     ORDER BY uses DESC`,
+    [now - days * DAY]
+  )
+  return rows.map((r) => ({ tool: r.tool as string, uses: num(r.uses), installs: num(r.installs) }))
+}
+
+/** Whatever is breaking, grouped so one loud install cannot dominate the list. */
+export async function topErrors(db: Db, days = 30, limit = 25, now = Date.now(), schema?: string): Promise<Array<{ errorName: string; message: string; kind: string; count: number; installs: number; lastSeen: number; stack: string | null }>> {
+  const t = tables(schema)
+  const { rows } = await db.query(
+    `SELECT props->>'errorName' AS "errorName",
+            props->>'message'   AS message,
+            props->>'kind'      AS kind,
+            COUNT(*) AS count,
+            COUNT(DISTINCT install_id) AS installs,
+            MAX(received_at) AS "lastSeen",
+            MAX(props->>'stack') AS stack
+     FROM ${t.events}
+     WHERE name = 'error' AND received_at >= $1
+     GROUP BY 1, 2, 3
+     ORDER BY installs DESC, count DESC
+     LIMIT $2`,
+    [now - days * DAY, limit]
+  )
+  return rows.map((r) => ({
+    errorName: r.errorName as string,
+    message: r.message as string,
+    kind: r.kind as string,
+    count: num(r.count),
+    installs: num(r.installs),
+    lastSeen: num(r.lastSeen),
+    stack: (r.stack as string | null) ?? null
+  }))
+}
+
+/** Simple breakdowns: version, platform, and how many installs each has. */
+export async function breakdown(db: Db, column: 'app_version' | 'platform' | 'arch' | 'os_version', schema?: string): Promise<Array<{ value: string; installs: number }>> {
+  const t = tables(schema)
+  // Whitelisted by the parameter type, and checked again here: this one is interpolated.
+  if (!['app_version', 'platform', 'arch', 'os_version'].includes(column)) throw new Error('bad column')
+
+  const { rows } = await db.query(
+    `SELECT ${column} AS value, COUNT(*) AS installs FROM ${t.installs} GROUP BY value ORDER BY installs DESC`
+  )
+  return rows.map((r) => ({ value: r.value as string, installs: num(r.installs) }))
 }
 
 /**
  * Delete events older than the retention window.
  *
  * Retention is a feature, not an afterthought: data you no longer need is data you can
- * still leak. Installs are kept, because they are a random id and two timestamps, and
- * losing them would make "how many people" wrong forever.
+ * still leak. Installs are kept, being a random id and two timestamps, and losing them
+ * would make "how many people" wrong forever.
  */
-export function prune(db: Database.Database, retentionDays: number, now = Date.now()): number {
-  const result = db.prepare('DELETE FROM events WHERE received_at < ?').run(now - retentionDays * DAY)
-  return result.changes
+export async function prune(db: Db, retentionDays: number, now = Date.now(), schema?: string): Promise<number> {
+  const t = tables(schema)
+  const result = await db.query(`DELETE FROM ${t.events} WHERE received_at < $1`, [now - retentionDays * DAY])
+  return result.rowCount ?? 0
+}
+
+// ---------------------------------------------------------------------------
+// Roadmap ticks
+// ---------------------------------------------------------------------------
+
+/** Read the shared tick state. Empty object when nobody has ticked anything yet. */
+export async function readTicks(db: Db, id = 'default', schema?: string): Promise<{ state: Record<string, boolean>; updatedAt: number }> {
+  const t = tables(schema)
+  const { rows } = await db.query(`SELECT state, updated_at FROM ${t.ticks} WHERE id = $1`, [id])
+  if (rows.length === 0) return { state: {}, updatedAt: 0 }
+  return { state: rows[0].state as Record<string, boolean>, updatedAt: num(rows[0].updated_at) }
+}
+
+/** Replace the shared tick state. Last write wins, which is right for one person's list. */
+export async function writeTicks(db: Db, state: Record<string, boolean>, id = 'default', now = Date.now(), schema?: string): Promise<void> {
+  const t = tables(schema)
+  await db.query(
+    `INSERT INTO ${t.ticks} (id, state, updated_at) VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO UPDATE SET state = EXCLUDED.state, updated_at = EXCLUDED.updated_at`,
+    [id, JSON.stringify(state), now]
+  )
 }

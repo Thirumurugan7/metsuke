@@ -7,7 +7,8 @@ is the one that keeps data, and the only one that needs a CDN is the one everybo
 |---|---|---|
 | The website | Vercel | Three static files, no build. Free, instant, and a domain is one click. |
 | The installers | GitHub Releases, in a *separate public repo* | Free, unmetered, on a CDN, and the update client speaks it natively. |
-| Telemetry + dashboard | A small VM with a disk | SQLite is a file. Serverless hosts have no persistent one. |
+| Telemetry + dashboard | Vercel, second project | Functions plus Neon Postgres, so there is no VM and no disk to keep. |
+| The database | Neon | One Postgres, shared by telemetry and the roadmap's ticks. |
 
 ## The installers go on GitHub Releases
 
@@ -79,22 +80,51 @@ which is how the comment keys were caught the second time rather than the first.
 
 Pushes to the default branch redeploy. Pull requests get preview URLs.
 
-## Telemetry, if you want it
+## Telemetry and the dashboard
 
-**Yes, separately, and only when you want it.** Vercel functions are stateless with no
-persistent disk, so the SQLite file would vanish between invocations. Three options:
+A **second Vercel project** from the same repository, with **Root Directory `server`**.
+Storage is Neon rather than SQLite: functions have no disk, so a file-backed database was
+never going to survive there. Nothing about the data wanted a bigger database — this was a
+hosting decision, not a scale one.
 
-- **Do nothing.** The app compiles in an empty endpoint and collects nothing, whatever
-  anyone consents to. Costs nothing and blocks nothing else in this document.
-- **The cheapest VM with a volume** — Fly.io, Railway, or a $5 VPS behind Caddy. This is
-  what `server/` is written for: one process, one file, one backup.
-- **Keep it on Vercel** by swapping SQLite for a hosted Postgres (Neon, Supabase) and
-  running ingest as a function. That is a real rewrite of `server/src/db.ts`, worth it only
-  if you would rather have no server to patch.
+Two projects rather than one because the site should stay a pile of static files with no
+runtime, and because it keeps the ingest endpoint on a different origin from the marketing
+page.
 
-See `server/README.md`. Two settings make it real: `DASHBOARD_TOKEN` on the server, and
-`METSUKE_TELEMETRY_ENDPOINT` as a repository secret so release builds compile the endpoint
-in. Until both exist the app collects nothing, whatever anyone consents to.
+1. Vercel → Add New Project → same repository → **Root Directory `server`**.
+2. Environment variables:
+   - `DATABASE_URL` — the Neon connection string. Use the **`-pooler`** host: it is
+     PgBouncer, and it is what makes a function opening a connection per invocation
+     survivable.
+   - `DASHBOARD_TOKEN` — anything long and random. Without it the dashboard refuses to
+     serve.
+   - `SITE_ORIGIN` — your site's URL, so the ticks endpoint accepts calls from it and not
+     from every page on the internet.
+3. Deploy. The tables create themselves on first request; `npm run migrate` does it ahead
+   of time if you would rather.
+
+Then two settings connect everything up:
+
+- `METSUKE_TELEMETRY_ENDPOINT` as a **repository secret**, pointing at
+  `https://<telemetry-project>.vercel.app/v1/events`, so release builds compile it in.
+  Until it exists the app collects nothing, whatever anyone consents to.
+- `window.METSUKE_TICKS_API` in `site/config.js`, pointing at that project's `/api/ticks`,
+  which is what makes the roadmap's ticks follow you between machines. Leave it empty and
+  the checklist keeps them in one browser, exactly as it always did.
+
+The site's CSP currently allows `https://*.vercel.app` in `connect-src` so this works on
+the default domain. Tighten it to the exact host once you have one.
+
+### The dashboard
+
+`https://<telemetry-project>.vercel.app/` — any username, `DASHBOARD_TOKEN` as the
+password.
+
+### Or a VM instead
+
+`server/src/server.ts` is the same behaviour as a long-running process, sharing every
+rule with the functions through `handlers.ts`. `npm start` with the same environment
+variables. Worth it only if you would rather not run functions at all.
 
 ## Shipping a version
 

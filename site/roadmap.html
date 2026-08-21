@@ -78,6 +78,13 @@
       </p>
     </main>
 
+    <!--
+      Where shared ticks live. Empty means no sync: the checklist then works exactly as it
+      did, from this browser's storage, which is the right behaviour before the telemetry
+      project is deployed. Set it to that deployment's /api/ticks to make ticks follow you
+      between machines.
+    -->
+    <script src="config.js"></script>
     <script src="roadmap.js"></script>
   </body>
 </html>

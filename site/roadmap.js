@@ -86,9 +86,9 @@ const TASKS = [
       {
         id: 'deploy-telemetry',
         who: 'you',
-        text: 'Deploy the telemetry server and set the endpoint',
+        text: 'Deploy the telemetry project and connect it up',
         detail:
-          'server/ is a Node process and a SQLite file, with a dashboard behind a token. It needs somewhere to run with TLS in front of it, then two settings: DASHBOARD_TOKEN on the server, and METSUKE_TELEMETRY_ENDPOINT as a repository secret so release builds compile it in. Until both exist the app collects nothing, whatever anyone consents to, which is the correct default for a build nobody has deployed a server for.'
+          'A second Vercel project from the same repository with Root Directory server, storing into Neon. It was SQLite, which suited one box with a disk; functions have no disk, so it is Postgres now — a hosting decision rather than a scale one. Needs DATABASE_URL (the -pooler host, which is PgBouncer and what makes a connection per invocation survivable), DASHBOARD_TOKEN, and SITE_ORIGIN. Then METSUKE_TELEMETRY_ENDPOINT as a repository secret so release builds compile it in, and METSUKE_TICKS_API in site/config.js so the checklist ticks follow you between machines. Verified end to end against the real database before any of it was deployed: ingest, the dashboard behind its token, and a tick made in a browser landing in Postgres.'
       },
       {
         id: 'outstanding-bugs',
@@ -317,6 +317,23 @@ const TASKS = [
 
 const STORE_KEY = 'metsuke.roadmap'
 
+/**
+ * Where ticks live.
+ *
+ * Two places, on purpose. localStorage is the source the page renders from, so ticking a
+ * box is instant and the list still works with no network at all — opened from a file,
+ * on a plane, or before the API exists. The server is the copy that makes the same ticks
+ * show up on your phone.
+ *
+ * Reads prefer the server and fall back to the browser. Writes go to both, and a failed
+ * write is not surfaced: losing a checkbox is not worth an error banner, and the local
+ * copy has already been updated by the time the request goes out.
+ *
+ * `TICKS_API` empty means no sync, which is the state before the telemetry project is
+ * deployed and a perfectly good state to stay in.
+ */
+const TICKS_API = window.METSUKE_TICKS_API ?? ''
+
 function loadState() {
   try {
     return JSON.parse(localStorage.getItem(STORE_KEY) ?? '{}')
@@ -327,6 +344,33 @@ function loadState() {
 
 function saveState(state) {
   localStorage.setItem(STORE_KEY, JSON.stringify(state))
+  if (!TICKS_API) return
+
+  // Fire and forget. The page has already re-rendered from the local copy.
+  void fetch(TICKS_API, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ state })
+  }).catch(() => {})
+}
+
+/** Pull shared ticks once at load, then re-render if they differ from what is local. */
+async function syncState() {
+  if (!TICKS_API) return
+
+  try {
+    const response = await fetch(TICKS_API, { headers: { accept: 'application/json' } })
+    if (!response.ok) return
+
+    const { state } = await response.json()
+    if (!state || typeof state !== 'object') return
+    if (JSON.stringify(state) === localStorage.getItem(STORE_KEY)) return
+
+    localStorage.setItem(STORE_KEY, JSON.stringify(state))
+    render()
+  } catch {
+    // No network, no API, or a cold function: the local copy is already on screen.
+  }
 }
 
 /** A tick in the browser beats the committed value, so your view is always yours. */
@@ -417,7 +461,12 @@ for (const button of document.querySelectorAll('.filter button')) {
 document.getElementById('reset').addEventListener('click', () => {
   if (!confirm('Clear every tick you have made in this browser?')) return
   localStorage.removeItem(STORE_KEY)
+  // Clearing is a change like any other, so it has to reach the shared copy too.
+  saveState({})
   render()
 })
 
+// Render from the local copy first so the page is never waiting on a network call, then
+// reconcile with the shared one.
 render()
+void syncState()
