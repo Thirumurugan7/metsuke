@@ -45,10 +45,29 @@ its own detection, Vercel would run `npm install` (downloading Electron and rebu
 node-pty), then `npm run build` (building the desktop app), and deploy none of it. Both
 commands are stubbed out and `outputDirectory` points at `site`.
 
-It also sets a strict Content-Security-Policy, which the site can afford because it has no
-inline script or style anywhere. `connect-src` allows `api.github.com`, and that one entry
-is load-bearing: without it the release lookup is blocked and every download button
-silently falls back to the releases page.
+### What is in site/vercel.json, since it cannot say so itself
+
+Vercel validates the file with `additionalProperties: false`, so the usual `"//"` comment
+key is rejected outright — the deploy fails with *should NOT have additional property*.
+The reasoning therefore lives here instead.
+
+- **`headers` → Content-Security-Policy.** Strict, because the site can afford it: no
+  inline script or style anywhere. `connect-src` allows `api.github.com`, and that one
+  entry is load-bearing — without it the release lookup is blocked and every download
+  button silently falls back to the releases page.
+- **The other five headers** are the ordinary hardening: nosniff, a referrer policy,
+  `DENY` framing, a permissions policy, and HSTS.
+- **`Cache-Control` in two blocks.** Assets are not content-hashed, so they cannot be
+  cached forever; an hour at the edge with revalidation means swapping the screenshot
+  shows up the same day. HTML always revalidates, because the roadmap being current is
+  the point of it.
+- **`rewrites` → `/favicon.ico`.** Browsers request it whatever the icon link says, and a
+  404 in a landing page's console is a poor first impression. Pointing it at the existing
+  SVG saves committing a binary nobody can diff.
+- **`cleanUrls`.** `/roadmap` rather than `/roadmap.html`.
+
+Checked against Vercel's published schema, every key at every level, before deploying —
+which is how the comment keys were caught the second time rather than the first.
 
 1. Vercel → Add New Project → import the repo.
 2. **Set Root Directory to `site`.** That is the one setting that matters, and it is why

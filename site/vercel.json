@@ -1,13 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "//": "Root Directory is set to site/ in the Vercel dashboard, so this file has to live here: Vercel reads vercel.json from the root directory it was told to use. There is no package.json beside it, which is what stops Vercel from finding the Electron app one level up and trying to build it.",
-  "rewrites": [
-    {
-      "//": "Browsers ask for /favicon.ico whatever the icon link says, and a 404 in the console of a landing page is a bad first impression. Serving the existing SVG saves committing a binary nobody can diff.",
-      "source": "/favicon.ico",
-      "destination": "/icon.svg"
-    }
-  ],
+  "rewrites": [{ "source": "/favicon.ico", "destination": "/icon.svg" }],
   "cleanUrls": true,
   "trailingSlash": false,
   "headers": [
@@ -16,50 +9,22 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "//": "The page has no inline script or style at all, so this can be strict. api.github.com is in connect-src because download.js asks it for the latest release; without that, every download button silently falls back to the releases page.",
           "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.github.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
         },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=63072000; includeSubDomains; preload"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]
     },
     {
-      "//": "Assets are not content-hashed, so they cannot be cached forever. An hour at the edge with revalidation keeps a screenshot swap from taking a day to appear.",
       "source": "/(.*).(css|js|svg|png|webp|ico)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400"
-        }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400" }]
     },
     {
-      "//": "HTML is always revalidated: the roadmap is the whole point of the site being current.",
       "source": "/(.*).html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
     }
   ]
 }
