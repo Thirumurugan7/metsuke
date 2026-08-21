@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "types": ["node", "better-sqlite3"]
   },
-  "include": ["src/**/*.ts", "../src/shared/telemetry.ts"]
+  "include": ["src/**/*.ts", "api/**/*.ts", "../src/shared/telemetry.ts"]
 }

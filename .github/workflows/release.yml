@@ -55,6 +55,11 @@ jobs:
           # Compiled into the build. Unset in a fork or a local build, which is what
           # makes those collect nothing at all regardless of what a user consents to.
           METSUKE_TELEMETRY_ENDPOINT: ${{ secrets.METSUKE_TELEMETRY_ENDPOINT }}
+          # Where the shipped app looks for updates. The repository is private, so this
+          # points at the download endpoint rather than at GitHub: it authenticates
+          # server-side, which is the only way to serve a private repo's assets without
+          # putting a token inside the app.
+          METSUKE_UPDATE_URL: ${{ secrets.METSUKE_UPDATE_URL }}
 
       # The .yml files are the update feed: latest-mac.yml, latest.yml and
       # latest-linux.yml are what electron-updater reads to decide whether anything is

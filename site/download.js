@@ -7,15 +7,18 @@
  * the visitor one extra click and is never wrong.
  */
 
-// ── Where releases live ──────────────────────────────────────────────────────
-// Deliberately not the code repository: that one is private, and assets on a private
-// repo need an authenticated request, so every download link here would 404. This is a
-// public repo that holds releases and nothing else.
-const REPO = 'Thirumurugan7/metsuke-releases'
+// ── Where releases come from ─────────────────────────────────────────────────
+// The download endpoint on the telemetry deployment, not GitHub directly. The repo is
+// private, so its release assets need an authenticated request; that endpoint makes it
+// with a read-only token and hands back the signed URL GitHub replies with. Set it in
+// config.js. Empty means downloads are not wired up yet, and every button then says so
+// rather than pointing at a 404.
+const DOWNLOAD_API = window.METSUKE_DOWNLOAD_API ?? ''
 // ─────────────────────────────────────────────────────────────────────────────
 
-const RELEASES_URL = `https://github.com/${REPO}/releases`
-const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`
+/** Where a button goes when there is nothing to download yet. */
+const RELEASES_URL = DOWNLOAD_API || '#download'
+const LATEST_API = DOWNLOAD_API
 
 /** Match a release asset by platform and architecture. */
 const MATCHERS = {
@@ -79,23 +82,30 @@ async function init() {
   if (primary) primary.href = RELEASES_URL
 
   let release = null
-  try {
-    const response = await fetch(LATEST_API, { headers: { accept: 'application/vnd.github+json' } })
-    if (response.ok) release = await response.json()
-  } catch {
-    /* Offline or blocked. The releases-page fallback already applies. */
+  if (LATEST_API) {
+    try {
+      const response = await fetch(LATEST_API, { headers: { accept: 'application/json' } })
+      if (response.ok) release = await response.json()
+    } catch {
+      /* Offline, or the endpoint is not up yet. The fallback below already applies. */
+    }
   }
 
   const assets = release?.assets ?? []
-  const urlFor = (key) => assets.find((a) => MATCHERS[key]?.(a.name))?.browser_download_url
+  // Relative to the download endpoint, since that is what serves them.
+  const base = LATEST_API.replace(/\/download\/?$/, '')
+  const urlFor = (key) => {
+    const asset = assets.find((a) => MATCHERS[key]?.(a.name))
+    return asset ? `${base}${asset.url}` : undefined
+  }
 
   const version = document.getElementById('version')
-  if (version && release?.tag_name) version.textContent = release.tag_name.replace(/^v/, '')
+  if (version && release?.version) version.textContent = release.version
 
   for (const link of document.querySelectorAll('[data-asset]')) {
     const url = urlFor(link.dataset.asset)
     link.href = url ?? RELEASES_URL
-    if (!url) link.title = 'This build is not in the latest release yet'
+    if (!url) link.title = LATEST_API ? 'This build is not in the latest release yet' : 'No release published yet'
   }
 
   if (platform) {

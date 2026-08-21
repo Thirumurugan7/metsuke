@@ -10,31 +10,35 @@ is the one that keeps data, and the only one that needs a CDN is the one everybo
 | Telemetry + dashboard | Vercel, second project | Functions plus Neon Postgres, so there is no VM and no disk to keep. |
 | The database | Neon | One Postgres, shared by telemetry and the roadmap's ticks. |
 
-## The installers go on GitHub Releases
+## The installers stay in the private repo
 
-This is not a preference, it is what the code already does:
+Releases are attached to a release on `Thirumurugan7/metsuke`, which is private and stays
+private. Its assets need an authenticated request, which somebody clicking a download
+button does not have — so nobody links to them directly.
 
-- `site/download.js` reads `api.github.com/repos/OWNER/REPO/releases/latest` and picks the
-  right asset per platform and architecture.
-- `electron-builder.yml` has `publish: provider: github`.
-- `electron-updater` in the app reads `latest-mac.yml`, `latest.yml` and
-  `latest-linux.yml` from the release, which is why the workflow uploads them.
+`server/api/download.ts` makes the request instead, with a read-only token that never
+leaves the server, and hands back the signed URL GitHub replies with. The bytes never pass
+through it: asking GitHub for an asset with `Accept: application/octet-stream` returns a
+302 to a signed object URL, and the function forwards that redirect, so a hundred megabytes
+travels browser-to-GitHub rather than through a function with a timeout and a bandwidth
+bill.
 
-**The code repository is private, so releases go somewhere else.** Assets on a private
-repo need an authenticated request: download links, and the update feed the app polls,
-would 404 for everybody.
+The same endpoint is the update feed. electron-updater uses its `generic` provider pointed
+at `/download`, because the `github` provider would need a token inside the shipped app —
+which is making the repo public with extra steps.
 
-The answer is a second repository, `Thirumurugan7/metsuke-releases`, public, containing no
-code — releases and nothing else. `electron-builder.yml` publishes there, `download.js`
-looks there, and auto-update reads its feed from there. Nothing else changes, it stays
-free and unmetered, and the source stays private. Object storage (R2, S3) would also work
-but means rewriting the update client onto a generic provider for no gain.
+| What | Where |
+|---|---|
+| `GITHUB_TOKEN` | Fine-grained PAT, **read-only on Contents** for this one repo, set on the telemetry project |
+| `RELEASES_REPO` | `Thirumurugan7/metsuke`, the default |
+| `METSUKE_UPDATE_URL` | Repository secret: `https://<telemetry-project>.vercel.app/download` |
+| `window.METSUKE_DOWNLOAD_API` | `site/config.js`, same `/download` URL |
 
-That public repo is also the only public face this project has, so it is the sensible
-home for the issue tracker and the third-party license file.
+Until those exist the download buttons say "No release published yet", which is true and
+costs nobody a 404.
 
-Do not host installers on Vercel. They are 100MB+ each, four per release, and it is not a
-file host.
+Object storage (R2, S3) is the alternative, and it means a second account, a second place
+for things to be out of date, and rewriting the update client. This needs one token.
 
 ## The website on Vercel
 

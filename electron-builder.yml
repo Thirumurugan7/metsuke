@@ -67,11 +67,21 @@ linux:
       Categories: Development;IDE;
   artifactName: ${productName}-${version}-${arch}.${ext}
 
-# Releases go to a separate, public repository so that the code can stay private.
-# Assets on a private repo need an authenticated request, so download links and the
-# update feed would 404 for everybody. This repo holds nothing but releases.
+# What the shipped app polls for updates.
+#
+# Not the github provider: the repository is private, so electron-updater would need a
+# token to read the feed, and shipping a token inside a desktop app is the same as making
+# the repo public with extra steps. The generic provider points at the download endpoint,
+# which authenticates server-side with a read-only token and hands back signed URLs.
+#
+# This only decides where the app looks. Publishing is done by the release workflow,
+# which attaches the artifacts to a release on the private repo.
+#
+# The URL comes from the environment at build time, the way the telemetry endpoint does,
+# so it is set once as a CI secret rather than committed and forgotten. A build with it
+# unset produces an app that cannot find updates, which is the correct outcome for a
+# local build and is already reported as such in the settings panel.
 publish:
-  provider: github
-  owner: Thirumurugan7
-  repo: metsuke-releases
-  releaseType: release
+  provider: generic
+  url: ${env.METSUKE_UPDATE_URL}
+  useMultipleRangeRequest: false
