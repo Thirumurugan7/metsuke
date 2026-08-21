@@ -606,3 +606,50 @@ footer {
     margin-left: auto;
   }
 }
+
+/* -- download details -------------------------------------------------------
+   What you are about to download, before you download it: the filename, its
+   size, and the checksum electron-builder already published for the updater to
+   verify against. Recomputing it somewhere else would eventually disagree with
+   the number that actually matters. */
+
+.dl-meta-line {
+  color: var(--fg-faint);
+  display: block;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+.checksums {
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 26px;
+  width: 100%;
+}
+.checksums caption {
+  color: var(--fg-faint);
+  font-size: 12px;
+  padding-bottom: 8px;
+  text-align: left;
+}
+.checksums th {
+  color: var(--fg-dim);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.checksums th,
+.checksums td {
+  border-bottom: 1px solid var(--line-soft);
+  padding: 7px 10px 7px 0;
+  vertical-align: top;
+}
+.checksums code {
+  background: none;
+  border: none;
+  color: var(--fg-faint);
+  font-size: 11px;
+  padding: 0;
+  word-break: break-all;
+}

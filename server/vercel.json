@@ -15,11 +15,11 @@
     },
     {
       "source": "/download",
-      "destination": "/api/download"
+      "destination": "/api/download?path="
     },
     {
       "source": "/download/(.*)",
-      "destination": "/api/download?file=$1"
+      "destination": "/api/download?path=$1"
     }
   ]
 }

@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPool, migrate, prune } from './db.js'
+import { handleDownload } from './downloadRoutes.js'
 import { acceptEnvelope, authorised, overview, rateLimited, roadmapState, putTicks, putAssignees, postTask, removeTask, RETENTION_DAYS } from './handlers.js'
 
 /**
@@ -61,6 +62,21 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true })
+
+    // Downloads and the update feed, identical to the function in api/download.ts.
+    if (req.method === 'GET' && url.pathname.startsWith('/download')) {
+      res.setHeader('access-control-allow-origin', '*')
+      const reply = await handleDownload(url.pathname.slice('/download'.length))
+
+      if (reply.cacheControl) res.setHeader('cache-control', reply.cacheControl)
+      if (reply.redirect) return void res.writeHead(reply.status, { location: reply.redirect }).end()
+      if (reply.body) {
+        return void res
+          .writeHead(reply.status, { 'content-type': reply.contentType ?? 'application/octet-stream', 'content-length': reply.body.length })
+          .end(reply.body)
+      }
+      return json(res, reply.status, reply.json)
+    }
 
     /*
      * The roadmap's own state: ticks, who is on what, and tasks added by hand.

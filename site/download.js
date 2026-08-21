@@ -20,19 +20,25 @@ const DOWNLOAD_API = window.METSUKE_DOWNLOAD_API ?? ''
 const RELEASES_URL = DOWNLOAD_API || '#download'
 const LATEST_API = DOWNLOAD_API
 
-/** Match a release asset by platform and architecture. */
+/**
+ * Match a release asset by platform and architecture.
+ *
+ * These keys are the same ones the download service uses, so a button's data-asset is
+ * also the path segment in /download/latest/<key>. Two vocabularies for the same five
+ * platforms is a mapping table that eventually disagrees with itself.
+ */
 const MATCHERS = {
-  'dmg-arm64': (n) => n.endsWith('.dmg') && /arm64/i.test(n),
-  'dmg-x64': (n) => n.endsWith('.dmg') && /x64|intel/i.test(n),
-  exe: (n) => n.endsWith('.exe'),
-  appimage: (n) => n.toLowerCase().endsWith('.appimage'),
-  deb: (n) => n.endsWith('.deb')
+  'mac-arm64': (n) => n.endsWith('.dmg') && /arm64/i.test(n),
+  'mac-x64': (n) => n.endsWith('.dmg') && /x64|intel/i.test(n),
+  win: (n) => n.endsWith('.exe'),
+  'linux-appimage': (n) => n.toLowerCase().endsWith('.appimage'),
+  'linux-deb': (n) => n.endsWith('.deb')
 }
 
 const PLATFORMS = {
-  mac: { label: 'Download for macOS', asset: (arch) => `dmg-${arch}`, name: 'macOS' },
-  windows: { label: 'Download for Windows', asset: () => 'exe', name: 'Windows' },
-  linux: { label: 'Download for Linux', asset: () => 'appimage', name: 'Linux' }
+  mac: { label: 'Download for macOS', asset: (arch) => `mac-${arch}`, name: 'macOS' },
+  windows: { label: 'Download for Windows', asset: () => 'win', name: 'Windows' },
+  linux: { label: 'Download for Linux', asset: () => 'linux-appimage', name: 'Linux' }
 }
 
 /** Best guess at the visitor's platform. Used only to promote one download. */
@@ -92,20 +98,57 @@ async function init() {
   }
 
   const assets = release?.assets ?? []
-  // Relative to the download endpoint, since that is what serves them.
   const base = LATEST_API.replace(/\/download\/?$/, '')
-  const urlFor = (key) => {
-    const asset = assets.find((a) => MATCHERS[key]?.(a.name))
-    return asset ? `${base}${asset.url}` : undefined
-  }
+
+  /*
+   * Stable links, not version-pinned ones.
+   *
+   * /download/latest/mac-arm64 keeps meaning the newest build, so a link shared anywhere
+   * does not rot the next time a version ships. The manifest is still fetched, because
+   * the page should be able to say what it is about to hand you: version, size, and the
+   * checksum to verify it against.
+   */
+  const stable = (key) => (base ? `${base}/download/latest/${key}` : undefined)
+  const assetFor = (key) => assets.find((a) => MATCHERS[key]?.(a.name))
+  const urlFor = (key) => (assetFor(key) ? stable(key) : undefined)
 
   const version = document.getElementById('version')
   if (version && release?.version) version.textContent = release.version
 
   for (const link of document.querySelectorAll('[data-asset]')) {
-    const url = urlFor(link.dataset.asset)
+    const key = link.dataset.asset
+    const url = urlFor(key)
     link.href = url ?? RELEASES_URL
-    if (!url) link.title = LATEST_API ? 'This build is not in the latest release yet' : 'No release published yet'
+    if (!url) {
+      link.title = LATEST_API ? 'This build is not in the latest release yet' : 'No release published yet'
+      continue
+    }
+
+    // What they are about to download, before they download it.
+    const asset = assetFor(key)
+    const size = asset.size ? `${Math.round(asset.size / 1e6)} MB` : ''
+    link.title = [asset.name, size, asset.sha512 && `sha512 ${asset.sha512.slice(0, 16)}…`].filter(Boolean).join(' · ')
+
+    /*
+     * The filename goes under the row only when that row means one file. macOS has two
+     * buttons sharing a row, and writing both into one line means the second silently
+     * overwrites the first — so there the size rides on each button's tooltip instead.
+     */
+    const row = link.closest('.dl-row')
+    if (row && row.querySelectorAll('[data-asset]').length === 1) {
+      const meta = row.querySelector('.dl-meta-line')
+      if (meta) meta.textContent = [asset.name, size].filter(Boolean).join(' · ')
+    }
+  }
+
+  // The checksums, for anyone who wants to check them. Hidden until there is a release.
+  const checksums = document.getElementById('checksums')
+  if (checksums && assets.some((a) => a.sha512)) {
+    checksums.hidden = false
+    checksums.querySelector('tbody').innerHTML = assets
+      .filter((a) => a.sha512)
+      .map((a) => `<tr><td>${a.name}</td><td>${Math.round(a.size / 1e6)} MB</td><td><code>${a.sha512}</code></td></tr>`)
+      .join('')
   }
 
   if (platform) {

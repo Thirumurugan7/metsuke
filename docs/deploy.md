@@ -10,35 +10,42 @@ is the one that keeps data, and the only one that needs a CDN is the one everybo
 | Telemetry + dashboard | Vercel, second project | Functions plus Neon Postgres, so there is no VM and no disk to keep. |
 | The database | Neon | One Postgres, shared by telemetry and the roadmap's ticks. |
 
-## The installers stay in the private repo
+## Downloads
 
-Releases are attached to a release on `Thirumurugan7/metsuke`, which is private and stays
-private. Its assets need an authenticated request, which somebody clicking a download
-button does not have — so nobody links to them directly.
+The flow is the one people expect from a desktop app, and it does not care where the
+files live.
 
-`server/api/download.ts` makes the request instead, with a read-only token that never
-leaves the server, and hands back the signed URL GitHub replies with. The bytes never pass
-through it: asking GitHub for an asset with `Accept: application/octet-stream` returns a
-302 to a signed object URL, and the function forwards that redirect, so a hundred megabytes
-travels browser-to-GitHub rather than through a function with a timeout and a bandwidth
-bill.
-
-The same endpoint is the update feed. electron-updater uses its `generic` provider pointed
-at `/download`, because the `github` provider would need a token inside the shipped app —
-which is making the repo public with extra steps.
-
-| What | Where |
+| URL | What it is |
 |---|---|
-| `GITHUB_TOKEN` | Fine-grained PAT, **read-only on Contents** for this one repo, set on the telemetry project |
-| `RELEASES_REPO` | `Thirumurugan7/metsuke`, the default |
-| `METSUKE_UPDATE_URL` | Repository secret: `https://<telemetry-project>.vercel.app/download` |
-| `window.METSUKE_DOWNLOAD_API` | `site/config.js`, same `/download` URL |
+| `/download` | A manifest: version, every artifact, its size, and its sha512 |
+| `/download/latest/mac-arm64` | The stable link. Always the newest build for that platform, so a link in a README does not rot when a version ships |
+| `/download/Metsuke-1.4.0-arm64.dmg` | A specific version, for when somebody needs exactly that one |
 
-Until those exist the download buttons say "No release published yet", which is true and
-costs nobody a 404.
+Checksums come out of the update feeds electron-builder already writes, because that is
+the hash the updater verifies against; a second one computed elsewhere would eventually
+disagree with the number that matters. Installers are served `immutable` — a released
+file never changes — while `latest` is `no-store`, since it is the one URL whose meaning
+is supposed to change.
 
-Object storage (R2, S3) is the alternative, and it means a second account, a second place
-for things to be out of date, and rewriting the update client. This needs one token.
+### Where the bytes live
+
+Two backends, one interface, chosen by configuration alone. Moving between them changes
+an environment variable rather than a URL anybody has bookmarked.
+
+**A GitHub release, including a private one.** Set `GITHUB_TOKEN` to a fine-grained PAT
+with read-only Contents on the repo, and `RELEASES_REPO`. The token stays server-side:
+asking GitHub for an asset with `Accept: application/octet-stream` returns a 302 to a
+signed URL, which is forwarded rather than followed, so a hundred megabytes travels
+browser-to-GitHub rather than through a function with a timeout and a bandwidth bill.
+
+**A directory on a machine you own.** Set `DOWNLOAD_DIR`. The release workflow rsyncs the
+artifacts there and the server serves them. No token, no third party, and the update feed
+comes from the same place. The trade is that your box becomes a single point of failure
+for installs *and* updates, where GitHub's CDN does not have bad days, and that bandwidth
+is now yours: four files at roughly 100MB each, so about 200MB per user.
+
+Either way `METSUKE_UPDATE_URL` (a repository secret, compiled into the app) and
+`window.METSUKE_DOWNLOAD_API` in `site/config.js` point at the same `/download` base.
 
 ## The website on Vercel
 

@@ -273,28 +273,34 @@
           <div class="dl">
             <div class="dl-row" data-os="mac">
               <div class="dl-os">macOS</div>
-              <div class="dl-meta">Apple silicon and Intel</div>
+              <div class="dl-meta">Apple silicon and Intel<span class="dl-meta-line"></span></div>
               <div class="dl-actions">
-                <a class="btn btn-ghost btn-sm" data-asset="dmg-arm64">Apple silicon</a>
-                <a class="btn btn-ghost btn-sm" data-asset="dmg-x64">Intel</a>
+                <a class="btn btn-ghost btn-sm" data-asset="mac-arm64">Apple silicon</a>
+                <a class="btn btn-ghost btn-sm" data-asset="mac-x64">Intel</a>
               </div>
             </div>
             <div class="dl-row" data-os="windows">
               <div class="dl-os">Windows</div>
-              <div class="dl-meta">64 bit installer</div>
+              <div class="dl-meta">64 bit installer<span class="dl-meta-line"></span></div>
               <div class="dl-actions">
-                <a class="btn btn-ghost btn-sm" data-asset="exe">Download .exe</a>
+                <a class="btn btn-ghost btn-sm" data-asset="win">Download .exe</a>
               </div>
             </div>
             <div class="dl-row" data-os="linux">
               <div class="dl-os">Linux</div>
-              <div class="dl-meta">64 bit</div>
+              <div class="dl-meta">64 bit<span class="dl-meta-line"></span></div>
               <div class="dl-actions">
-                <a class="btn btn-ghost btn-sm" data-asset="appimage">AppImage</a>
-                <a class="btn btn-ghost btn-sm" data-asset="deb">.deb</a>
+                <a class="btn btn-ghost btn-sm" data-asset="linux-appimage">AppImage</a>
+                <a class="btn btn-ghost btn-sm" data-asset="linux-deb">.deb</a>
               </div>
             </div>
           </div>
+
+          <table id="checksums" class="checksums" hidden>
+            <caption>Verify what you downloaded: <code>shasum -a 512 -b &lt;file&gt; | xxd -r -p | base64</code></caption>
+            <thead><tr><th>File</th><th>Size</th><th>sha512</th></tr></thead>
+            <tbody></tbody>
+          </table>
 
           <div class="notes">
             <p>
@@ -371,6 +377,12 @@
       </div>
     </footer>
 
+    <!--
+      Deployment settings: where installers come from and where the roadmap's shared state
+      lives. Loaded before the scripts that read it, and empty by default, which is why
+      the download buttons say there is no release yet until it is filled in.
+    -->
+    <script src="config.js"></script>
     <script src="download.js"></script>
   </body>
 </html>
