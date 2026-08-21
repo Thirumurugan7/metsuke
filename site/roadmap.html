@@ -63,6 +63,20 @@
         <button id="reset" class="reset">Clear my ticks</button>
       </div>
 
+      <form id="add-task" class="add-task">
+        <div class="add-row">
+          <input name="title" type="text" placeholder="Add a task…" maxlength="120" required aria-label="Task" />
+          <select name="group" aria-label="Section"></select>
+          <select name="assignee" aria-label="Who is on it">
+            <option value="">unassigned</option>
+            <option value="thiru">Thiru</option>
+            <option value="prashant">Prashant</option>
+          </select>
+          <button type="submit" class="add-go">Add</button>
+        </div>
+        <input name="detail" type="text" placeholder="Optional detail: what it means, and how you would know it was done" maxlength="2000" aria-label="Detail" />
+      </form>
+
       <div id="groups"></div>
 
       <p id="empty" class="empty" hidden>Nothing here under that filter.</p>

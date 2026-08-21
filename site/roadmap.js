@@ -88,7 +88,7 @@ const TASKS = [
         who: 'you',
         text: 'Deploy the telemetry project and connect it up',
         detail:
-          'A second Vercel project from the same repository with Root Directory server, storing into Neon. It was SQLite, which suited one box with a disk; functions have no disk, so it is Postgres now — a hosting decision rather than a scale one. Needs DATABASE_URL (the -pooler host, which is PgBouncer and what makes a connection per invocation survivable), DASHBOARD_TOKEN, and SITE_ORIGIN. Then METSUKE_TELEMETRY_ENDPOINT as a repository secret so release builds compile it in, and METSUKE_TICKS_API in site/config.js so the checklist ticks follow you between machines. Verified end to end against the real database before any of it was deployed: ingest, the dashboard behind its token, and a tick made in a browser landing in Postgres.'
+          'A second Vercel project from the same repository with Root Directory server, storing into Neon. It was SQLite, which suited one box with a disk; functions have no disk, so it is Postgres now — a hosting decision rather than a scale one. Needs DATABASE_URL (the -pooler host, which is PgBouncer and what makes a connection per invocation survivable), DASHBOARD_TOKEN, and SITE_ORIGIN. Then METSUKE_TELEMETRY_ENDPOINT as a repository secret so release builds compile it in, and METSUKE_ROADMAP_API in site/config.js so ticks, assignments and hand-added tasks follow you between machines. Verified end to end against the real database before any of it was deployed: ingest, the dashboard behind its token, and a tick made in a browser landing in Postgres.'
       },
       {
         id: 'outstanding-bugs',
@@ -332,7 +332,55 @@ const STORE_KEY = 'metsuke.roadmap'
  * `TICKS_API` empty means no sync, which is the state before the telemetry project is
  * deployed and a perfectly good state to stay in.
  */
-const TICKS_API = window.METSUKE_TICKS_API ?? ''
+const ROADMAP_API = window.METSUKE_ROADMAP_API ?? ''
+
+/** The people who work on this. Cycled through by clicking the pill on a task. */
+const PEOPLE = [
+  { id: null, label: 'unassigned' },
+  { id: 'thiru', label: 'Thiru' },
+  { id: 'prashant', label: 'Prashant' }
+]
+
+const ASSIGN_KEY = 'metsuke.roadmap.assignees'
+const TASKS_KEY = 'metsuke.roadmap.tasks'
+
+const readLocal = (key, fallback) => {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? JSON.stringify(fallback))
+  } catch {
+    return fallback
+  }
+}
+
+/** Who is on a task, or null. Applies to committed tasks and added ones alike. */
+function loadAssignees() {
+  return readLocal(ASSIGN_KEY, {})
+}
+
+function saveAssignees(state) {
+  localStorage.setItem(ASSIGN_KEY, JSON.stringify(state))
+  if (!ROADMAP_API) return
+  void fetch(`${ROADMAP_API}?part=assignees`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ state })
+  }).catch(() => {})
+}
+
+/**
+ * Tasks added from the page rather than committed to this file.
+ *
+ * The committed list stays the record of what shipped, reviewable in a diff. This is the
+ * part that has to change faster than a commit: something noticed on a Tuesday, assigned,
+ * and ticked off before anybody opens an editor.
+ */
+function loadCustomTasks() {
+  return readLocal(TASKS_KEY, [])
+}
+
+function saveCustomTasks(tasks) {
+  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks))
+}
 
 function loadState() {
   try {
@@ -344,29 +392,28 @@ function loadState() {
 
 function saveState(state) {
   localStorage.setItem(STORE_KEY, JSON.stringify(state))
-  if (!TICKS_API) return
+  if (!ROADMAP_API) return
 
   // Fire and forget. The page has already re-rendered from the local copy.
-  void fetch(TICKS_API, {
+  void fetch(ROADMAP_API, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ state })
   }).catch(() => {})
 }
 
-/** Pull shared ticks once at load, then re-render if they differ from what is local. */
+/** Pull everything shared once at load, then re-render if any of it differs. */
 async function syncState() {
-  if (!TICKS_API) return
+  if (!ROADMAP_API) return
 
   try {
-    const response = await fetch(TICKS_API, { headers: { accept: 'application/json' } })
+    const response = await fetch(ROADMAP_API, { headers: { accept: 'application/json' } })
     if (!response.ok) return
 
-    const { state } = await response.json()
-    if (!state || typeof state !== 'object') return
-    if (JSON.stringify(state) === localStorage.getItem(STORE_KEY)) return
-
-    localStorage.setItem(STORE_KEY, JSON.stringify(state))
+    const { ticks, assignees, tasks } = await response.json()
+    if (ticks && typeof ticks === 'object') localStorage.setItem(STORE_KEY, JSON.stringify(ticks))
+    if (assignees && typeof assignees === 'object') localStorage.setItem(ASSIGN_KEY, JSON.stringify(assignees))
+    if (Array.isArray(tasks)) localStorage.setItem(TASKS_KEY, JSON.stringify(tasks))
     render()
   } catch {
     // No network, no API, or a cold function: the local copy is already on screen.
@@ -380,8 +427,40 @@ function isDone(item, state) {
 
 const WHO_LABEL = { you: 'needs you', me: 'I can do this', both: 'needs both' }
 
+const personLabel = (id) => PEOPLE.find((p) => p.id === id)?.label ?? 'unassigned'
+
+/**
+ * The committed list plus anything added from the page, in one shape.
+ *
+ * Added tasks carry `custom: true`, which is what lets the row offer a delete button.
+ * Nothing else about them is different: they tick, they take an assignee, and they count
+ * towards the totals exactly like the ones in this file.
+ */
+function allGroups() {
+  const custom = loadCustomTasks()
+  return TASKS.map((group) => ({
+    ...group,
+    items: [
+      ...group.items,
+      ...custom
+        .filter((task) => task.group === group.id)
+        .map((task) => ({
+          id: task.id,
+          who: 'both',
+          text: task.title,
+          detail: task.detail || 'Added from the roadmap page.',
+          custom: true,
+          // Set when the task was created. The assignees map wins once somebody clicks
+          // the pill, which is what makes reassigning a custom task work at all.
+          assignee: task.assignee ?? null
+        }))
+    ]
+  }))
+}
+
 function render() {
   const state = loadState()
+  const assignees = loadAssignees()
   const filter = document.querySelector('.filter .on')?.dataset.filter ?? 'all'
   const root = document.getElementById('groups')
   root.innerHTML = ''
@@ -389,7 +468,7 @@ function render() {
   let total = 0
   let done = 0
 
-  for (const group of TASKS) {
+  for (const group of allGroups()) {
     const visible = group.items.filter((item) => {
       const complete = isDone(item, state)
       return filter === 'all' || (filter === 'todo' ? !complete : complete)
@@ -416,6 +495,10 @@ function render() {
       const complete = isDone(item, state)
       const li = document.createElement('li')
       li.className = `item${complete ? ' done' : ''}`
+      // The shared map first, then whatever the task was created with. Without the
+      // fallback a task added with an assignee showed as unassigned the moment it came
+      // back from the server, which is where the two stores disagreed.
+      const assignee = assignees[item.id] ?? item.assignee ?? null
       li.innerHTML = `
         <button class="tick" role="checkbox" aria-checked="${complete}" aria-label="${item.text}">
           <span aria-hidden="true">${complete ? '✓' : ''}</span>
@@ -423,7 +506,11 @@ function render() {
         <div class="item-body">
           <div class="item-top">
             <span class="item-text">${item.text}</span>
+            <button class="person person-${assignee ?? 'none'}" title="Click to change who is on this">
+              ${personLabel(assignee)}
+            </button>
             <span class="who who-${item.who}">${WHO_LABEL[item.who]}</span>
+            ${item.custom ? '<button class="remove" title="Remove this task" aria-label="Remove task">×</button>' : ''}
           </div>
           <p class="item-detail">${item.detail}</p>
         </div>`
@@ -432,6 +519,25 @@ function render() {
         const next = loadState()
         next[item.id] = !isDone(item, next)
         saveState(next)
+        render()
+      })
+
+      // One control, cycling unassigned → Thiru → Prashant. A dropdown for three options
+      // is more clicks and more markup than the thing is worth.
+      li.querySelector('.person').addEventListener('click', () => {
+        const next = loadAssignees()
+        const index = PEOPLE.findIndex((p) => p.id === (next[item.id] ?? null))
+        next[item.id] = PEOPLE[(index + 1) % PEOPLE.length].id
+        saveAssignees(next)
+        render()
+      })
+
+      li.querySelector('.remove')?.addEventListener('click', () => {
+        if (!confirm(`Remove "${item.text}"?`)) return
+        saveCustomTasks(loadCustomTasks().filter((task) => task.id !== item.id))
+        if (ROADMAP_API) {
+          void fetch(`${ROADMAP_API}?id=${encodeURIComponent(item.id)}`, { method: 'DELETE' }).catch(() => {})
+        }
         render()
       })
 
@@ -466,7 +572,61 @@ document.getElementById('reset').addEventListener('click', () => {
   render()
 })
 
+/**
+ * Adding a task from the page.
+ *
+ * Stored locally first so it appears immediately and survives with no network, then sent
+ * to the shared copy. The server assigns the real id; until it answers, a local one keeps
+ * the row tickable, and the next sync replaces it with the stored version.
+ */
+function wireAddForm() {
+  const form = document.getElementById('add-task')
+  if (!form) return
+
+  const groupSelect = form.querySelector('[name=group]')
+  groupSelect.innerHTML = TASKS.map((g) => `<option value="${g.id}">${g.title}</option>`).join('')
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault()
+    const data = new FormData(form)
+    const title = String(data.get('title') ?? '').trim()
+    if (!title) return
+
+    const task = {
+      id: `local-${Date.now().toString(36)}`,
+      title,
+      detail: String(data.get('detail') ?? '').trim(),
+      group: String(data.get('group') ?? TASKS[0].id),
+      assignee: String(data.get('assignee') ?? '') || null
+    }
+
+    saveCustomTasks([...loadCustomTasks(), task])
+    form.reset()
+    render()
+
+    if (!ROADMAP_API) return
+    // The id is deliberately not sent: the server slugifies the title, which reads far
+    // better than a local timestamp and means identity has one owner rather than two.
+    const { id: _placeholder, ...payload } = task
+    void fetch(ROADMAP_API, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        // Swap the placeholder for whatever the server stored, so both machines agree on
+        // the id a tick is keyed by.
+        if (!body?.task) return
+        saveCustomTasks(loadCustomTasks().map((t) => (t.id === task.id ? body.task : t)))
+        render()
+      })
+      .catch(() => {})
+  })
+}
+
 // Render from the local copy first so the page is never waiting on a network call, then
 // reconcile with the shared one.
+wireAddForm()
 render()
 void syncState()

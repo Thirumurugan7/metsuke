@@ -8,6 +8,13 @@ import {
 import {
   getPool,
   insertEnvelope,
+  readBlob,
+  writeBlob,
+  listTasks,
+  addTask,
+  deleteTask,
+  type Assignee,
+  type CustomTask,
   summary,
   activeByDay,
   featureUsage,
@@ -159,8 +166,11 @@ export async function overview(days = 30, db: Db = getPool()): Promise<Record<st
 }
 
 // ---------------------------------------------------------------------------
-// Roadmap ticks
+// Roadmap: ticks, assignees, and tasks added by hand
 // ---------------------------------------------------------------------------
+
+/** The two people who work on this. Anything else is not a person, it is a typo. */
+export const ASSIGNEES = ['thiru', 'prashant'] as const
 
 /** Ticks are a flat map of task id to boolean, and nothing else is accepted. */
 export function validTickState(value: unknown): value is Record<string, boolean> {
@@ -172,14 +182,97 @@ export function validTickState(value: unknown): value is Record<string, boolean>
   return entries.every(([key, v]) => typeof key === 'string' && key.length <= 64 && typeof v === 'boolean')
 }
 
-export async function getTicks(db: Db = getPool()): Promise<{ state: Record<string, boolean>; updatedAt: number }> {
-  return readTicks(db)
+/** Assignees are the same shape, but the values are a closed set of two names. */
+export function validAssigneeState(value: unknown): value is Record<string, Assignee> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (entries.length > 200) return false
+  return entries.every(
+    ([key, v]) =>
+      typeof key === 'string' && key.length <= 64 && (v === null || (typeof v === 'string' && (ASSIGNEES as readonly string[]).includes(v)))
+  )
+}
+
+const MAX_TITLE = 120
+const MAX_DETAIL = 2_000
+
+/** A task somebody typed in. Bounded, because this endpoint takes free text. */
+export function validTask(value: unknown): value is { title: string; detail?: string; group?: string; assignee?: Assignee; id?: string } {
+  if (!value || typeof value !== 'object') return false
+  const t = value as Record<string, unknown>
+
+  if (typeof t['title'] !== 'string' || t['title'].trim().length === 0 || t['title'].length > MAX_TITLE) return false
+  if (t['detail'] !== undefined && (typeof t['detail'] !== 'string' || t['detail'].length > MAX_DETAIL)) return false
+  if (t['group'] !== undefined && (typeof t['group'] !== 'string' || t['group'].length > 40)) return false
+  if (t['id'] !== undefined && (typeof t['id'] !== 'string' || !/^[a-z0-9-]{1,64}$/.test(t['id']))) return false
+  if (t['assignee'] !== undefined && t['assignee'] !== null && !(ASSIGNEES as readonly string[]).includes(t['assignee'] as string)) return false
+
+  return true
+}
+
+/** Everything the roadmap page needs that is not in the committed file, in one trip. */
+export async function roadmapState(db: Db = getPool()): Promise<{
+  ticks: Record<string, boolean>
+  assignees: Record<string, Assignee>
+  tasks: CustomTask[]
+}> {
+  const [ticks, assignees, tasks] = await Promise.all([
+    readBlob<boolean>(db, 'default'),
+    readBlob<Assignee>(db, 'assignees'),
+    listTasks(db)
+  ])
+
+  return { ticks: ticks.state, assignees: assignees.state, tasks }
 }
 
 export async function putTicks(body: unknown, now = Date.now(), db: Db = getPool()): Promise<Accepted> {
   const state = (body as { state?: unknown })?.state
   if (!validTickState(state)) return { status: 400, stored: 0, reason: 'bad state' }
 
-  await writeTicks(db, state, 'default', now)
+  await writeBlob<boolean>(db, 'default', state, now)
   return { status: 200, stored: Object.keys(state).length }
+}
+
+export async function putAssignees(body: unknown, now = Date.now(), db: Db = getPool()): Promise<Accepted> {
+  const state = (body as { state?: unknown })?.state
+  if (!validAssigneeState(state)) return { status: 400, stored: 0, reason: 'bad state' }
+
+  await writeBlob<Assignee>(db, 'assignees', state, now)
+  return { status: 200, stored: Object.keys(state).length }
+}
+
+/** Slug from the title, with a short suffix so two "Fix the thing" tasks can coexist. */
+export function taskId(title: string, now = Date.now()): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+  return `${slug || 'task'}-${now.toString(36).slice(-4)}`
+}
+
+export async function postTask(body: unknown, now = Date.now(), db: Db = getPool()): Promise<Accepted & { task?: CustomTask }> {
+  if (!validTask(body)) return { status: 400, stored: 0, reason: 'bad task' }
+  const input = body as { title: string; detail?: string; group?: string; assignee?: Assignee; id?: string }
+
+  const task: CustomTask = {
+    id: input.id ?? taskId(input.title, now),
+    title: input.title.trim(),
+    detail: input.detail?.trim() ?? '',
+    group: input.group ?? 'blocking',
+    assignee: input.assignee ?? null,
+    createdAt: now
+  }
+
+  await addTask(db, task, now)
+  return { status: 200, stored: 1, task }
+}
+
+export async function removeTask(id: unknown, db: Db = getPool()): Promise<Accepted> {
+  if (typeof id !== 'string' || !/^[a-z0-9-]{1,64}$/.test(id)) return { status: 400, stored: 0, reason: 'bad id' }
+
+  const removed = await deleteTask(db, id)
+  // A delete that removed nothing is not an error: the row may already be gone, and the
+  // caller wanted it gone either way.
+  return { status: removed ? 200 : 404, stored: removed ? 1 : 0, reason: removed ? undefined : 'no such task' }
 }

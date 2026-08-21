@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPool, migrate, prune } from './db.js'
-import { acceptEnvelope, authorised, overview, rateLimited, getTicks, putTicks, RETENTION_DAYS } from './handlers.js'
+import { acceptEnvelope, authorised, overview, rateLimited, roadmapState, putTicks, putAssignees, postTask, removeTask, RETENTION_DAYS } from './handlers.js'
 
 /**
  * The long-running version, for a VM.
@@ -62,21 +62,39 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true })
 
-    // Ticks are readable by anyone with the link, like the checklist they belong to, and
-    // writable the same way. There is nothing here worth authenticating.
-    if (url.pathname === '/api/ticks') {
+    /*
+     * The roadmap's own state: ticks, who is on what, and tasks added by hand.
+     *
+     * Deliberately not behind the dashboard token. This is the same information as the
+     * public checklist, which already says in detail what is broken and unfinished. The
+     * token guards usage data about other people; none of this is about anybody.
+     */
+    if (url.pathname === '/api/roadmap') {
       // The site is a different origin, so this has to be explicit — and it has to match
-      // the function in api/ticks.ts, or the two front ends behave differently and only
+      // the function in api/roadmap.ts, or the two front ends behave differently and only
       // one of them gets tested.
       res.setHeader('access-control-allow-origin', process.env['SITE_ORIGIN'] ?? '*')
-      res.setHeader('access-control-allow-methods', 'GET, PUT, OPTIONS')
+      res.setHeader('access-control-allow-methods', 'GET, PUT, POST, DELETE, OPTIONS')
       res.setHeader('access-control-allow-headers', 'content-type')
       res.setHeader('vary', 'origin')
       if (req.method === 'OPTIONS') return void res.writeHead(204).end()
 
-      if (req.method === 'GET') return json(res, 200, await getTicks())
+      if (req.method === 'GET') return json(res, 200, await roadmapState())
+
       if (req.method === 'PUT') {
-        const result = await putTicks(JSON.parse(await readBody(req)))
+        const part = url.searchParams.get('part') ?? 'ticks'
+        const body = JSON.parse(await readBody(req))
+        const result = part === 'assignees' ? await putAssignees(body) : await putTicks(body)
+        return json(res, result.status, result.status === 200 ? { ok: true } : { error: result.reason })
+      }
+
+      if (req.method === 'POST') {
+        const result = await postTask(JSON.parse(await readBody(req)))
+        return json(res, result.status, result.status === 200 ? { task: result.task } : { error: result.reason })
+      }
+
+      if (req.method === 'DELETE') {
+        const result = await removeTask(url.searchParams.get('id'))
         return json(res, result.status, result.status === 200 ? { ok: true } : { error: result.reason })
       }
     }

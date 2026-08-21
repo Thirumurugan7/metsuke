@@ -108,7 +108,7 @@ Then two settings connect everything up:
 - `METSUKE_TELEMETRY_ENDPOINT` as a **repository secret**, pointing at
   `https://<telemetry-project>.vercel.app/v1/events`, so release builds compile it in.
   Until it exists the app collects nothing, whatever anyone consents to.
-- `window.METSUKE_TICKS_API` in `site/config.js`, pointing at that project's `/api/ticks`,
+- `window.METSUKE_ROADMAP_API` in `site/config.js`, pointing at that project's `/api/ticks`,
   which is what makes the roadmap's ticks follow you between machines. Leave it empty and
   the checklist keeps them in one browser, exactly as it always did.
 

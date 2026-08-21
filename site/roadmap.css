@@ -253,3 +253,95 @@
     margin-left: 0;
   }
 }
+
+/* -- adding a task ----------------------------------------------------------
+   The committed list is the record of what shipped and stays in git. This is
+   for the things noticed on a Tuesday, which have to move faster than a commit. */
+
+.add-task {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 26px;
+  padding: 14px 16px;
+}
+.add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.add-row input[name='title'] {
+  flex: 1 1 260px;
+}
+.add-task input,
+.add-task select {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--fg);
+  font: inherit;
+  font-size: 13.5px;
+  padding: 8px 10px;
+}
+.add-task input:focus,
+.add-task select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.add-task input::placeholder {
+  color: var(--fg-faint);
+}
+.add-go {
+  background: var(--accent);
+  border: none;
+  border-radius: 7px;
+  color: #06080b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 550;
+  padding: 8px 18px;
+}
+
+/* -- who is on it -----------------------------------------------------------
+   One control cycling unassigned → Thiru → Prashant: a dropdown for three
+   options is more clicks and more markup than the thing is worth. */
+
+.person {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--fg-faint);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.person:hover {
+  border-color: var(--fg-faint);
+  color: var(--fg-dim);
+}
+.person-thiru {
+  border-color: #2f6f4f;
+  color: #7fd0a3;
+}
+.person-prashant {
+  border-color: #4a4a86;
+  color: #a8a4f0;
+}
+
+.remove {
+  background: transparent;
+  border: none;
+  color: var(--fg-faint);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.remove:hover {
+  color: var(--red, #f1707a);
+}

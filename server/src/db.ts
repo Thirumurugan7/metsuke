@@ -80,14 +80,34 @@ export async function migrate(db: Db, schema = 'public'): Promise<void> {
     )
   `)
 
-  // Roadmap ticks: one row, one JSON blob, shared by whoever has the link. Here rather
-  // than in its own database because it is three fields and a second Neon project would
-  // be a second thing to remember.
+  /*
+   * Roadmap state that is not in git.
+   *
+   * Two shapes, because they are two different things. Ticks and assignees are small maps
+   * keyed by task id, so they are blobs in one row each — replacing the whole map is the
+   * natural operation and there is nothing to query. Tasks added by hand have structure
+   * and get a real table, because they are rows people create and delete one at a time.
+   *
+   * Tasks committed to site/roadmap.js are untouched by all of this. That list stays the
+   * source of truth for what shipped, reviewable in a diff; this is the part that has to
+   * change faster than a commit.
+   */
   await db.query(`
     CREATE TABLE IF NOT EXISTS ${quoteIdent(schema)}.roadmap_ticks (
       id         TEXT PRIMARY KEY,
       state      JSONB NOT NULL,
       updated_at BIGINT NOT NULL
+    )
+  `)
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS ${quoteIdent(schema)}.roadmap_tasks (
+      id         TEXT PRIMARY KEY,
+      title      TEXT NOT NULL,
+      detail     TEXT NOT NULL DEFAULT '',
+      group_id   TEXT NOT NULL DEFAULT 'blocking',
+      assignee   TEXT,
+      created_at BIGINT NOT NULL
     )
   `)
 }
@@ -105,9 +125,9 @@ function quoteIdent(name: string): string {
  * possible to test against real Postgres rather than a mock that agrees with whatever the
  * code does.
  */
-export function tables(schema = process.env['DB_SCHEMA'] ?? 'public'): { events: string; installs: string; ticks: string } {
+export function tables(schema = process.env['DB_SCHEMA'] ?? 'public'): { events: string; installs: string; ticks: string; tasks: string } {
   const s = quoteIdent(schema)
-  return { events: `${s}.events`, installs: `${s}.installs`, ticks: `${s}.roadmap_ticks` }
+  return { events: `${s}.events`, installs: `${s}.installs`, ticks: `${s}.roadmap_ticks`, tasks: `${s}.roadmap_tasks` }
 }
 
 // ---------------------------------------------------------------------------
@@ -340,20 +360,77 @@ export async function prune(db: Db, retentionDays: number, now = Date.now(), sch
 // Roadmap ticks
 // ---------------------------------------------------------------------------
 
-/** Read the shared tick state. Empty object when nobody has ticked anything yet. */
-export async function readTicks(db: Db, id = 'default', schema?: string): Promise<{ state: Record<string, boolean>; updatedAt: number }> {
+/**
+ * A small map keyed by task id: ticks under 'default', assignees under 'assignees'.
+ *
+ * Both are replaced wholesale rather than patched. For a checklist two people share that
+ * is the honest model — last write wins, and the alternative is merge semantics nobody
+ * asked for on a list of checkboxes.
+ */
+export async function readBlob<T>(db: Db, id: string, schema?: string): Promise<{ state: Record<string, T>; updatedAt: number }> {
   const t = tables(schema)
   const { rows } = await db.query(`SELECT state, updated_at FROM ${t.ticks} WHERE id = $1`, [id])
   if (rows.length === 0) return { state: {}, updatedAt: 0 }
-  return { state: rows[0].state as Record<string, boolean>, updatedAt: num(rows[0].updated_at) }
+  return { state: rows[0].state as Record<string, T>, updatedAt: num(rows[0].updated_at) }
 }
 
-/** Replace the shared tick state. Last write wins, which is right for one person's list. */
-export async function writeTicks(db: Db, state: Record<string, boolean>, id = 'default', now = Date.now(), schema?: string): Promise<void> {
+export async function writeBlob<T>(db: Db, id: string, state: Record<string, T>, now = Date.now(), schema?: string): Promise<void> {
   const t = tables(schema)
   await db.query(
     `INSERT INTO ${t.ticks} (id, state, updated_at) VALUES ($1, $2, $3)
      ON CONFLICT (id) DO UPDATE SET state = EXCLUDED.state, updated_at = EXCLUDED.updated_at`,
     [id, JSON.stringify(state), now]
   )
+}
+
+export const readTicks = (db: Db, id = 'default', schema?: string): Promise<{ state: Record<string, boolean>; updatedAt: number }> =>
+  readBlob<boolean>(db, id, schema)
+
+export const writeTicks = (db: Db, state: Record<string, boolean>, id = 'default', now = Date.now(), schema?: string): Promise<void> =>
+  writeBlob<boolean>(db, id, state, now, schema)
+
+// ---------------------------------------------------------------------------
+// Tasks added by hand
+// ---------------------------------------------------------------------------
+
+/** Who is doing it. Two people, or nobody yet. */
+export type Assignee = 'thiru' | 'prashant' | null
+
+export interface CustomTask {
+  id: string
+  title: string
+  detail: string
+  /** Which section of the checklist it belongs to. */
+  group: string
+  assignee: Assignee
+  createdAt: number
+}
+
+export async function listTasks(db: Db, schema?: string): Promise<CustomTask[]> {
+  const t = tables(schema)
+  const { rows } = await db.query(`SELECT id, title, detail, group_id, assignee, created_at FROM ${t.tasks} ORDER BY created_at`)
+  return rows.map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    detail: (r.detail as string) ?? '',
+    group: r.group_id as string,
+    assignee: (r.assignee as Assignee) ?? null,
+    createdAt: num(r.created_at)
+  }))
+}
+
+export async function addTask(db: Db, task: Omit<CustomTask, 'createdAt'>, now = Date.now(), schema?: string): Promise<void> {
+  const t = tables(schema)
+  await db.query(
+    `INSERT INTO ${t.tasks} (id, title, detail, group_id, assignee, created_at) VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, detail = EXCLUDED.detail, group_id = EXCLUDED.group_id, assignee = EXCLUDED.assignee`,
+    [task.id, task.title, task.detail, task.group, task.assignee, now]
+  )
+}
+
+/** Only tasks added by hand can be deleted; the committed list is git's business. */
+export async function deleteTask(db: Db, id: string, schema?: string): Promise<boolean> {
+  const t = tables(schema)
+  const result = await db.query(`DELETE FROM ${t.tasks} WHERE id = $1`, [id])
+  return (result.rowCount ?? 0) > 0
 }
