@@ -47,6 +47,11 @@ GET  /api/overview?days=30   the dashboard's data, same auth
 
 Log in with any username and the token as the password.
 
+On Vercel the dashboard *page* is a static file, so it loads for anyone who finds the
+URL — but it contains no data. Every number on it comes from `/api/overview`, which
+answers 401 without the token, so an uninvited visitor gets an empty shell that says it
+could not load. The standalone server does gate the page itself.
+
 ## What it stores, and what it refuses to
 
 Every event is validated against `src/shared/telemetry.ts` — the app's own schema,

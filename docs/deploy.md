@@ -128,8 +128,11 @@ the default domain. Tighten it to the exact host once you have one.
 
 ### The dashboard
 
-`https://<telemetry-project>.vercel.app/` — any username, `DASHBOARD_TOKEN` as the
-password.
+`https://metsuke-server.vercel.app/` — any username, `DASHBOARD_TOKEN` as the password.
+
+The page itself is a static file on Vercel, so it loads for anyone with the URL; the data
+behind it does not. `/api/overview` answers 401 without the token, so an uninvited visitor
+sees an empty shell. `/health` is a function, not a route on the static site.
 
 ### Or a VM instead
 

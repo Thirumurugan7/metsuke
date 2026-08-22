@@ -7,7 +7,7 @@
  * Leave it empty and the roadmap keeps its ticks in this browser only, which is how it
  * behaved before any of this existed and is a perfectly good place to stay.
  */
-window.METSUKE_ROADMAP_API = ''
+window.METSUKE_ROADMAP_API = 'https://metsuke-server.vercel.app/api/roadmap'
 
 /*
  * Where installers come from.
@@ -20,4 +20,4 @@ window.METSUKE_ROADMAP_API = ''
  * Set it to that deployment's /download. Empty means the download buttons say there is no
  * release yet, which is true until one exists.
  */
-window.METSUKE_DOWNLOAD_API = ''
+window.METSUKE_DOWNLOAD_API = 'https://metsuke-server.vercel.app/download'
