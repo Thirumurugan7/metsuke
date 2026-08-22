@@ -58,7 +58,7 @@ export function githubSource(repo: string, token: string): Source {
     if (response.status === 404) {
       const repoCheck = await api(`https://api.github.com/repos/${repo}`, 'application/vnd.github+json')
       if (repoCheck.status === 404) {
-        throw new GithubError(404, `cannot see ${repo}: check GITHUB_REPO spelling and that the token can read it`)
+        throw new GithubError(404, `cannot see ${repo}: the token cannot read this repo (Contents: Read), or RELEASES_REPO is wrong`)
       }
       return null
     }

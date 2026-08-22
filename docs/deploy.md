@@ -33,7 +33,12 @@ Two backends, one interface, chosen by configuration alone. Moving between them 
 an environment variable rather than a URL anybody has bookmarked.
 
 **A GitHub release, including a private one.** Set `GITHUB_TOKEN` to a fine-grained PAT
-with read-only Contents on the repo, and `RELEASES_REPO`. The token stays server-side:
+with read-only Contents on the repo, and optionally `RELEASES_REPO` (`GITHUB_REPO` is
+accepted too; both default to `Thirumurugan7/metsuke`, so neither is normally needed).
+
+A fine-grained token has to list this repository under Repository access *and* grant
+Contents: Read. A classic token needs the whole `repo` scope, because the read-only
+scopes do not cover private repositories. The token stays server-side:
 asking GitHub for an asset with `Accept: application/octet-stream` returns a 302 to a
 signed URL, which is forwarded rather than followed, so a hundred megabytes travels
 browser-to-GitHub rather than through a function with a timeout and a bandwidth bill.

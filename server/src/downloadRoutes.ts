@@ -14,7 +14,16 @@ export function source(): Source | null {
   if (dir) return directorySource(dir)
 
   const token = process.env['GITHUB_TOKEN']
-  if (token) return githubSource(process.env['RELEASES_REPO'] ?? 'Thirumurugan7/metsuke', token)
+  /*
+   * GITHUB_REPO is accepted as well because it is the name anyone would guess sitting
+   * next to GITHUB_TOKEN, and a setting that is silently ignored is worse than one that
+   * is missing: it looks configured. The default is the repo this is released from, so
+   * neither name has to be set for the normal case.
+   */
+  if (token) {
+    const repo = process.env['RELEASES_REPO'] ?? process.env['GITHUB_REPO'] ?? 'Thirumurugan7/metsuke'
+    return githubSource(repo, token)
+  }
 
   return null
 }
