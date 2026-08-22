@@ -277,6 +277,13 @@ interface State {
 
   /** Line to scroll to and highlight once the file is open; cleared after use. */
   revealLine: { path: string; line: number; at: number } | null
+  /**
+   * Ask the Explorer to open its inline draft row, from outside the component — the
+   * palette's `explorer.newFile`/`explorer.newFolder` commands can fire regardless of
+   * which sidebar view is currently mounted. `at` is a nonce: the Explorer's effect keys
+   * off it changing, not off any cleared/consumed flag.
+   */
+  newEntryRequest: { parent: string; isDirectory: boolean; at: number } | null
 
   // -- panels ---------------------------------------------------------------
   sidebar: SidebarView
@@ -287,7 +294,10 @@ interface State {
   sidebarWidth: number
   previewWidth: number
   terminalHeight: number
+  /** File-only mode, opened by ⌘P and by "Go to File…" — the palette locks to files. */
   quickOpen: boolean
+  /** Mixed mode, opened by ⌘K — files, `>` commands, `@` sessions, `:` a line. */
+  paletteOpen: boolean
 
   // -- git ------------------------------------------------------------------
   git: GitStatus | null
@@ -336,6 +346,11 @@ interface State {
   previewUrl: string
   /** True once the CDP debugger is attached, i.e. Claude can drive the page. */
   previewAttached: boolean
+  /**
+   * Same nonce pattern as `newEntryRequest`: the `preview.reload` command lives outside
+   * `Preview.tsx`, which is the only place holding the webview ref it needs to reload.
+   */
+  previewReloadRequest: number
 
   // -- adaptation -----------------------------------------------------------
   /** The flourish currently playing, if any. */
@@ -353,6 +368,8 @@ interface State {
   restoreLastFolder: () => Promise<void>
   loadDir: (dir: string) => Promise<void>
   toggleDir: (dir: string) => Promise<void>
+  /** Open the Explorer's inline new-file/new-folder draft row from anywhere. */
+  requestNewEntry: (parent: string, isDirectory: boolean) => void
   openFile: (path: string, line?: number) => Promise<void>
   closeFile: (path: string) => void
   markDirty: (path: string, isDirty: boolean) => void
@@ -363,6 +380,7 @@ interface State {
   togglePanel: (panel: 'sidebar' | 'preview' | 'terminal') => void
   setPanelSize: (panel: 'sidebar' | 'preview' | 'terminal', px: number) => void
   setQuickOpen: (open: boolean) => void
+  setPaletteOpen: (open: boolean) => void
   setPreviewAttached: (attached: boolean) => void
   /** Mark an adaptation. Ignored while one is playing, or if it is turned off. */
   triggerAdaptation: (skill: string) => void
@@ -375,6 +393,13 @@ interface State {
   clearPickedElement: () => void
   /** Send a comment about the picked element to the active Claude session. */
   sendElementComment: (comment: string) => Promise<void>
+  /** Request a reload from outside `Preview.tsx`, e.g. the command palette. */
+  requestPreviewReload: () => void
+  /**
+   * Send arbitrary text to the most relevant Claude session, starting one if none is
+   * running. Same "prefer a live Claude session" rule as `sendElementComment`.
+   */
+  askClaude: (text: string) => Promise<void>
 
   // -- terminals ------------------------------------------------------------
   /** Open a new terminal tab and focus it. Returns its local id. */
@@ -440,12 +465,14 @@ export const useStore = create<State>((set, get) => ({
   dirty: new Set(),
   externalEdit: null,
   revealLine: null,
+  newEntryRequest: null,
   sidebar: 'explorer',
   sidebarVisible: true,
   previewVisible: true,
   terminalVisible: true,
   ...loadLayout(),
   quickOpen: false,
+  paletteOpen: false,
   git: null,
   diffPath: null,
   terminals: [],
@@ -466,6 +493,7 @@ export const useStore = create<State>((set, get) => ({
   ports: [],
   previewUrl: '',
   previewAttached: false,
+  previewReloadRequest: 0,
   adaptation: null,
   previewFullscreen: false,
   inspecting: false,
@@ -519,6 +547,8 @@ export const useStore = create<State>((set, get) => ({
     }
     set({ expanded })
   },
+
+  requestNewEntry: (parent, isDirectory) => set({ newEntryRequest: { parent, isDirectory, at: Date.now() } }),
 
   openFile: async (path, line) => {
     const reveal = line ? { path, line, at: Date.now() } : null
@@ -632,6 +662,10 @@ export const useStore = create<State>((set, get) => ({
     if (quickOpen) get().trackFeature('quick_open')
     set({ quickOpen })
   },
+  setPaletteOpen: (paletteOpen) => {
+    if (paletteOpen) get().trackFeature('command_palette')
+    set({ paletteOpen })
+  },
   setPreviewAttached: (previewAttached) => set({ previewAttached }),
 
   triggerAdaptation: (skill) => {
@@ -697,6 +731,26 @@ export const useStore = create<State>((set, get) => ({
       return
     }
     set({ pickedElement: null, activeTerminal: target.id, terminalVisible: true })
+  },
+
+  requestPreviewReload: () => set((s) => ({ previewReloadRequest: s.previewReloadRequest + 1 })),
+
+  askClaude: async (text) => {
+    // Flattened to one line: an embedded newline would submit early and strand the
+    // rest as a second, meaningless prompt — same reasoning as sendElementComment.
+    const oneLine = text.replace(/\s+/g, ' ').trim()
+    if (!oneLine) return
+    const target = get().terminals.find((t) => t.kind === 'claude' && t.sessionId)
+    if (target?.sessionId) {
+      if ((await call('terminal:write', target.sessionId, oneLine)) === null) return
+      // Separate write so the text is fully buffered before submission — sending it
+      // combined with '\r' has the pty treat the whole thing as a paste and insert a
+      // literal newline instead of submitting.
+      if ((await call('terminal:write', target.sessionId, '\r')) === null) return
+      set({ activeTerminal: target.id, terminalVisible: true })
+    } else {
+      get().addTerminal('claude', { prompt: oneLine })
+    }
   },
 
   // -- terminals ------------------------------------------------------------

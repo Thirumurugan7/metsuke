@@ -24,7 +24,8 @@ import {
   ExternalLink,
   PanelLeft,
   PanelBottom,
-  PanelRight
+  PanelRight,
+  Hash
 } from 'lucide-react'
 
 /**
@@ -58,7 +59,8 @@ export const ICONS = {
   external: ExternalLink,
   sidebar: PanelLeft,
   terminalPanel: PanelBottom,
-  previewPanel: PanelRight
+  previewPanel: PanelRight,
+  gotoLine: Hash
   // add more only when a real batch needs one — do not pre-populate speculative icons
 } as const satisfies Record<string, LucideIcon>
 

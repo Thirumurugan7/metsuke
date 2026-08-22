@@ -582,6 +582,45 @@ body.resizing .monaco-container {
   text-align: center;
 }
 
+/* -- command palette additions -------------------------------------------- */
+
+/* The row's own baseline alignment is right for two lines of text (file + dir); an
+   icon has no text baseline to share, so it centres against the row instead. */
+.quick-open-row svg {
+  align-self: center;
+  flex: 0 0 auto;
+}
+.palette-section {
+  color: var(--fg-dim);
+  font-size: var(--text-micro);
+  letter-spacing: 0.06em;
+  padding: 8px 12px 2px;
+  text-transform: uppercase;
+}
+.palette-shortcut {
+  color: var(--fg-dim);
+  font-family: ui-monospace, monospace;
+  font-size: var(--text-micro);
+  margin-left: auto;
+  white-space: nowrap;
+}
+.quick-open-row.selected .palette-shortcut {
+  color: color-mix(in srgb, var(--on-accent) 75%, transparent);
+}
+.palette-blocked {
+  color: var(--fg-dim);
+  font-size: var(--text-micro);
+  margin-left: auto;
+  white-space: nowrap;
+}
+.quick-open-row.blocked {
+  cursor: default;
+  opacity: 0.5;
+}
+.quick-open-row.blocked:hover {
+  background: none;
+}
+
 /* -- full-screen preview --------------------------------------------------- */
 
 /*

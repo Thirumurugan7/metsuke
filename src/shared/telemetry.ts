@@ -25,6 +25,7 @@ export type Feature =
   | 'panel_threads'
   | 'panel_claude'
   | 'quick_open'
+  | 'command_palette'
   | 'search_replace'
   | 'project_check'
   | 'ui_audit'

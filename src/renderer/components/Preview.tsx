@@ -54,6 +54,7 @@ export function Preview(): JSX.Element {
     previewUrl,
     previewAttached,
     previewFullscreen,
+    previewReloadRequest,
     inspecting,
     setPreviewUrl,
     setPreviewAttached,
@@ -129,6 +130,13 @@ export function Preview(): JSX.Element {
       element.removeEventListener('destroyed', onDestroyed)
     }
   }, [previewUrl, setPreviewAttached])
+
+  // The command palette's preview.reload has no webview ref of its own to call — this is
+  // the only place that owns one, so it watches the counter instead.
+  useEffect(() => {
+    if (previewReloadRequest === 0) return
+    view.current?.reload()
+  }, [previewReloadRequest])
 
   useEffect(() => {
     if (!previewFullscreen && !inspecting) return

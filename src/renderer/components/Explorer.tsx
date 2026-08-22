@@ -47,8 +47,17 @@ interface Draft {
 }
 
 export function Explorer(): JSX.Element {
-  const { workspace, tree, openFolder, loadDir, refreshGit, setError, toggleDir, setTreeFocus } =
-    useStore()
+  const {
+    workspace,
+    tree,
+    openFolder,
+    loadDir,
+    refreshGit,
+    setError,
+    toggleDir,
+    setTreeFocus,
+    newEntryRequest
+  } = useStore()
   const [menu, setMenu] = useState<MenuState | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -63,6 +72,13 @@ export function Explorer(): JSX.Element {
       window.removeEventListener('contextmenu', close)
     }
   }, [menu])
+
+  // The command palette's explorer.newFile/explorer.newFolder fire this regardless of
+  // whether this component is even mounted yet, so it is picked up on the next render.
+  useEffect(() => {
+    if (!newEntryRequest) return
+    setDraft({ parent: newEntryRequest.parent, isDirectory: newEntryRequest.isDirectory })
+  }, [newEntryRequest])
 
   if (!workspace) {
     return (

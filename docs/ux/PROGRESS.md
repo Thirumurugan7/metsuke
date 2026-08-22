@@ -19,9 +19,15 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] G2 — preview toolbar icons at real size with real hit targets
 
 ## Batch 3 — Command registry and palette
-- [ ] A2 — ⌘K command palette exists
-- [ ] D3 — Explorer toolbar actions registered as commands
-- [ ] F4 — session creation reachable without the terminal panel open
+- [x] A2 — ⌘K command palette exists
+- [x] D3 — Explorer toolbar actions registered as commands
+- [x] F4 — session creation reachable without the terminal panel open
+
+Gap: `goto.symbol` was not registered. Monaco has a built-in outline provider and
+`editor.action.quickOutline`, but reaching the live editor instance from outside
+`EditorPane.tsx` needs the same kind of ref-lifting `preview.reload` needed — skipped per
+the batch spec's own guidance rather than doing a partial refactor. Revisit alongside
+whichever later batch next touches `EditorPane.tsx`.
 
 ## Batch 4 — Chrome restructure and de-duplication
 - [ ] A1 — one canonical home per action

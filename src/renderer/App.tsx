@@ -13,7 +13,7 @@ import { Preview } from './components/Preview'
 import { TerminalPanel } from './components/TerminalPanel'
 import { StatusBar } from './components/StatusBar'
 import { Splitter } from './components/Splitter'
-import { QuickOpen } from './components/QuickOpen'
+import { CommandPalette } from './components/CommandPalette'
 import { Toasts } from './components/Toasts'
 import { ElementComment } from './components/ElementComment'
 import { Welcome } from './components/Welcome'
@@ -60,6 +60,7 @@ export function App(): JSX.Element {
     togglePanel,
     setPanelSize,
     setQuickOpen,
+    setPaletteOpen,
     openFolder,
     closeFile
   } = useStore()
@@ -135,6 +136,9 @@ export function App(): JSX.Element {
       if (key === 'p') {
         e.preventDefault()
         setQuickOpen(true)
+      } else if (key === 'k') {
+        e.preventDefault()
+        setPaletteOpen(true)
       } else if (key === 'b') {
         e.preventDefault()
         togglePanel('sidebar')
@@ -152,7 +156,7 @@ export function App(): JSX.Element {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [setSidebar, setQuickOpen, togglePanel, closeFile, openFolder])
+  }, [setSidebar, setQuickOpen, setPaletteOpen, togglePanel, closeFile, openFolder])
 
   const changes = git?.files.length ?? 0
   const activeView = VIEWS.find((v) => v.id === sidebar)
@@ -295,7 +299,7 @@ export function App(): JSX.Element {
       <TelemetryConsent />
       <Guide />
       <ElementComment />
-      <QuickOpen />
+      <CommandPalette />
       <NewThread />
       <LandThread />
       <NotificationSettings />
