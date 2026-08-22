@@ -1,4 +1,5 @@
 import { useStore } from '../state/store'
+import { Icon } from './Icon'
 
 /**
  * The bottom strip. Everything here was previously either unlabelled or invisible:
@@ -36,7 +37,7 @@ export function StatusBar({
   return (
     <footer className="status-bar">
       <button className="status-item" onClick={() => void openFolder()} title="Open a different folder">
-        <span aria-hidden="true">📂</span>
+        <Icon name="openFolder" />
         {workspace?.name ?? 'No folder'}
       </button>
 
@@ -46,7 +47,7 @@ export function StatusBar({
           onClick={() => setSidebar('git')}
           title="Show source control"
         >
-          <span aria-hidden="true">⑂</span>
+          <Icon name="branch" />
           {git.detached ? 'detached HEAD' : (git.branch ?? '—')}
           {git.behind > 0 && <span className="status-count">↓{git.behind}</span>}
           {git.ahead > 0 && <span className="status-count">↑{git.ahead}</span>}
@@ -100,12 +101,12 @@ export function StatusBar({
         onClick={() => togglePanel('terminal')}
         title="Show terminals"
       >
-        <span aria-hidden="true">▤</span>
+        <Icon name="terminalPanel" />
         {terminals.length} terminal{terminals.length === 1 ? '' : 's'}
       </button>
 
       <button className="status-item" onClick={() => setSidebar('ports')} title="Show listening ports">
-        <span aria-hidden="true">⚓</span>
+        <Icon name="ports" />
         {ports.length} port{ports.length === 1 ? '' : 's'}
       </button>
 
@@ -146,7 +147,7 @@ export function StatusBar({
             : 'Notification settings'
         }
       >
-        <span aria-hidden="true">🔔</span>
+        <Icon name="notifications" />
         Alerts
         {notificationLog.length > 0 && <span className="status-count">{notificationLog.length}</span>}
       </button>

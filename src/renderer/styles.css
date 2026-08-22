@@ -1670,6 +1670,15 @@ body.resizing .monaco-container {
   gap: 3px;
   padding: 0 8px;
 }
+/* Back/forward/reload/fullscreen only: real icons want a real target, not the
+   button.icon-only default. G2 scopes this to these four, not a global bump. */
+.preview-bar .preview-tool {
+  align-items: center;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  min-width: 28px;
+}
 .preview-bar input {
   flex: 1;
   font-size: var(--text-body);

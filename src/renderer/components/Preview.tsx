@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { call, useStore } from '../state/store'
 import { PortsPanel } from './PortsPanel'
+import { Icon } from './Icon'
 
 /**
  * React's types already cover the <webview> element and its Electron attributes; what
@@ -149,31 +150,31 @@ export function Preview(): JSX.Element {
     <section className="preview" aria-label="Preview">
       <div className="preview-bar">
         <button
-          className="icon-only"
+          className="icon-only preview-tool"
           title="Go back"
           aria-label="Go back"
           disabled={!previewUrl}
           onClick={() => view.current?.goBack()}
         >
-          ‹
+          <Icon name="back" />
         </button>
         <button
-          className="icon-only"
+          className="icon-only preview-tool"
           title="Go forward"
           aria-label="Go forward"
           disabled={!previewUrl}
           onClick={() => view.current?.goForward()}
         >
-          ›
+          <Icon name="forward" />
         </button>
         <button
-          className="icon-only"
+          className="icon-only preview-tool"
           title={loading ? 'Loading…' : 'Reload the page'}
           aria-label="Reload"
           disabled={!previewUrl}
           onClick={() => view.current?.reload()}
         >
-          {loading ? '◌' : '↻'}
+          {loading ? '◌' : <Icon name="reload" />}
         </button>
 
         <input
@@ -201,17 +202,17 @@ export function Preview(): JSX.Element {
           }
           onClick={() => void (inspecting ? stopInspect() : startInspect())}
         >
-          <span aria-hidden="true">⌖</span> {inspecting ? 'Picking…' : 'Select'}
+          <Icon name="pointAtElement" /> {inspecting ? 'Picking…' : 'Select'}
         </button>
 
         <button
-          className="icon-only"
+          className="icon-only preview-tool"
           aria-pressed={previewFullscreen}
           title={previewFullscreen ? 'Exit full screen (Esc)' : 'Full screen preview'}
           aria-label={previewFullscreen ? 'Exit full screen' : 'Full screen preview'}
           onClick={togglePreviewFullscreen}
         >
-          {previewFullscreen ? '⤡' : '⛶'}
+          <Icon name={previewFullscreen ? 'exitFullscreen' : 'fullscreen'} />
         </button>
       </div>
 

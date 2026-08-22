@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { call, useStore } from '../state/store'
 import type { Thread, ThreadStatus } from '@shared/ipc'
+import { Icon } from './Icon'
 
 /** Glyph and colour class per status, so the list reads at a glance and not by label. */
 const DOT: Record<ThreadStatus, { glyph: string; cls: string; label: string }> = {
@@ -64,7 +65,7 @@ export function ThreadsPanel(): JSX.Element {
           disabled={!workspace}
           title={workspace ? 'Start a thread' : 'Open a folder first'}
         >
-          ＋ New thread
+          <Icon name="add" /> New thread
         </button>
         {running > 0 && <span className="threads-count">{running} running</span>}
       </div>
@@ -130,7 +131,11 @@ function ThreadRow({
           </span>
           <span className="thread-meta">
             <span className="thread-kind">{sub ? 'subagent' : '◆ instance'}</span>
-            {thread.branch && <span className="thread-branch">⑂ {thread.branch}</span>}
+            {thread.branch && (
+              <span className="thread-branch">
+                <Icon name="branch" /> {thread.branch}
+              </span>
+            )}
             {(thread.added > 0 || thread.removed > 0) && (
               <span className="thread-stat">
                 <span className="add">+{thread.added}</span> <span className="del">−{thread.removed}</span>
@@ -157,7 +162,7 @@ function ThreadRow({
         title={thread.worktree ? 'Close and remove its worktree, keeping the branch' : 'Close thread'}
         aria-label={`Close ${thread.title}`}
       >
-        ×
+        <Icon name="close" />
       </button>
 
       {thread.report && (

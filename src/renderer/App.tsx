@@ -21,23 +21,24 @@ import { Guide } from './components/Guide'
 import { Adaptation } from './components/Adaptation'
 import { NotificationSettings } from './components/NotificationSettings'
 import { TelemetryConsent } from './components/TelemetryConsent'
+import { Icon, ICONS } from './components/Icon'
 
 const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
 
 /** `label` is the panel heading; `short` is the one-word caption under the icon. */
 const VIEWS: Array<{
   id: SidebarView
-  icon: string
+  icon: keyof typeof ICONS
   label: string
   short: string
   shortcut: string
 }> = [
-  { id: 'explorer', icon: '▤', label: 'Explorer', short: 'Files', shortcut: `${MOD}⇧E` },
-  { id: 'git', icon: '⑂', label: 'Source Control', short: 'Git', shortcut: `${MOD}⇧G` },
-  { id: 'search', icon: '⌕', label: 'Search', short: 'Search', shortcut: `${MOD}⇧F` },
-  { id: 'ports', icon: '⚓', label: 'Ports', short: 'Ports', shortcut: `${MOD}⇧P` },
-  { id: 'threads', icon: '◆', label: 'Threads', short: 'Threads', shortcut: `${MOD}⇧T` },
-  { id: 'claude', icon: '✳', label: 'Claude', short: 'Claude', shortcut: `${MOD}⇧C` }
+  { id: 'explorer', icon: 'files', label: 'Explorer', short: 'Files', shortcut: `${MOD}⇧E` },
+  { id: 'git', icon: 'git', label: 'Source Control', short: 'Git', shortcut: `${MOD}⇧G` },
+  { id: 'search', icon: 'search', label: 'Search', short: 'Search', shortcut: `${MOD}⇧F` },
+  { id: 'ports', icon: 'ports', label: 'Ports', short: 'Ports', shortcut: `${MOD}⇧P` },
+  { id: 'threads', icon: 'agents', label: 'Threads', short: 'Threads', shortcut: `${MOD}⇧T` },
+  { id: 'claude', icon: 'agents', label: 'Claude', short: 'Claude', shortcut: `${MOD}⇧C` }
 ]
 
 export function App(): JSX.Element {
@@ -165,28 +166,28 @@ export function App(): JSX.Element {
 
         <div className="title-actions">
           <button className="labelled" onClick={() => void openFolder()} title={`Open folder (${MOD}O)`}>
-            <span aria-hidden="true">📂</span> Open Folder
+            <Icon name="openFolder" /> Open Folder
           </button>
           <button
             className={`labelled${sidebarVisible ? ' active' : ''}`}
             onClick={() => togglePanel('sidebar')}
             title={`Toggle sidebar (${MOD}B)`}
           >
-            <span aria-hidden="true">▤</span> Sidebar
+            <Icon name="sidebar" /> Sidebar
           </button>
           <button
             className={`labelled${previewVisible ? ' active' : ''}`}
             onClick={() => togglePanel('preview')}
             title="Toggle preview panel"
           >
-            <span aria-hidden="true">◫</span> Preview
+            <Icon name="previewPanel" /> Preview
           </button>
           <button
             className={`labelled${terminalVisible ? ' active' : ''}`}
             onClick={() => togglePanel('terminal')}
             title={`Toggle terminal (${MOD}J)`}
           >
-            <span aria-hidden="true">▤</span> Terminal
+            <Icon name="terminalPanel" /> Terminal
           </button>
         </div>
       </header>
@@ -202,8 +203,8 @@ export function App(): JSX.Element {
               aria-pressed={sidebar === view.id && sidebarVisible}
               onClick={() => setSidebar(view.id)}
             >
-              <span className="activity-icon" aria-hidden="true">
-                {view.icon}
+              <span className="activity-icon">
+                <Icon name={view.icon} size={20} />
               </span>
               <span className="activity-label">{view.short}</span>
               {view.id === 'git' && changes > 0 && <span className="dot">{changes}</span>}
@@ -223,7 +224,7 @@ export function App(): JSX.Element {
                   aria-label="Hide sidebar"
                   onClick={() => togglePanel('sidebar')}
                 >
-                  ×
+                  <Icon name="close" />
                 </button>
               </div>
               <div className="sidebar-body">

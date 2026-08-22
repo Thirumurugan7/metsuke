@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { call, useStore } from '../state/store'
 import type { DirEntry, GitStatus } from '@shared/ipc'
+import { Icon } from './Icon'
 
 /**
  * Single-letter badge matching the git status of a file. Takes the status as an
@@ -176,7 +177,7 @@ export function Explorer(): JSX.Element {
           aria-label="New file"
           onClick={() => setDraft({ parent: '', isDirectory: false })}
         >
-          ＋
+          <Icon name="add" />
         </button>
         <button
           className="icon-only"

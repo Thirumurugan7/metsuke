@@ -13,10 +13,10 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 - [x] B5 — active vs hover states visually distinct
 
 ## Batch 2 — Icon system
-- [ ] J2 — one icon family, inline SVG
-- [ ] B3 — ▤ no longer means four things
-- [ ] C2 — ⚓ ◆ ✳ replaced with literal icons
-- [ ] G2 — preview toolbar icons at real size with real hit targets
+- [x] J2 — one icon family, inline SVG
+- [x] B3 — ▤ no longer means four things
+- [x] C2 — ⚓ ◆ ✳ replaced with literal icons
+- [x] G2 — preview toolbar icons at real size with real hit targets
 
 ## Batch 3 — Command registry and palette
 - [ ] A2 — ⌘K command palette exists

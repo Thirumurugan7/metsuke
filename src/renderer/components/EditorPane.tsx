@@ -3,6 +3,7 @@ import * as monaco from 'monaco-editor'
 import { useStore } from '../state/store'
 import { getTheme, monacoThemeName, onThemeChange, applyMonacoTheme } from '../theme/apply'
 import { DiffView } from './DiffView'
+import { Icon } from './Icon'
 
 /** Monaco's language ids for the extensions this editor is likely to meet. */
 const LANGUAGES: Record<string, string> = {
@@ -245,7 +246,7 @@ function Tab({ path, isDirty }: { path: string; isDirty: boolean }): JSX.Element
           closeFile(path)
         }}
       >
-        {isDirty ? '●' : '×'}
+        {isDirty ? '●' : <Icon name="close" />}
       </button>
     </div>
   )
@@ -263,7 +264,7 @@ function DiffTab({ path }: { path: string }): JSX.Element {
       <span className="tab-kind">Diff</span>
       <span className="tab-name">{path.split('/').pop()}</span>
       <button className="tab-close" aria-label="Close diff" title="Close" onClick={() => showDiff(null)}>
-        ×
+        <Icon name="close" />
       </button>
     </div>
   )

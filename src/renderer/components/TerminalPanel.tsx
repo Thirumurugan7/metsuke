@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { call, useStore, type TerminalTab } from '../state/store'
 import { getTheme, onThemeChange, xtermTheme } from '../theme/apply'
+import { Icon } from './Icon'
 
 /**
  * Multiple real ptys, one per tab.
@@ -91,7 +92,7 @@ export function TerminalPanel(): JSX.Element {
                   closeTerminal(tab.id)
                 }}
               >
-                ×
+                <Icon name="close" />
               </button>
             </div>
           ))}
@@ -111,7 +112,7 @@ export function TerminalPanel(): JSX.Element {
                 toggleMenu()
               }}
             >
-              ＋ New ▾
+              <Icon name="add" /> New <Icon name="chevronDown" />
             </button>
             {menu && (
               <div
@@ -349,7 +350,7 @@ function TerminalInstance({ tab, visible }: { tab: TerminalTab; visible: boolean
         <div className="terminal-exited">
           <span>Process exited ({tab.exitCode})</span>
           <button className="labelled" onClick={() => useStore.getState().restartTerminal(tab.id)}>
-            ↻ Restart
+            <Icon name="reload" /> Restart
           </button>
         </div>
       )}
