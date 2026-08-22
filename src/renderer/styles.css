@@ -24,7 +24,6 @@
   --conflict: #e5c07b;
   --hover: rgba(255, 255, 255, 0.05);
   --hover-strong: rgba(255, 255, 255, 0.1);
-  --hover-hard: rgba(255, 255, 255, 0.13);
   --sunken: rgba(255, 255, 255, 0.06);
   --input-bg: #3c3c3c;
   --input-border: rgba(255, 255, 255, 0.09);
@@ -40,6 +39,22 @@
   --danger-fg: #ffb4b4;
   --preview-ground: #ffffff;
   --row: 22px;
+
+  /* Six-step type scale. Every font-size declaration in this file uses one of these. */
+  --text-micro: 11px; /* badges, counts, port numbers, rail labels */
+  --text-small: 12px; /* status bar, tab labels, secondary metadata */
+  --text-body: 13px; /* default for all UI text */
+  --text-panel: 15px; /* sidebar headers, section headings */
+  --text-dialog: 20px; /* sheet/modal titles */
+  --text-display: 28px; /* Welcome heading, future Start panel heading */
+
+  /* "Selected" reads as a different property (accent tint) from "hovered" (white/black
+     wash), rather than a stronger amount of the same wash. */
+  --selected-bg: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+:root[data-theme='light'] {
+  --selected-bg: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 * {
@@ -78,13 +93,13 @@ button:disabled {
   cursor: default;
 }
 button.active {
-  background: var(--hover-hard);
+  background: var(--selected-bg);
 }
 /* Every control is reachable and visibly focusable by keyboard. */
 button:focus-visible,
 [role='treeitem']:focus-visible,
 .splitter:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 
@@ -202,7 +217,7 @@ body.is-mac .title-bar {
 }
 .toast-message {
   flex: 1;
-  font-size: 12px;
+  font-size: var(--text-body);
   max-height: 160px;
   overflow: auto;
   user-select: text;
@@ -244,12 +259,12 @@ body.is-mac .title-bar {
   position: relative;
 }
 .activity-item.active {
-  background: var(--hover);
+  background: var(--selected-bg);
   border-left-color: var(--accent);
   color: var(--fg);
 }
 .activity-icon {
-  font-size: 17px;
+  font-size: var(--text-dialog);
   line-height: 1.1;
 }
 /*
@@ -257,7 +272,7 @@ body.is-mac .title-bar {
   button 11px taller than the rest, so the row of icons sat visibly crooked.
 */
 .activity-label {
-  font-size: 9.5px;
+  font-size: var(--text-micro);
   letter-spacing: 0.01em;
   line-height: 12px;
   max-width: 100%;
@@ -267,10 +282,10 @@ body.is-mac .title-bar {
   white-space: nowrap;
 }
 .activity-item .dot {
-  background: var(--accent);
+  background: var(--badge);
   border-radius: 8px;
-  color: var(--on-accent);
-  font-size: 9px;
+  color: var(--fg);
+  font-size: var(--text-micro);
   line-height: 14px;
   min-width: 14px;
   padding: 0 3px;
@@ -292,14 +307,12 @@ body.is-mac .title-bar {
 }
 .sidebar-header {
   align-items: center;
-  color: var(--fg-dim);
+  color: var(--fg);
   display: flex;
   flex: 0 0 30px;
-  font-size: 11px;
+  font-size: var(--text-panel);
   justify-content: space-between;
-  letter-spacing: 0.08em;
   padding: 0 6px 0 12px;
-  text-transform: uppercase;
 }
 
 /* -- splitters ----------------------------------------------------------- */
@@ -402,18 +415,18 @@ body.resizing .monaco-container {
 .tree-caret {
   color: var(--fg-dim);
   display: inline-block;
-  font-size: 10px;
+  font-size: var(--text-micro);
   width: 10px;
 }
 .tree-icon {
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 .tree-name {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .tree-badge {
-  font-size: 11px;
+  font-size: var(--text-small);
   font-weight: 700;
   margin-left: auto;
 }
@@ -445,11 +458,11 @@ body.resizing .monaco-container {
 }
 .panel-empty .empty-title {
   color: var(--fg);
-  font-size: 14px;
+  font-size: var(--text-panel);
   font-weight: 600;
 }
 .panel-empty .hint {
-  font-size: 11.5px;
+  font-size: var(--text-small);
   line-height: 1.5;
   max-width: 300px;
 }
@@ -460,7 +473,7 @@ body.resizing .monaco-container {
 .section-empty,
 .tree-empty {
   color: var(--fg-dim);
-  font-size: 11.5px;
+  font-size: var(--text-small);
   padding: 2px 12px 8px;
 }
 
@@ -530,7 +543,7 @@ body.resizing .monaco-container {
 .quick-open input {
   border: none;
   border-radius: 0;
-  font-size: 14px;
+  font-size: var(--text-panel);
   padding: 10px 12px;
 }
 .quick-open input:focus {
@@ -559,7 +572,7 @@ body.resizing .monaco-container {
 }
 .quick-open-dir {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -620,14 +633,14 @@ body.resizing .monaco-container {
 .comment-tag {
   color: var(--accent);
   font-family: ui-monospace, monospace;
-  font-size: 12px;
+  font-size: var(--text-body);
   font-weight: 600;
 }
 .comment-selector {
   color: var(--fg-dim);
   flex: 1;
   font-family: ui-monospace, monospace;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   overflow: hidden;
   text-overflow: ellipsis;
   user-select: text;
@@ -637,7 +650,7 @@ body.resizing .monaco-container {
   background: var(--hover);
   border-radius: 6px;
   color: var(--fg-dim);
-  font-size: 12px;
+  font-size: var(--text-body);
   margin: 0;
   max-height: 72px;
   overflow: auto;
@@ -656,7 +669,7 @@ body.resizing .monaco-container {
 .comment-hint {
   color: var(--fg-dim);
   flex: 1;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 
 /* -- adaptation flourish -------------------------------------------------- */
@@ -720,7 +733,7 @@ body.resizing .monaco-container {
 }
 .adapt-word {
   color: var(--fg-dim);
-  font-size: 10px;
+  font-size: var(--text-micro);
   letter-spacing: 0.42em;
   opacity: 0.55;
   text-transform: uppercase;
@@ -728,7 +741,7 @@ body.resizing .monaco-container {
 .adapt-skill {
   color: var(--accent);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   opacity: 0.6;
 }
 
@@ -787,7 +800,7 @@ body.resizing .monaco-container {
   cursor: pointer;
   flex: 1;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-body);
   padding: 5px 10px;
 }
 .thread-new:hover:not(:disabled) {
@@ -801,12 +814,12 @@ body.resizing .monaco-container {
   background: var(--hover-strong);
   border-radius: 8px;
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   padding: 1px 7px;
 }
 .threads-empty {
   color: var(--fg-dim);
-  font-size: 12px;
+  font-size: var(--text-body);
   line-height: 1.6;
   margin: 0;
   padding: 14px 12px;
@@ -862,7 +875,7 @@ body.resizing .monaco-container {
 }
 .thread-dot {
   flex: 0 0 auto;
-  font-size: 9px;
+  font-size: var(--text-micro);
   line-height: 1.9;
 }
 .thread-dot.run {
@@ -884,14 +897,14 @@ body.resizing .monaco-container {
 }
 .thread-name {
   display: block;
-  font-size: 12.5px;
+  font-size: var(--text-body);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .thread-row.sub .thread-name {
   color: var(--fg-dim);
-  font-size: 12px;
+  font-size: var(--text-body);
 }
 .thread-arrow {
   color: var(--fg-dim);
@@ -903,7 +916,7 @@ body.resizing .monaco-container {
 .thread-meta {
   color: var(--fg-dim);
   display: flex;
-  font-size: 10.5px;
+  font-size: var(--text-micro);
   gap: 7px;
   margin-top: 2px;
   overflow: hidden;
@@ -940,7 +953,7 @@ body.resizing .monaco-container {
   border: none;
   color: var(--fg-dim);
   cursor: pointer;
-  font-size: 15px;
+  font-size: var(--text-panel);
   line-height: 1;
   opacity: 0;
   padding: 0 9px;
@@ -976,12 +989,12 @@ body.resizing .monaco-container {
   width: 660px;
 }
 .sheet-title {
-  font-size: 15px;
+  font-size: var(--text-panel);
   margin: 0 0 3px;
 }
 .sheet-sub {
   color: var(--fg-dim);
-  font-size: 12.5px;
+  font-size: var(--text-body);
   margin: 0 0 14px;
 }
 .sheet-modes {
@@ -1014,11 +1027,11 @@ body.resizing .monaco-container {
 .sheet-glyph {
   color: var(--accent);
   display: block;
-  font-size: 15px;
+  font-size: var(--text-panel);
 }
 .sheet-mode-title {
   display: block;
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: 600;
   margin: 5px 0 6px;
 }
@@ -1028,7 +1041,7 @@ body.resizing .monaco-container {
 }
 .sheet-mode li {
   color: var(--fg-dim);
-  font-size: 11.5px;
+  font-size: var(--text-small);
   line-height: 1.55;
   margin-bottom: 3px;
 }
@@ -1037,7 +1050,7 @@ body.resizing .monaco-container {
   border-top: 1px solid var(--border);
   color: var(--modified);
   display: block;
-  font-size: 11px;
+  font-size: var(--text-small);
   line-height: 1.5;
   margin-top: 9px;
   padding-top: 8px;
@@ -1045,7 +1058,7 @@ body.resizing .monaco-container {
 .sheet-unavailable {
   color: var(--fg-dim);
   display: block;
-  font-size: 11px;
+  font-size: var(--text-small);
   margin-top: 7px;
 }
 
@@ -1056,7 +1069,7 @@ body.resizing .monaco-container {
 .sheet-field > span {
   color: var(--fg-dim);
   display: block;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   margin-bottom: 5px;
 }
 .sheet-field input,
@@ -1067,7 +1080,7 @@ body.resizing .monaco-container {
   border-radius: 6px;
   color: var(--fg);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-body);
   padding: 7px 9px;
   resize: vertical;
   width: 100%;
@@ -1093,7 +1106,7 @@ body.resizing .monaco-container {
   color: var(--fg-dim);
   cursor: pointer;
   display: flex;
-  font-size: 12px;
+  font-size: var(--text-body);
   gap: 7px;
 }
 .sheet-check.disabled {
@@ -1113,7 +1126,7 @@ body.resizing .monaco-container {
   border-radius: 6px;
   cursor: pointer;
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-body);
   padding: 6px 14px;
 }
 .sheet-buttons .ghost {
@@ -1174,7 +1187,7 @@ body.resizing .monaco-container {
   border-left-color: var(--untracked);
 }
 .notify-icon {
-  font-size: 26px;
+  font-size: var(--text-display);
   line-height: 1;
 }
 .notify-text {
@@ -1182,7 +1195,7 @@ body.resizing .monaco-container {
   min-width: 0;
 }
 .notify-text h2 {
-  font-size: 15px;
+  font-size: var(--text-panel);
   margin: 0 0 4px;
 }
 .notify-text p {
@@ -1225,7 +1238,7 @@ body.resizing .monaco-container {
   padding: 12px 16px;
 }
 .settings-header h2 {
-  font-size: 15px;
+  font-size: var(--text-panel);
   margin: 0;
 }
 .settings-body {
@@ -1234,7 +1247,7 @@ body.resizing .monaco-container {
 }
 .settings-body h3 {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   letter-spacing: 0.08em;
   margin: 16px 0 6px;
   text-transform: uppercase;
@@ -1254,7 +1267,7 @@ body.resizing .monaco-container {
 }
 .settings-row small {
   color: var(--fg-dim);
-  font-size: 11.5px;
+  font-size: var(--text-small);
   line-height: 1.45;
 }
 .settings-row.indent {
@@ -1264,7 +1277,7 @@ body.resizing .monaco-container {
    column as the help text under the toggle it belongs to. */
 .settings-note {
   color: var(--fg-dim);
-  font-size: 11.5px;
+  font-size: var(--text-small);
   line-height: 1.45;
   margin: 2px 0 0 24px;
 }
@@ -1281,7 +1294,7 @@ body.resizing .monaco-container {
   align-items: center;
   color: var(--fg-dim);
   display: flex;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   gap: 6px;
 }
 .settings-telegram {
@@ -1296,7 +1309,7 @@ body.resizing .monaco-container {
   background: var(--diff-add-bg);
   border-radius: 6px;
   color: var(--diff-add-fg);
-  font-size: 12px;
+  font-size: var(--text-body);
   margin: 14px 0 0;
   padding: 8px 10px;
 }
@@ -1309,7 +1322,7 @@ body.resizing .monaco-container {
   border-top: 1px solid var(--border);
   display: flex;
   flex: 0 0 22px;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   gap: 2px;
   padding: 0 8px;
 }
@@ -1368,14 +1381,14 @@ body.resizing .monaco-container {
 .tab-kind {
   background: var(--hover-strong);
   border-radius: 3px;
-  font-size: 9.5px;
+  font-size: var(--text-micro);
   letter-spacing: 0.04em;
   padding: 1px 4px;
   text-transform: uppercase;
 }
 .tab-close {
   border-radius: 3px;
-  font-size: 11px;
+  font-size: var(--text-small);
   line-height: 1;
   opacity: 0.55;
   padding: 3px 4px;
@@ -1424,7 +1437,7 @@ body.resizing .monaco-container {
   margin-left: auto;
 }
 .diff-kind button {
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 .diff-body {
   flex: 1;
@@ -1482,12 +1495,12 @@ body.resizing .monaco-container {
 }
 .git-busy {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   padding: 0 8px 4px;
 }
 .log-author {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   margin-left: auto;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1496,7 +1509,7 @@ body.resizing .monaco-container {
   align-items: center;
   color: var(--fg-dim);
   display: flex;
-  font-size: 11px;
+  font-size: var(--text-small);
   justify-content: space-between;
   letter-spacing: 0.06em;
   padding: 6px 8px 2px;
@@ -1526,7 +1539,7 @@ body.resizing .monaco-container {
 }
 .git-dir {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1573,7 +1586,7 @@ body.resizing .monaco-container {
 .log-hash {
   color: var(--fg-dim);
   font-family: ui-monospace, monospace;
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 .log-subject {
   overflow: hidden;
@@ -1600,15 +1613,15 @@ body.resizing .monaco-container {
   display: flex;
 }
 .search-toggles button {
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 .search-summary {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 .search-file-name {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   overflow: hidden;
   padding-top: 6px;
   text-overflow: ellipsis;
@@ -1628,13 +1641,13 @@ body.resizing .monaco-container {
 .search-line {
   color: var(--fg-dim);
   font-family: ui-monospace, monospace;
-  font-size: 11px;
+  font-size: var(--text-small);
   min-width: 32px;
   text-align: right;
 }
 .search-text {
   font-family: ui-monospace, monospace;
-  font-size: 11px;
+  font-size: var(--text-small);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1659,7 +1672,7 @@ body.resizing .monaco-container {
 }
 .preview-bar input {
   flex: 1;
-  font-size: 12px;
+  font-size: var(--text-body);
   margin: 0 4px;
   min-width: 0;
 }
@@ -1671,7 +1684,7 @@ body.resizing .monaco-container {
 }
 .cdp-pill {
   color: var(--fg-dim);
-  font-size: 10px;
+  font-size: var(--text-micro);
   letter-spacing: 0.02em;
   text-transform: none;
 }
@@ -1703,7 +1716,7 @@ body.resizing .monaco-container {
 .preview-error-url {
   color: var(--accent);
   font-family: ui-monospace, monospace;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   overflow-wrap: anywhere;
   user-select: text;
 }
@@ -1715,7 +1728,7 @@ body.resizing .monaco-container {
 }
 .port-toggle {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   padding: 4px 8px;
   text-align: left;
   width: 100%;
@@ -1737,7 +1750,7 @@ body.resizing .monaco-container {
 
 .ports-empty {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   padding: 4px 8px 10px;
 }
 .port-list {
@@ -1777,7 +1790,7 @@ body.resizing .monaco-container {
   background: var(--hover-strong);
   border-radius: 8px;
   color: var(--untracked);
-  font-size: 10px;
+  font-size: var(--text-micro);
   padding: 0 6px;
 }
 .port-open {
@@ -1802,7 +1815,7 @@ body.resizing .monaco-container {
   padding: 0 8px;
 }
 .terminal-bar button {
-  font-size: 11px;
+  font-size: var(--text-small);
 }
 .terminal-tabs {
   display: flex;
@@ -1818,7 +1831,7 @@ body.resizing .monaco-container {
   cursor: pointer;
   display: flex;
   gap: 5px;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   padding: 2px 4px 2px 7px;
   white-space: nowrap;
 }
@@ -1885,7 +1898,7 @@ body.resizing .monaco-container {
   color: var(--fg-dim);
   cursor: pointer;
   display: flex;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   gap: 6px;
   padding: 5px 10px;
 }
@@ -1902,14 +1915,14 @@ body.resizing .monaco-container {
   align-items: center;
   background: var(--diff-del-bg);
   display: flex;
-  font-size: 11.5px;
+  font-size: var(--text-small);
   gap: 10px;
   justify-content: space-between;
   padding: 3px 8px;
 }
 .terminal-hint {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   margin-left: auto;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1949,7 +1962,7 @@ body.resizing .monaco-container {
 }
 .theme-group-label {
   color: var(--fg-dim);
-  font-size: 10.5px;
+  font-size: var(--text-micro);
   letter-spacing: 0.08em;
   margin-top: 4px;
   text-transform: uppercase;
@@ -2042,12 +2055,12 @@ body.resizing .monaco-container {
   min-width: 0;
 }
 .theme-name {
-  font-size: 13px;
+  font-size: var(--text-body);
   font-weight: 600;
 }
 .theme-blurb {
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: var(--text-small);
   line-height: 1.35;
 }
 
@@ -2057,7 +2070,7 @@ body.resizing .monaco-container {
   border: 0;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-body);
   line-height: 1;
   opacity: 0;
   padding: 4px 2px;
@@ -2074,7 +2087,7 @@ body.resizing .monaco-container {
   background: var(--bg-raised);
   border-left: 2px solid var(--danger, #e5534b);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: var(--text-body);
   margin: 12px 0;
   padding: 10px 12px;
 }
@@ -2087,7 +2100,7 @@ body.resizing .monaco-container {
 }
 .land-sheet .land-unknown {
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--text-body);
   margin: 12px 0 0;
 }
 
@@ -2103,7 +2116,7 @@ body.resizing .monaco-container {
 }
 .search-replace .primary {
   flex: 0 0 auto;
-  font-size: 12px;
+  font-size: var(--text-body);
   padding: 4px 10px;
 }
 .search-expand {
@@ -2122,7 +2135,7 @@ body.resizing .monaco-container {
   border: 0;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-small);
   grid-column: 1 / -1;
   padding: 2px 0 4px 28px;
   text-align: left;
@@ -2135,7 +2148,7 @@ body.resizing .monaco-container {
   border-left: 2px solid var(--accent);
   border-radius: 4px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--text-small);
   grid-column: 1 / -1;
   line-height: 1.5;
   margin: 0 8px 8px 28px;

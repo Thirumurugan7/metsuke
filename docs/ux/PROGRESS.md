@@ -6,11 +6,11 @@ Tracks which audit findings have landed on `UX-Edits`. Update the checkbox and t
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## Batch 1 — Design tokens and type scale
-- [ ] J1 — thirteen font sizes collapsed to six
-- [ ] J5 — accent colour restricted to one meaning
-- [ ] C1 — rail labels raised to 11px minimum
-- [ ] D1 — sidebar header un-uppercased, 12px
-- [ ] B5 — active vs hover states visually distinct
+- [x] J1 — thirteen font sizes collapsed to six
+- [x] J5 — accent colour restricted to one meaning
+- [x] C1 — rail labels raised to 11px minimum
+- [x] D1 — sidebar header un-uppercased, 12px
+- [x] B5 — active vs hover states visually distinct
 
 ## Batch 2 — Icon system
 - [ ] J2 — one icon family, inline SVG

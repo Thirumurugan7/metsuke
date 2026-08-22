@@ -125,6 +125,12 @@ function build(spec: Spec): Theme {
       accent: spec.accent,
       'accent-hover': spec.accentHover,
       'on-accent': spec.onAccent,
+      // Its own token so accent can mean one thing: "the thing you are on." Same value
+      // as accent for now, but free to diverge later without touching every ring.
+      focus: spec.accent,
+      // Neutral chip ground for pure-count badges, so accent is not diluted into
+      // meaning "there is a number here" as well as "this is selected."
+      badge: spec.dark ? mix(spec.fg, spec.bg, 0.7) : mix(spec.fg, spec.bg, 0.85),
 
       added: spec.added,
       removed: spec.removed,
@@ -135,7 +141,6 @@ function build(spec: Spec): Theme {
       // Interaction washes, replacing sixteen hardcoded #ffffffXX values.
       hover: wash(0.05),
       'hover-strong': wash(0.1),
-      'hover-hard': wash(0.13),
       sunken: wash(0.06),
 
       // Form controls.
