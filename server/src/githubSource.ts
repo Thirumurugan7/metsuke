@@ -21,12 +21,18 @@ class GithubError extends Error {
 
 const CACHE_MS = 5 * 60 * 1000
 
-export function githubSource(repo: string, token: string): Source {
+export function githubSource(repo: string, token: string | null): Source {
   let cached: { at: number; release: Release } | null = null
 
+  // No token is a valid state: a public repo serves releases anonymously. Sending an
+  // empty Authorization header instead of omitting it is a 401, so it has to be absent.
   const api = async (url: string, accept: string, redirect: RequestRedirect = 'follow'): Promise<Response> =>
     fetch(url, {
-      headers: { accept, authorization: `Bearer ${token}`, 'user-agent': 'metsuke-downloads' },
+      headers: {
+        accept,
+        'user-agent': 'metsuke-downloads',
+        ...(token ? { authorization: `Bearer ${token}` } : {})
+      },
       redirect
     })
 
@@ -58,7 +64,7 @@ export function githubSource(repo: string, token: string): Source {
     if (response.status === 404) {
       const repoCheck = await api(`https://api.github.com/repos/${repo}`, 'application/vnd.github+json')
       if (repoCheck.status === 404) {
-        throw new GithubError(404, `cannot see ${repo}: the token cannot read this repo (Contents: Read), or RELEASES_REPO is wrong`)
+        throw new GithubError(404, `cannot see ${repo}: if the repo is private the token needs Contents: Read on it; if it is public, check RELEASES_REPO`)
       }
       return null
     }

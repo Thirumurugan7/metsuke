@@ -13,19 +13,22 @@ export function source(): Source | null {
   const dir = process.env['DOWNLOAD_DIR']
   if (dir) return directorySource(dir)
 
-  const token = process.env['GITHUB_TOKEN']
   /*
    * GITHUB_REPO is accepted as well because it is the name anyone would guess sitting
    * next to GITHUB_TOKEN, and a setting that is silently ignored is worse than one that
    * is missing: it looks configured. The default is the repo this is released from, so
    * neither name has to be set for the normal case.
    */
-  if (token) {
-    const repo = process.env['RELEASES_REPO'] ?? process.env['GITHUB_REPO'] ?? 'Thirumurugan7/metsuke'
-    return githubSource(repo, token)
-  }
+  const repo = process.env['RELEASES_REPO'] ?? process.env['GITHUB_REPO'] ?? 'Thirumurugan7/metsuke'
 
-  return null
+  /*
+   * The token is optional, because a public repo does not need one. It used to be the
+   * switch that turned downloads on at all, which meant making the repo public — the one
+   * change that removes every auth problem here — would instead have turned downloads
+   * off, reported as "downloads are not configured". Anonymous reads are rate limited
+   * per IP rather than per token, so a token is still worth setting if there is one.
+   */
+  return githubSource(repo, process.env['GITHUB_TOKEN'] ?? null)
 }
 
 export interface Reply {
@@ -40,7 +43,7 @@ export interface Reply {
 
 const notConfigured: Reply = {
   status: 503,
-  json: { error: 'downloads are not configured: set DOWNLOAD_DIR or GITHUB_TOKEN' }
+  json: { error: 'downloads are not configured: set DOWNLOAD_DIR, or RELEASES_REPO for a public repo' }
 }
 
 /**
