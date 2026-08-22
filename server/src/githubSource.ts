@@ -48,7 +48,20 @@ export function githubSource(repo: string, token: string): Source {
           : "github rejected the token: check it can read this repository's contents"
       )
     }
-    if (response.status === 404) return null
+    /*
+     * A 404 is ambiguous, and the ambiguity is expensive: "no release yet" is the
+     * normal state before the first build, while "wrong repo name" looks exactly the
+     * same and sends you auditing a token that was never the problem. It cost a round
+     * of debugging here. So ask whether the repo itself is visible, and let the two
+     * answers say different things.
+     */
+    if (response.status === 404) {
+      const repoCheck = await api(`https://api.github.com/repos/${repo}`, 'application/vnd.github+json')
+      if (repoCheck.status === 404) {
+        throw new GithubError(404, `cannot see ${repo}: check GITHUB_REPO spelling and that the token can read it`)
+      }
+      return null
+    }
     if (!response.ok) throw new GithubError(response.status, `github said ${response.status}`)
 
     const release = (await response.json()) as Release
