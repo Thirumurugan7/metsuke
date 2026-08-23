@@ -362,6 +362,23 @@ function TerminalInstance({ tab, visible }: { tab: TerminalTab; visible: boolean
       if (session.current) void call('terminal:resize', session.current, terminal.cols, terminal.rows)
     }
 
+    /*
+     * Fit synchronously, before the spawn effect (next in this same commit) reads
+     * `terminal.cols`/`rows` to size the pty. Without this, the very first spawn used
+     * xterm's constructor default (80x24) instead of the real container size, because
+     * the ResizeObserver below does not deliver its first callback until the next
+     * frame — Claude Code renders its startup box-drawing output against whatever
+     * width the pty reports at that moment, and a later resize does not reflow output
+     * already written, so a mismatch here is what actually mangled it. This was never
+     * a missing listener or a debounce problem; the observer was already correctly
+     * wired to the mount element.
+     */
+    try {
+      fitAddon.fit()
+    } catch {
+      // No layout yet (rare on first mount) — the observer's first callback catches it.
+    }
+
     const offData = window.api.on('terminal:data', (id, data) => {
       if (id === session.current) terminal.write(data)
     })
@@ -389,10 +406,19 @@ function TerminalInstance({ tab, visible }: { tab: TerminalTab; visible: boolean
       terminal.options = { theme: xtermTheme(theme) }
     })
 
-    const observer = new ResizeObserver(() => safeFit())
+    // Debounced: a drag on the sessions/preview splitter fires this many times a
+    // second, and each call both re-measures xterm's own layout and round-trips an IPC
+    // resize to the pty — worth collapsing to one call after the drag settles rather
+    // than on every intermediate frame.
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null
+    const observer = new ResizeObserver(() => {
+      if (resizeTimer) clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(safeFit, 100)
+    })
     observer.observe(host.current)
 
     return () => {
+      if (resizeTimer) clearTimeout(resizeTimer)
       observer.disconnect()
       offTheme()
       offData()
