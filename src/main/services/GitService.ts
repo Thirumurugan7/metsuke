@@ -310,6 +310,18 @@ export class GitService {
     return this.#git(opts.rebase ? ['pull', '--rebase'] : ['pull'])
   }
 
+  /** Updates remote-tracking branches without touching the working tree. */
+  async fetch(): Promise<string> {
+    return this.#git(['fetch'])
+  }
+
+  /** Shelves every uncommitted change, staged and unstaged, and restores a clean tree. */
+  async stash(message?: string): Promise<string> {
+    const args = ['stash', 'push']
+    if (message?.trim()) args.push('-m', message.trim())
+    return this.#git(args)
+  }
+
   // -------------------------------------------------------------------------
   // Landing work
   // -------------------------------------------------------------------------

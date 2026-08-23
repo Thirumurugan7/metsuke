@@ -37,6 +37,7 @@ export function Splitter({
       if (!dragging.current) return
       dragging.current = false
       document.body.classList.remove('resizing')
+      handle.current?.removeAttribute('data-dragging')
     }
 
     window.addEventListener('pointermove', onPointerMove)
@@ -70,6 +71,7 @@ export function Splitter({
           /* capture is an optimisation, not a requirement */
         }
         document.body.classList.add('resizing')
+        handle.current?.setAttribute('data-dragging', 'true')
       }}
       // Keyboard resizing, so the layout is not mouse-only.
       onKeyDown={(e) => {

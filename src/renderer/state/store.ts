@@ -12,6 +12,8 @@ import type {
   PortInfo,
   SystemCheck,
   Thread,
+  ThreadMode,
+  ThreadStatus,
   NewThreadOptions,
   MergePreview,
   UpdateState,
@@ -96,6 +98,7 @@ async function adoptInner(workspace: Workspace, opts: { check: boolean }): Promi
     expanded: new Set(),
     openFiles: [],
     activePath: null,
+    recentFiles: loadRecentFiles(workspace.root),
     dirty: new Set(),
     externalEdit: null,
     git: null,
@@ -134,7 +137,7 @@ async function adoptInner(workspace: Workspace, opts: { check: boolean }): Promi
   addTerminal('claude', opts.check && autoCheck ? { prompt: PROJECT_CHECK_PROMPT } : {})
 }
 
-export type SidebarView = 'explorer' | 'git' | 'search' | 'ports' | 'threads' | 'claude'
+export type SidebarView = 'explorer' | 'git' | 'search' | 'agents' | 'claude'
 
 export type TerminalKind = 'claude' | 'shell'
 
@@ -148,6 +151,9 @@ export interface TerminalTab {
   exitCode: number | null
   /** Initial message handed to `claude` when the session starts. */
   prompt?: string
+  /** For a 'shell' tab only: run this instead of the user's default shell. */
+  command?: string
+  args?: string[]
 }
 
 /**
@@ -212,6 +218,22 @@ Give me: the list of screens visited, a table of flows tested with pass/fail, th
 Do not edit, create, or delete any files. This is an inspection: tell me what you would change instead.`
 
 const AUTO_CHECK_KEY = 'metsuke.autoCheck'
+const PORTS_COLLAPSED_KEY = 'metsuke.previewPortsCollapsed'
+
+const GIT_SECTIONS_KEY = 'metsuke.gitSectionsCollapsed'
+/** History starts collapsed: it is reference material, not work in progress, and it is
+ *  the longest section by far. Staged and Changes start open. */
+// 'staged' is deliberately absent: with nothing stored yet it falls back to "collapsed
+// when empty" at the call site, rather than to a fixed true/false here.
+const GIT_SECTIONS_DEFAULT: Record<string, boolean> = { changes: false, history: true }
+
+function loadGitSectionsCollapsed(): Record<string, boolean> {
+  try {
+    return { ...GIT_SECTIONS_DEFAULT, ...JSON.parse(localStorage.getItem(GIT_SECTIONS_KEY) ?? '{}') }
+  } catch {
+    return { ...GIT_SECTIONS_DEFAULT }
+  }
+}
 
 /** Minimum quiet period between flourishes, so a burst of new tools plays once. */
 const ADAPT_GAP_MS = 12_000
@@ -219,6 +241,141 @@ let lastAdaptAt = 0
 
 let terminalSeq = 0
 const nextTerminalId = (): string => `t${++terminalSeq}`
+
+const KIND_LABEL: Record<TerminalKind, string> = { claude: 'Claude', shell: 'Shell' }
+
+/** First several words of an opening prompt, so a tab reads as what it is doing. */
+function titleFromPrompt(prompt: string): string {
+  const oneLine = prompt.replace(/\s+/g, ' ').trim()
+  return oneLine.length > 40 ? `${oneLine.slice(0, 40).trimEnd()}…` : oneLine
+}
+
+// ── agent status chip ─────────────────────────────────────────────────────────
+
+/** The four states the whole app's agent activity reduces to, in priority order when
+ *  more than one applies. */
+export type AgentChipState = 'needsYou' | 'working' | 'stopped' | 'idle'
+const CHIP_PRIORITY: AgentChipState[] = ['needsYou', 'working', 'stopped', 'idle']
+
+export interface AgentStatus {
+  state: AgentChipState
+  count: number
+  /** How long the reported state has held — the longest-running member when several
+   *  sessions share it, so "working" can tell a fresh call from a stuck one. */
+  elapsedMs?: number
+  /** Set only when exactly one session is behind this state, so a click has somewhere
+   *  unambiguous to go. Several sessions in the same state means "open Agents instead
+   *  of guessing which one." */
+  focusTarget?: { kind: 'thread'; id: string } | { kind: 'terminal'; id: string }
+}
+
+/**
+ * When each tracked unit last changed chip state, keyed by a stable id.
+ *
+ * Module-level and mutable on purpose, same pattern as `terminalSeq` above: both chip
+ * instances (title bar, status bar) call `computeAgentStatus` with the same inputs on
+ * the same tick and must land on the exact same "since", or their elapsed timers would
+ * drift apart by a render. A plain object field on `Thread`/`TerminalTab` can't do this
+ * — neither carries a "when did the current status start" timestamp.
+ */
+const chipStateSince = new Map<string, { state: AgentChipState; since: number }>()
+
+function trackSince(key: string, state: AgentChipState): number {
+  const prev = chipStateSince.get(key)
+  const since = prev && prev.state === state ? prev.since : Date.now()
+  chipStateSince.set(key, { state, since })
+  return since
+}
+
+function threadChipState(status: ThreadStatus): AgentChipState {
+  switch (status) {
+    case 'running':
+      return 'working'
+    case 'waiting':
+      return 'needsYou'
+    case 'failed':
+      return 'stopped'
+    case 'idle':
+    case 'done':
+      return 'idle'
+  }
+}
+
+/**
+ * A read model over data that already exists, not a new detection pipeline. A thread's
+ * own `status` is accurate and hook-driven — reuse it. A plain terminal session (started
+ * outside the thread system, e.g. the sessions panel's primary "New session" button) has
+ * no thread record for `ingestHook` to resolve, so hook events for it never reach the
+ * renderer at all; the best available signal there is the most recent notification for
+ * its session id, which only covers "waiting on you" and "finished", never "started
+ * working". See PROGRESS.md for what closing that gap for real would need.
+ */
+export function computeAgentStatus(
+  terminals: TerminalTab[],
+  threads: Thread[],
+  notificationLog: NotificationPayload[]
+): AgentStatus {
+  interface Unit {
+    key: string
+    state: AgentChipState
+    focusTarget: NonNullable<AgentStatus['focusTarget']>
+  }
+  const units: Unit[] = []
+
+  const openThreads = threads.filter((t) => t.endedAt === null)
+  for (const thread of openThreads) {
+    units.push({
+      key: `thread:${thread.id}`,
+      state: threadChipState(thread.status),
+      focusTarget: { kind: 'thread', id: thread.id }
+    })
+  }
+
+  // A thread's own session is already represented above — counting its terminal tab
+  // too would double the total.
+  const threadSessionIds = new Set(
+    openThreads.map((t) => t.sessionId).filter((id): id is string => id !== null)
+  )
+
+  for (const tab of terminals) {
+    if (tab.kind !== 'claude' || (tab.sessionId && threadSessionIds.has(tab.sessionId))) continue
+
+    const state: AgentChipState =
+      tab.exitCode !== null
+        ? 'stopped'
+        : !tab.sessionId
+          ? 'working' // spawning; no signal yet, and "about to work" reads truer than "idle"
+          : (() => {
+              const last = notificationLog.find((n) => n.sessionId === tab.sessionId)
+              return last?.event === 'permission' || last?.event === 'idle' ? 'needsYou' : 'idle'
+            })()
+
+    units.push({ key: `terminal:${tab.id}`, state, focusTarget: { kind: 'terminal', id: tab.id } })
+  }
+
+  // Forget anything that closed since the last call, or this leaks one entry per
+  // session for the life of the app.
+  const liveKeys = new Set(units.map((u) => u.key))
+  for (const key of chipStateSince.keys()) {
+    if (!liveKeys.has(key)) chipStateSince.delete(key)
+  }
+
+  for (const state of CHIP_PRIORITY) {
+    if (state === 'idle') break // uniform empty/idle case handled below
+    const matching = units.filter((u) => u.state === state)
+    if (matching.length === 0) continue
+
+    const since = Math.min(...matching.map((u) => trackSince(u.key, u.state)))
+    return {
+      state,
+      count: matching.length,
+      elapsedMs: Date.now() - since,
+      focusTarget: matching.length === 1 ? matching[0].focusTarget : undefined
+    }
+  }
+
+  return { state: 'idle', count: units.filter((u) => u.state === 'idle').length }
+}
 
 /**
  * Guards folder adoption against running twice.
@@ -258,6 +415,9 @@ interface State {
   // -- editor ---------------------------------------------------------------
   openFiles: OpenFile[]
   activePath: string | null
+  /** Files opened in this project, most-recent-first, surviving the tab itself closing.
+   *  Powers the Start panel's "pick up where you left off" list. */
+  recentFiles: string[]
   /**
    * Which tree row owns the single tab stop.
    *
@@ -309,6 +469,11 @@ interface State {
   activeTerminal: string | null
   /** Seed the first Claude session of a folder with the end-to-end check prompt. */
   autoCheck: boolean
+  /** Which Source Control sections are collapsed, persisted across launches. */
+  gitSectionsCollapsed: Record<string, boolean>
+  /** Collapses the preview's ports footer down to its header, to reclaim height for
+   *  the page itself; persisted across launches like the sidebar/theme choices. */
+  previewPortsCollapsed: boolean
 
   // -- threads --------------------------------------------------------------
   /** Instances and their subagents, parents before children. Owned by main. */
@@ -316,6 +481,9 @@ interface State {
   selectedThread: string | null
   /** Whether the new-thread sheet is up. */
   newThreadOpen: boolean
+  /** Mode the sheet should default to for this opening, overriding its usual
+   *  instance-if-none-running/subagent-otherwise guess. Cleared on every plain open. */
+  newThreadPresetMode: ThreadMode | null
 
   // -- notifications --------------------------------------------------------
   notifySettings: (NotificationSettings & { telegramConfigured: boolean }) | null
@@ -351,6 +519,13 @@ interface State {
    * `Preview.tsx`, which is the only place holding the webview ref it needs to reload.
    */
   previewReloadRequest: number
+  /** Same nonce pattern: the header's Clear action lives outside `SearchPanel.tsx`. */
+  searchClearRequest: number
+  /** Same nonce pattern: the header's overflow menu lives outside `GitPanel.tsx`, which
+   *  owns the discard confirmation dialog. */
+  discardAllRequest: number
+  /** Same nonce pattern: the header's Recount button lives outside `ClaudePanel.tsx`. */
+  claudeRecountRequest: number
 
   // -- adaptation -----------------------------------------------------------
   /** The flourish currently playing, if any. */
@@ -368,6 +543,8 @@ interface State {
   restoreLastFolder: () => Promise<void>
   loadDir: (dir: string) => Promise<void>
   toggleDir: (dir: string) => Promise<void>
+  /** Collapse every open directory in the tree, so a deep expansion has a way back to the top. */
+  collapseAll: () => void
   /** Open the Explorer's inline new-file/new-folder draft row from anywhere. */
   requestNewEntry: (parent: string, isDirectory: boolean) => void
   openFile: (path: string, line?: number) => Promise<void>
@@ -377,6 +554,9 @@ interface State {
   refreshGit: () => Promise<void>
   showDiff: (path: string | null) => void
   setSidebar: (view: SidebarView) => void
+  /** Same as `setSidebar`, but never toggles it shut when already on that view — for
+   *  callers that mean "make sure this is showing," not "switch to, or collapse." */
+  showSidebar: (view: SidebarView) => void
   togglePanel: (panel: 'sidebar' | 'preview' | 'terminal') => void
   setPanelSize: (panel: 'sidebar' | 'preview' | 'terminal', px: number) => void
   setQuickOpen: (open: boolean) => void
@@ -395,6 +575,9 @@ interface State {
   sendElementComment: (comment: string) => Promise<void>
   /** Request a reload from outside `Preview.tsx`, e.g. the command palette. */
   requestPreviewReload: () => void
+  requestSearchClear: () => void
+  requestDiscardAll: () => void
+  requestClaudeRecount: () => void
   /**
    * Send arbitrary text to the most relevant Claude session, starting one if none is
    * running. Same "prefer a live Claude session" rule as `sendElementComment`.
@@ -403,21 +586,37 @@ interface State {
 
   // -- terminals ------------------------------------------------------------
   /** Open a new terminal tab and focus it. Returns its local id. */
-  addTerminal: (kind: TerminalKind, opts?: { prompt?: string; title?: string }) => string
+  addTerminal: (
+    kind: TerminalKind,
+    opts?: { prompt?: string; title?: string; command?: string; args?: string[] }
+  ) => string
+  /** Rename a tab, e.g. from the double-click-to-edit interaction. */
+  renameTerminal: (id: string, title: string) => void
   closeTerminal: (id: string) => void
+  /** Nonce watched by TerminalPanel, so a global shortcut can ask for the active
+   *  session to be closed without bypassing its own confirmation dialog. */
+  closeActiveTerminalRequest: number
+  requestCloseActiveTerminal: () => void
   setActiveTerminal: (id: string) => void
   /** Kill and respawn a tab's process, keeping the tab in place. */
   restartTerminal: (id: string) => void
   attachSession: (id: string, sessionId: string) => void
   markTerminalExited: (sessionId: string, exitCode: number) => void
   setAutoCheck: (on: boolean) => void
+  togglePreviewPortsCollapsed: () => void
+  toggleGitSection: (id: string) => void
   /** Start a fresh Claude session seeded with the project-check prompt. */
   runProjectCheck: () => void
   /** Start a Claude session that walks every screen and flow in the running UI. */
   runUiAudit: () => void
+  /** Start `command` in a fresh shell tab, e.g. the project's `npm run dev`. */
+  runDevServer: (command: string, args: string[]) => void
 
   // -- threads --------------------------------------------------------------
   setNewThreadOpen: (open: boolean) => void
+  /** Open the sheet already set to a specific mode, e.g. "instance" for the sessions
+   *  menu's worktree entry, rather than the sheet's own running-instances guess. */
+  openNewThreadAs: (mode: ThreadMode) => void
   /** Select a thread and bring its terminal to the front. */
   selectThread: (id: string) => void
   createThread: (opts: NewThreadOptions) => Promise<void>
@@ -453,12 +652,65 @@ function loadLayout(): { sidebarWidth: number; previewWidth: number; terminalHei
   }
 }
 
+/**
+ * "Pick up where you left off" needs history, not just the currently-open tabs — those
+ * get wiped every time a folder closes. Same mechanism as everything else lightweight
+ * here (`LAST_FOLDER_KEY`, `LAYOUT_KEY`): one localStorage key, keyed by workspace root
+ * so switching projects does not show another project's files.
+ */
+const RECENT_FILES_KEY = 'metsuke.recentFiles'
+const RECENT_FILES_PER_PROJECT = 10
+
+/** Extensions that are never something you were "working on" — opening one is almost
+ *  always incidental (checking an icon, previewing an asset), not resuming a task, so
+ *  it does not belong in "Pick up where you left off." */
+const NON_RECENTABLE_EXTENSIONS = new Set([
+  'ico', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'avif',
+  'woff', 'woff2', 'ttf', 'otf', 'eot',
+  'mp4', 'mp3', 'wav', 'mov', 'avi', 'webm',
+  'zip', 'tar', 'gz', 'rar', '7z',
+  'pdf', 'exe', 'dll', 'so', 'dylib', 'wasm', 'db', 'sqlite'
+])
+
+export function isRecentableFile(path: string): boolean {
+  const ext = path.split('.').pop()?.toLowerCase()
+  return ext === undefined || !NON_RECENTABLE_EXTENSIONS.has(ext)
+}
+
+function loadRecentFiles(root: string): string[] {
+  try {
+    const all = JSON.parse(localStorage.getItem(RECENT_FILES_KEY) ?? '{}') as Record<string, string[]>
+    return Array.isArray(all[root]) ? all[root] : []
+  } catch {
+    return []
+  }
+}
+
+/** Most-recent-first, deduplicated, capped. Returns the updated list for this project. */
+function saveRecentFile(root: string, path: string): string[] {
+  let all: Record<string, string[]> = {}
+  try {
+    all = JSON.parse(localStorage.getItem(RECENT_FILES_KEY) ?? '{}') as Record<string, string[]>
+  } catch {
+    all = {}
+  }
+  const list = [path, ...(all[root] ?? []).filter((p) => p !== path)].slice(0, RECENT_FILES_PER_PROJECT)
+  all[root] = list
+  try {
+    localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(all))
+  } catch {
+    // Private mode or a locked-down profile — the list still works for this session.
+  }
+  return list
+}
+
 export const useStore = create<State>((set, get) => ({
   workspace: null,
   toasts: [],
   tree: {},
   expanded: new Set(),
   openFiles: [],
+  recentFiles: [],
   activePath: null,
   treeFocus: null,
   setTreeFocus: (treeFocus) => set({ treeFocus }),
@@ -470,6 +722,7 @@ export const useStore = create<State>((set, get) => ({
   sidebarVisible: true,
   previewVisible: true,
   terminalVisible: true,
+  closeActiveTerminalRequest: 0,
   ...loadLayout(),
   quickOpen: false,
   paletteOpen: false,
@@ -478,9 +731,12 @@ export const useStore = create<State>((set, get) => ({
   terminals: [],
   activeTerminal: null,
   autoCheck: localStorage.getItem(AUTO_CHECK_KEY) !== 'off',
+  previewPortsCollapsed: localStorage.getItem(PORTS_COLLAPSED_KEY) === 'on',
+  gitSectionsCollapsed: loadGitSectionsCollapsed(),
   threads: [],
   selectedThread: null,
   newThreadOpen: false,
+  newThreadPresetMode: null,
   landingThread: null,
   landPreview: null,
   notifySettings: null,
@@ -494,6 +750,9 @@ export const useStore = create<State>((set, get) => ({
   previewUrl: '',
   previewAttached: false,
   previewReloadRequest: 0,
+  searchClearRequest: 0,
+  discardAllRequest: 0,
+  claudeRecountRequest: 0,
   adaptation: null,
   previewFullscreen: false,
   inspecting: false,
@@ -550,9 +809,14 @@ export const useStore = create<State>((set, get) => ({
 
   requestNewEntry: (parent, isDirectory) => set({ newEntryRequest: { parent, isDirectory, at: Date.now() } }),
 
+  collapseAll: () => set({ expanded: new Set() }),
+
   openFile: async (path, line) => {
     const reveal = line ? { path, line, at: Date.now() } : null
     set({ diffPath: null })
+
+    const root = get().workspace?.root
+    if (root && isRecentableFile(path)) set({ recentFiles: saveRecentFile(root, path) })
 
     if (get().openFiles.some((f) => f.path === path)) {
       set({ activePath: path, revealLine: reveal })
@@ -621,8 +885,7 @@ export const useStore = create<State>((set, get) => ({
         explorer: 'panel_files',
         git: 'panel_git',
         search: 'panel_search',
-        ports: 'panel_ports',
-        threads: 'panel_threads',
+        agents: 'panel_threads',
         claude: 'panel_claude'
       } as const)[view]
       if (feature) get().trackFeature(feature)
@@ -633,6 +896,21 @@ export const useStore = create<State>((set, get) => ({
         ? { sidebarVisible: false }
         : { sidebar: view, sidebarVisible: true }
     )
+  },
+
+  showSidebar: (view) => {
+    const opening = !(get().sidebar === view && get().sidebarVisible)
+    if (opening) {
+      const feature = ({
+        explorer: 'panel_files',
+        git: 'panel_git',
+        search: 'panel_search',
+        agents: 'panel_threads',
+        claude: 'panel_claude'
+      } as const)[view]
+      if (feature) get().trackFeature(feature)
+    }
+    set({ sidebar: view, sidebarVisible: true })
   },
 
   togglePanel: (panel) =>
@@ -648,10 +926,14 @@ export const useStore = create<State>((set, get) => ({
     const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
     const key =
       panel === 'sidebar' ? 'sidebarWidth' : panel === 'preview' ? 'previewWidth' : 'terminalHeight'
+    // The sidebar's floor is 200, not the generic 160: below that its own header (the
+    // one zone every panel shares) starts truncating the title and its actions (K14).
     const value =
       panel === 'terminal'
         ? clamp(px, 80, window.innerHeight - 200)
-        : clamp(px, 160, window.innerWidth - 400)
+        : panel === 'sidebar'
+          ? clamp(px, 200, window.innerWidth - 400)
+          : clamp(px, 160, window.innerWidth - 400)
 
     set({ [key]: value } as Partial<State>)
     const { sidebarWidth, previewWidth, terminalHeight } = get()
@@ -734,6 +1016,9 @@ export const useStore = create<State>((set, get) => ({
   },
 
   requestPreviewReload: () => set((s) => ({ previewReloadRequest: s.previewReloadRequest + 1 })),
+  requestSearchClear: () => set((s) => ({ searchClearRequest: s.searchClearRequest + 1 })),
+  requestDiscardAll: () => set((s) => ({ discardAllRequest: s.discardAllRequest + 1 })),
+  requestClaudeRecount: () => set((s) => ({ claudeRecountRequest: s.claudeRecountRequest + 1 })),
 
   askClaude: async (text) => {
     // Flattened to one line: an embedded newline would submit early and strand the
@@ -758,17 +1043,28 @@ export const useStore = create<State>((set, get) => ({
   addTerminal: (kind, opts = {}) => {
     const id = nextTerminalId()
     const sameKind = get().terminals.filter((t) => t.kind === kind).length
+    // Every "claude" tab used to be named "claude", unusable once more than one was
+    // open. Prefer what it was told to do; "Claude 2", "Claude 3"… only when there is
+    // genuinely nothing to derive from.
+    const derived = opts.prompt ? titleFromPrompt(opts.prompt) : null
     const tab: TerminalTab = {
       id,
       kind,
-      // "claude", "claude 2", "claude 3"… so tabs stay tellable apart at a glance.
-      title: opts.title ?? (sameKind === 0 ? kind : `${kind} ${sameKind + 1}`),
+      title: opts.title ?? derived ?? (sameKind === 0 ? KIND_LABEL[kind] : `${KIND_LABEL[kind]} ${sameKind + 1}`),
       sessionId: null,
       exitCode: null,
-      prompt: opts.prompt
+      prompt: opts.prompt,
+      command: opts.command,
+      args: opts.args
     }
     set((s) => ({ terminals: [...s.terminals, tab], activeTerminal: id, terminalVisible: true }))
     return id
+  },
+
+  renameTerminal: (id, title) => {
+    const trimmed = title.trim()
+    if (!trimmed) return
+    set((s) => ({ terminals: s.terminals.map((t) => (t.id === id ? { ...t, title: trimmed } : t)) }))
   },
 
   closeTerminal: (id) => {
@@ -776,13 +1072,25 @@ export const useStore = create<State>((set, get) => ({
     if (tab?.sessionId) void call('terminal:kill', tab.sessionId)
 
     set((s) => {
+      const closedIndex = s.terminals.findIndex((t) => t.id === id)
       const terminals = s.terminals.filter((t) => t.id !== id)
-      // Focus the neighbour rather than blanking the panel.
+      // Focus the neighbour that slides into the closed tab's slot, not whatever
+      // happens to be last in the strip.
       const activeTerminal =
-        s.activeTerminal === id ? (terminals.at(-1)?.id ?? null) : s.activeTerminal
-      return { terminals, activeTerminal }
+        s.activeTerminal === id
+          ? (terminals[Math.min(closedIndex, terminals.length - 1)]?.id ?? null)
+          : s.activeTerminal
+      // Closing the last session by hand collapses back to the Start panel rather
+      // than leaving the Sessions panel open on its own empty state — but a panel
+      // opened with zero sessions already in it (⌘J, the title-bar toggle) should
+      // still show that empty state, so this only fires here, not on open.
+      return terminals.length === 0
+        ? { terminals, activeTerminal, terminalVisible: false }
+        : { terminals, activeTerminal }
     })
   },
+
+  requestCloseActiveTerminal: () => set((s) => ({ closeActiveTerminalRequest: s.closeActiveTerminalRequest + 1 })),
 
   setActiveTerminal: (activeTerminal) => set({ activeTerminal }),
 
@@ -814,6 +1122,18 @@ export const useStore = create<State>((set, get) => ({
     set({ autoCheck })
   },
 
+  togglePreviewPortsCollapsed: () => {
+    const previewPortsCollapsed = !get().previewPortsCollapsed
+    localStorage.setItem(PORTS_COLLAPSED_KEY, previewPortsCollapsed ? 'on' : 'off')
+    set({ previewPortsCollapsed })
+  },
+
+  toggleGitSection: (id) => {
+    const gitSectionsCollapsed = { ...get().gitSectionsCollapsed, [id]: !get().gitSectionsCollapsed[id] }
+    localStorage.setItem(GIT_SECTIONS_KEY, JSON.stringify(gitSectionsCollapsed))
+    set({ gitSectionsCollapsed })
+  },
+
   runProjectCheck: () => {
     if (!get().workspace) return get().setError('Open a folder before running a project check')
     get().addTerminal('claude', { prompt: PROJECT_CHECK_PROMPT, title: 'project check' })
@@ -827,9 +1147,15 @@ export const useStore = create<State>((set, get) => ({
     get().triggerAdaptation('every screen you have')
   },
 
+  runDevServer: (command, args) => {
+    if (!get().workspace) return get().setError('Open a folder before starting a dev server')
+    get().addTerminal('shell', { command, args, title: [command, ...args].join(' ') })
+  },
+
   // -- threads --------------------------------------------------------------
 
-  setNewThreadOpen: (newThreadOpen) => set({ newThreadOpen }),
+  setNewThreadOpen: (newThreadOpen) => set({ newThreadOpen, newThreadPresetMode: null }),
+  openNewThreadAs: (mode) => set({ newThreadOpen: true, newThreadPresetMode: mode }),
 
   selectThread: (id) => {
     set({ selectedThread: id })

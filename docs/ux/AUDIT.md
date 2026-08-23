@@ -26,7 +26,7 @@ Two structural faults generate most of the friction:
   ~200px strip, an unnamed panel, and a launcher called "New." Nothing in the persistent
   chrome shows what the agent is doing right now.
 
-## Six laws (every batch must satisfy these)
+## Seven laws (every batch must satisfy these)
 
 1. **One job, one home.** Each action has exactly one canonical location. Anything else
    that fires it is a shortcut, styled at lower weight, never a competing equal.
@@ -38,6 +38,11 @@ Two structural faults generate most of the friction:
 5. **A glyph means one thing.** One icon, one meaning, one family, everywhere at once.
 6. **Name it as the user would.** Users have sessions, branches, pages — not
    attachments, instances, hooks.
+7. **Anything you can open, you can close from inside it.** Every surface a user can open
+   carries its own dismissal, positioned within the surface itself. A toggle elsewhere in
+   the chrome is a shortcut to that dismissal, never the only route to it. A user who has
+   just opened something is looking at the thing they opened, not at the corner of the
+   window that opened it. (Added by batch 12; see zone M.)
 
 ## Region scorecard
 
@@ -53,6 +58,9 @@ Two structural faults generate most of the friction:
 | H | Ports | High | Chrome advertises the count it tells you to ignore |
 | I | Status bar | Critical | Eleven items, five categories, one visual weight |
 | J | Cross-cutting systems | — | Icons, type, colour, themes, motion |
+| K | Explorer, Source Control, Search | High | Three panels built one at a time against no shared plan: no common anatomy, three different left edges, nothing sticky, and batch 2's icon sweep never reached them |
+| L | Agents and Claude | Medium | Claude's usage/model surface buried a tab deep inside Agents, worth more than that |
+| M | Start panel, and dismissal | Critical | The screen batch 7 built has two alignment axes, four row idioms and a third of its pane empty; and the two surfaces a user opens most, a session and the preview, cannot be closed from inside themselves |
 
 ## Findings registry
 
@@ -139,9 +147,17 @@ literal code — batch files translate it into files/lines.
 
 - **F1** (Critical) — `＋ New ▾` doesn't say new *what*; the common case (start a Claude
   session) costs two clicks. *Fix:* split button, batch 5.
-- **F2** (Critical) — The menu mixes session-creation, canned tasks (which are prompts,
-  not session types), and a persistent settings checkbox. *Fix:* menu = creation only;
-  tasks move to Start panel + palette; checkbox moves to Settings.
+- **F2** (Critical) — The menu mixes nouns ("Claude session", "Shell") with imperative
+  commands ("Run project check", "Test UI end to end") and a persistent settings
+  checkbox, so it reads as a junk drawer. *Fix (revised, see `batch-05`):* keep the
+  tasks in the menu — they genuinely do start a session, just with a prepared prompt —
+  but rephrase every entry as a noun so the list is one kind of thing: "Session that
+  checks this project", "Session that tests every screen", below a separator. The
+  checkbox still moves to Settings. ~~The two prepared sessions also appear as cards in
+  the Start panel, which is their primary home; the menu entry is a contextual shortcut
+  to the same registered command.~~ **Superseded by M9 (batch 12): the two prepared
+  sessions are dropped from the Start panel entirely, and this menu is now their single
+  home, which is what Law 1 wanted in the first place.**
 - **F3** (Medium) — "Check project on open" is a persistent preference living inside a
   menu that closes on any outside click. *Fix:* Settings, Project section.
 - **F4** (High) — Session creation only exists while the terminal panel is visible, and
@@ -174,6 +190,15 @@ literal code — batch files translate it into files/lines.
   positive statement when true.
 - **G6** (Medium) — Fullscreen preview hides the rail with no announced exit besides a
   small glyph and Escape. *Fix:* fixed-position exit + brief "Press Esc to exit" hint.
+- **G7** (Medium) — No loading indicator beyond the reload icon swapping glyphs; a slow
+  dev-server compile reads as nothing happening. *Fix:* thin progress bar driven by the
+  existing `loading` state.
+- **G8** (Medium) — No way to open the current preview URL in a real browser from the
+  address bar, only from the ports list once H3 lands. *Fix:* external-open button next
+  to the address input.
+- **G9** (Medium) — No responsive-width presets; checking a mobile layout means
+  resizing the whole preview panel, which also resizes the editor. *Fix:* a small
+  width-preset control (Full/Tablet/Mobile) local to the preview pane.
 
 ### Zone H — Ports
 
@@ -226,6 +251,168 @@ literal code — batch files translate it into files/lines.
 - **J6** (Medium) — 1px splitters with an invisible-until-hover affordance; users don't
   discover panels are resizable. *Fix:* visible hover/drag state, ≥8px hit area.
 
+### Zone K — Explorer, Source Control, and Search
+
+- **K1** (High) — Explorer's new-folder/refresh toolbar buttons, its tree-row folder/
+  file glyphs, and GitPanel's pull/push/stage/unstage/discard controls all still render
+  bare characters or emoji — batch 2's glyph table never enumerated these, panel-local
+  ones. *Fix:* extend the Icon system, batch 10.
+- **K2** (Critical) — GitPanel's discard-changes action still calls the browser's native
+  `confirm()`, the same violation D4 removes from Explorer's delete flow, in a second
+  file D4's scope never covered. *Fix:* route through the same in-app confirmation.
+- **K3** (Medium) — `.tree-row` defines `:hover` and `.active` but no `:focus-visible`;
+  a keyboard user arrowing through the tree can't see where they are unless the row is
+  also the open file. *Fix:* focus-visible outline using the `--focus` token.
+- **K4** (Medium) — The same seven git states are rendered by two independent, slightly
+  disagreeing implementations: Explorer's `tree-badge` and GitPanel's `git-letter`.
+  *Fix:* one shared status-badge function.
+- **K5** (Medium) — Search's toggle glyphs weren't migrated to the icon system, and the
+  panel is a bare input with no guidance until a query is typed, violating Law 4.
+  *Fix:* icon-based chevron, a hint line when empty.
+- **K6** (Medium) — Search results and Git's changed-file rows aren't keyboard-navigable
+  the way Explorer's tree already is — one Tab stop at a time, no arrow-key roving.
+  *Fix:* reuse Explorer's roving-tabindex pattern via a shared hook.
+- **K7** (Medium) — GitPanel's branch selector has no `aria-label`; empty-state copy
+  voice and completeness (does it name a next action?) differs across all three panels
+  for functionally the same "nothing here" message. *Fix:* label the control, align
+  empty-state shape with the rest of the app's Law-4 discipline.
+- **K8** (High) — No shared anatomy for a sidebar panel. Each of the three invented its
+  own structure, so Explorer grew a second toolbar row while Source Control and Search
+  have none, and `.sidebar-body`'s single `overflow: auto` scrolls every control away
+  with the content it controls. *Fix:* one four-zone skeleton (header, toolbar, content,
+  footer) with defined sticky behaviour, binding on every sidebar panel including batch
+  11's. Batch 10 section 1.
+- **K9** (High) — Row height agrees across the three panels (all 22px) but nothing else
+  does: text columns start at 38px, 8px and 48px in a 280px column, empty states indent
+  4px further than the rows they replace, the tree indent step is an inline style in
+  JSX, and `.section-header` is still uppercase/letterspaced/dim, the exact D1 defect one
+  level down. *Fix:* one horizontal grid and one type ladder in tokens, with five new
+  layout tokens added to batch 1's block.
+- **K10** (High) — A sidebar row has three visual states where it needs eight. Selected
+  is a stronger hover wash rather than a different property (B5, one level down); git and
+  search rows cannot receive focus at all; row actions are `opacity: 0` until mouse
+  hover, so stage, unstage and discard do not exist for a keyboard user. *Fix:* a
+  normative state matrix, token per state, focus additive over selection.
+- **K11** (Medium) — Explorer's toolbar is a second, right-aligned row inside the scroll
+  container, so its buttons scroll away from the files they act on, and there is no
+  collapse-all in a tree that can nest indefinitely. *Fix:* actions move into the panel
+  header's actions slot, plus collapse-all.
+- **K12** (Medium) — Source Control stacks six always-on zones with no collapsing and no
+  priority. About 134px of a 400px panel is spent on the branch bar and commit box before
+  the first changed filename, History is fully expanded to 30 commits by default, and the
+  busy line shoves the whole panel down when a git command runs. *Fix:* collapsible
+  sections with counts, a commit field that grows on focus, commit button and busy line
+  pinned to a footer.
+- **K13** (Medium) — Search's replace toggle is the panel's first tab stop, an unlabelled
+  chevron left of the input that displaces it; the query box and the result count both
+  scroll away with the results; hit rows are inset 8px from the panel edge while every
+  other panel's rows bleed to it. *Fix:* replace shown inline, toolbar and summary made
+  sticky, rows aligned to the shared gutter.
+- **K14** (Medium) — The sidebar clamps to a 160px minimum and no panel responds to it:
+  at that width the panel header, the one element every panel shares, cannot hold a title
+  and its actions. *Fix:* raise the floor to 200px and define what each panel drops
+  between 200 and 260px, via one container query rather than per-panel media queries.
+
+### Zone L — Agents and Claude
+
+- **L1** (High) — Claude's usage/model/skills surface is buried as the second tab of
+  the "Agents" rail item (per batch 4's merge), one click deeper than every other
+  panel, for a surface substantial enough to earn its own destination. *Fix:* Claude
+  becomes its own rail item; this deliberately reopens C5/A3's four-item rail count to
+  five. See batch 11.
+- **L2** (Medium) — ThreadsPanel's land action, subagent-indent arrow, and report-toggle
+  caret are bare characters batch 2's sweep never reached. *Fix:* extend the Icon
+  system, batch 11.
+- **L3** (Medium) — ClaudePanel's "Recount" button has the same bare-refresh glyph gap
+  as K1, in a fourth file. *Fix:* same icon, reused here.
+- **L4** (Medium) — The "This project" usage tab is disabled with no explanation when no
+  folder is open, unlike the `blockedBy`-string convention established elsewhere.
+  *Fix:* a `title` naming the reason.
+- **L5** (Medium) — Sending a model change to a running session gives no confirmation of
+  which session received it when more than one is open. *Fix:* brief inline
+  confirmation naming the tab.
+
+### Zone M — Start panel, and dismissal
+
+Zone M opened after batch 7's Start panel shipped and was seen. Its data work was right;
+its layout was not, and it never got the close read the sidebar panels got in zone K.
+**Batch 12 supersedes batch 7's Start panel layout in full** — batch 7's section 2 layout,
+its `.start-*` CSS block and its centred primary button are all withdrawn. Batch 7's IPC
+channel, `recentFiles` store work and "since you were last here" derivation stand
+unchanged. M10 through M15 are a separate complaint reported at the same time and are in
+this zone because Law 7 came out of them.
+
+- **M1** (Critical) — Two competing alignment axes on one short screen: everything above
+  the last divider is flush left in a 560px column, the primary button and its two links
+  are centred inside that same column. The largest single cause of the screen reading as
+  unplanned. *Fix:* one column, one left edge, nothing centred (batch 12 section 2).
+- **M2** (High) — Nothing but the divider rules expresses the content column. The rules
+  are the only element that reaches the column's full 560px; every piece of content is at
+  most half that, so the rule reads as a container edge and the text as floating inside
+  it. *Fix:* give the column a real element, delete both dividers, let section labels and
+  whitespace separate.
+- **M3** (High) — Inverted hierarchy: the two section labels render at 15px/600/`--fg`
+  while the content they label is 13px/400-500/`--fg-dim`. Scaffolding two steps larger,
+  one heavier and one brighter than its own content. *Fix:* labels drop to
+  `--text-small`/400/`--fg-dim`; row labels sit at body weight in `--fg`; the project
+  title becomes the only `--text-display` text on the screen.
+- **M4** (Medium) — One column position, three kinds of value. The recent-file row's
+  second column holds a relative folder, nothing at all, or a full absolute path,
+  depending on which producer put the entry in `recentFiles`. *Fix:* always the parent
+  directory relative to the workspace root; render no element when it is empty.
+- **M5** (Medium) — The file rows are inset 8px from the heading, the project name, the
+  stat line and the divider ends, because `.start-recent-row` carries `padding: 8px` as a
+  literal in a shorthand and nothing else on the screen carries any. *Fix:* one shared
+  left edge; the row's hover wash bleeds outside the column instead of insetting content.
+- **M6** (High) — Top-packed with dead space: about 380px of content anchored 48px from
+  the top of a pane commonly 700px tall, with no vertical distribution at all. The app
+  already solves this one component away in `.welcome-inner`. *Fix:* optical vertical
+  centring via `margin: auto`, with asymmetric container padding for the upward bias, and
+  pin-to-top-and-scroll once content overflows.
+- **M7** (High) — Four visual idioms for one kind of thing. A dim paragraph, a two-column
+  row, a filled accent button and two underlined text links, on a screen with at most
+  seven actionable lines. *Fix:* one row idiom for everything, reusing batch 10's row
+  grid, row height and state matrix.
+- **M8** (Medium) — The one statistic on the screen is a `<p>`. "+142 −38 across 2 files"
+  invites exactly one question and the screen has no answer, though `git.showChanges` is
+  already in the registry. *Fix:* the stat becomes a row that opens Source Control.
+- **M9** (Medium) — The two prepared-task actions have a second home here, duplicating
+  the New-session menu, and as underlined links they are a fourth idiom on a screen that
+  could not afford a second. *Fix:* dropped from this screen entirely; the New-session
+  menu becomes their single home. **This reverses batch 5 section 3's and batch 7 section
+  2's "primary home here, shortcut in the menu" decision, at the user's explicit
+  direction.** Update F2's note accordingly.
+- **M10** (Critical) — A session cannot be closed from itself in practice. The `×` and
+  the middle-click handler both exist in `TerminalPanel.tsx`, but the reveal rule
+  (`.tab:hover .tab-close`) targets the editor tab class and never matches a session tab,
+  so the `×` sits permanently at `opacity: 0.55` and never responds to its own tab. `⌘W`
+  is bound to files only and does nothing with a session focused, and the tooltip still
+  says "terminal" after A5 retired the word. *Fix:* proper hover/active reveal on
+  `.terminal-tab`, a focus-scoped `⌘W`, corrected copy, and a `Modal.tsx` confirmation
+  when the session has a live process.
+- **M11** (High) — The Preview pane has three remote dismissal routes (title bar layout
+  control, status bar, `view.togglePreview`) and no control of its own. It is also the
+  only one of the three view toggles with no keyboard shortcut. *Fix:* a close control at
+  the end of the preview's own toolbar, plus `⌘⇧V`.
+- **M12** (High) — Stated as Law 7: any surface a user can open must be dismissible from
+  within itself, never only from a remote toggle elsewhere in the chrome. The reported bug
+  felt far worse than the code suggested precisely because of this: a control existed but
+  was drawn at 55 percent and never responded, so the only thing that visibly worked was
+  the toggle in the opposite corner of the window.
+- **M13** (Medium) — The Sessions panel itself has a bare title and no hide control, so
+  hiding it means the title bar or knowing `⌘J`. Every other hideable named region carries
+  its own. *Flagged, not fixed in batch 12:* `.terminal-header` has no actions slot, and
+  giving it one is the same problem batch 10 section 1 solved for sidebar panels. Deciding
+  whether a bottom-docked panel adopts that contract deserves its own batch, not a hurried
+  third variant of a panel header.
+- **M14** (Medium) — `closeTerminal`'s comment says "focus the neighbour" and the code
+  selects `terminals.at(-1)`. Closing the second of five tabs jumps focus to the fifth.
+  *Fix:* select the tab that slid into the closed one's position.
+- **M15** (Medium) — `.terminal-tab.active` uses `--hover-strong`, drawing selected as a
+  stronger amount of the same wash as hover. This is B5 a third time, in the one strip
+  where knowing which of several things you are on matters most. *Fix:* `--selected-bg`,
+  the token batch 1 added for exactly this.
+
 ## What to protect (do not regress these while implementing)
 
 - The preview's `explain(code)` error copy in `Preview.tsx` — genuinely better error
@@ -263,3 +450,33 @@ duplication this audit is trying to remove. Batches 7-8 are last because they're
 only ones needing new main-process services/IPC. Batch 4 is the highest-risk single
 batch (rewrites `App.tsx` and `StatusBar.tsx` substantially) — coordinate with anyone
 else touching those files before starting it.
+
+Batches 10 and 11 were added after batch 9 to close two zones (K, L) discovered once the
+sidebar panels themselves got a close read, rather than just the chrome around them.
+Batch 10 covers Explorer, Source Control, and Search together, since they share most of
+their defects (icon gaps, native `confirm()`, missing keyboard nav) — and, after a second
+read (K8-K14), because they share the deeper problem those defects sit on top of: three
+panels built one at a time against no common plan. Batch 10 was rescoped from a defect
+sweep into a redesign, and it must run **before** batch 11: its section 1 defines the
+panel anatomy every sidebar panel obeys, batch 11's included. Run them the other way and
+Agents and Claude get built against no contract and need retrofitting. Batch 11 finishes
+Agents and, per an explicit later decision, gives Claude its own rail item instead of
+leaving it as a tab inside Agents — a deliberate amendment to batch 4's original C5/A3
+call, not a regression. Both depend on batches 1-4 the same way batch 5 onward already
+did. Batch 8 also picked up three further Preview polish items (G7-G9) as an addition
+to its existing scope rather than a new batch, since Preview already had a batch and
+splitting its remaining work into a second one would just reintroduce the
+one-job-many-homes problem this audit exists to remove.
+
+Batch 12 was added after batch 11 for a different reason from 10 and 11: it is the first
+batch written against a shipped screen rather than against the original code. Batch 7's
+Start panel landed, the user looked at it, and the layout was wrong in ways that only
+become visible once the thing is real. **Batch 12 supersedes batch 7's Start panel layout
+entirely** (batch 7's IPC channel, `recentFiles` work and summary derivation all stand),
+so nobody should implement batch 7 section 2's arrangement. It runs after batch 10 because
+its row idiom is batch 10's row idiom, and it consumes batch 10's `useListKeyNav` hook and
+layout tokens rather than deriving parallel ones. Its second half, dismissal, is unrelated
+to layout and is in the same batch only because it was reported at the same time; it is
+what produced Law 7. Two open items are deliberately left out of it: the Sessions panel's
+own hide control (M13, which needs a decision about whether a bottom-docked panel adopts
+batch 10's panel anatomy) and whatever is writing absolute paths into `recentFiles`.

@@ -1,7 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { call, useStore } from '../state/store'
+import { Icon } from './Icon'
 import type { ClaudeConfig, ClaudeSkill, ModelUsage, UsageReport } from '@shared/ipc'
 import './claude.css'
+
+/** The panel header's actions slot (K8, inherited by batch 11): Recount, the same
+ *  bare-refresh gap batch 10 closed for Explorer and Git — one glyph for "refresh
+ *  this list" everywhere. Asks `ClaudePanel` via the same nonce pattern the other
+ *  header-slotted actions use, since the usage transcripts are read there. */
+export function ClaudePanelActions(): JSX.Element {
+  const requestClaudeRecount = useStore((s) => s.requestClaudeRecount)
+  return (
+    <button className="icon-only" title="Recount" aria-label="Recount usage" onClick={() => requestClaudeRecount()}>
+      <Icon name="reload" />
+    </button>
+  )
+}
 
 /**
  * Models the CLI accepts as an alias. Aliases rather than pinned names, so a session
@@ -68,12 +82,15 @@ function UsageRows({ rows }: { rows: ModelUsage[] }): JSX.Element {
 }
 
 export function ClaudePanel(): JSX.Element {
-  const { workspace, terminals, activeTerminal, setActiveTerminal } = useStore()
+  const { workspace, terminals, activeTerminal, setActiveTerminal, claudeRecountRequest } = useStore()
   const [usage, setUsage] = useState<UsageReport | null>(null)
   const [skills, setSkills] = useState<ClaudeSkill[] | null>(null)
   const [config, setConfig] = useState<ClaudeConfig | null>(null)
   const [scope, setScope] = useState<'today' | 'week' | 'workspace'>('today')
   const [busy, setBusy] = useState(false)
+  // Names which session received a model change, since nothing else in this panel
+  // confirms the send went anywhere once you are not watching Sessions (L5).
+  const [sentTo, setSentTo] = useState<string | null>(null)
 
   const load = async (): Promise<void> => {
     setBusy(true)
@@ -93,6 +110,18 @@ export function ClaudePanel(): JSX.Element {
     // Reading every recent transcript is not free, so this does not poll.
   }, [workspace?.root])
 
+  // The header's Recount button (ClaudePanelActions) has no access to this panel's own
+  // `load`, so it asks via the same nonce pattern the other header-slotted actions use.
+  // Compared against the last value this instance saw, not against 0, for the same
+  // remount reason batch 10's discard-all and search-clear nonces were fixed for.
+  const lastRecount = useRef(claudeRecountRequest)
+  useEffect(() => {
+    if (claudeRecountRequest === lastRecount.current) return
+    lastRecount.current = claudeRecountRequest
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claudeRecountRequest])
+
   const chooseModel = async (model: string | null): Promise<void> => {
     if ((await call('claude:setModel', model)) === null) return
     setConfig((prev) => (prev ? { ...prev, sessionModel: model } : prev))
@@ -107,21 +136,16 @@ export function ClaudePanel(): JSX.Element {
 
     void call('terminal:write', target.sessionId, `/model ${model ?? 'default'}\r`)
     setActiveTerminal(target.id)
+    setSentTo(target.title)
+    window.setTimeout(() => setSentTo(null), 3000)
   }
 
   const rows =
     scope === 'today' ? usage?.today : scope === 'week' ? usage?.week : (usage?.workspace ?? [])
 
   return (
-    <div className="claude-panel">
-      <section className="claude-section">
-        <div className="claude-head">
-          <h3>Usage</h3>
-          <button className="icon-only" title="Recount" aria-label="Recount usage" onClick={() => void load()}>
-            ↻
-          </button>
-        </div>
-
+    <div className="claude-panel panel">
+      <div className="panel-toolbar">
         <div className="claude-tabs" role="group" aria-label="Usage period">
           <button className={scope === 'today' ? 'on' : ''} onClick={() => setScope('today')}>
             Today
@@ -132,10 +156,18 @@ export function ClaudePanel(): JSX.Element {
           <button
             className={scope === 'workspace' ? 'on' : ''}
             disabled={!workspace}
+            title={workspace ? undefined : 'Open a folder to see its usage'}
             onClick={() => setScope('workspace')}
           >
             This project
           </button>
+        </div>
+      </div>
+
+      <div className="panel-content">
+      <section className="claude-section">
+        <div className="claude-head">
+          <h3>Usage</h3>
         </div>
 
         {busy && !usage ? (
@@ -196,6 +228,7 @@ export function ClaudePanel(): JSX.Element {
           >
             Apply to the running session
           </button>
+          {sentTo && <p className="claude-sent">Sent to {sentTo}.</p>}
         </div>
 
         <p className="claude-foot">
@@ -250,6 +283,7 @@ export function ClaudePanel(): JSX.Element {
           </div>
         </section>
       )}
+      </div>
     </div>
   )
 }

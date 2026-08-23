@@ -4,7 +4,16 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { call, useStore, type TerminalTab } from '../state/store'
 import { getTheme, onThemeChange, xtermTheme } from '../theme/apply'
+import { getCommand } from '../state/commands'
 import { Icon } from './Icon'
+import { Modal } from './Modal'
+
+const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
+
+/** Plain sessions above the separator, prepared ones below — grammar within each group
+ *  stays consistent (a noun you get vs. what it does), which is the whole fix for F2. */
+const PLAIN_SESSION_IDS = ['session.new.claude', 'session.new.worktree', 'session.new.shell']
+const PREPARED_SESSION_IDS = ['agent.checkProject', 'agent.testUi']
 
 /**
  * Multiple real ptys, one per tab.
@@ -18,21 +27,40 @@ export function TerminalPanel(): JSX.Element {
     terminals,
     activeTerminal,
     workspace,
-    autoCheck,
     addTerminal,
     closeTerminal,
     setActiveTerminal,
-    setAutoCheck,
-    runProjectCheck,
-    runUiAudit
+    renameTerminal,
+    closeActiveTerminalRequest
   } = useStore()
   const newButton = useRef<HTMLButtonElement>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  // The one path every close goes through (M10) — the × button, ⌘W and middle-click
+  // all call this rather than `closeTerminal` directly, so a live process is never
+  // killed without whoever asked seeing the same confirmation.
+  const [closeTarget, setCloseTarget] = useState<string | null>(null)
+  const cancelCloseRef = useRef<HTMLButtonElement>(null)
+
+  const requestClose = (id: string): void => {
+    const tab = terminals.find((t) => t.id === id)
+    if (tab && tab.sessionId !== null && tab.exitCode === null) setCloseTarget(id)
+    else closeTerminal(id)
+  }
+
+  // ⌘W is global (App.tsx), so it reaches this confirmation through the same
+  // request-nonce idiom other cross-component actions in this app use.
+  const lastCloseRequest = useRef(closeActiveTerminalRequest)
+  useEffect(() => {
+    if (closeActiveTerminalRequest === lastCloseRequest.current) return
+    lastCloseRequest.current = closeActiveTerminalRequest
+    if (activeTerminal) requestClose(activeTerminal)
+  }, [closeActiveTerminalRequest, activeTerminal])
   /**
    * Fixed-position anchor for the menu.
    *
    * The menu opens upward, out of the terminal panel — and the panel is clipped with
    * `overflow: hidden`, so an absolutely-positioned menu was drawn entirely outside its
-   * clipping container: invisible and not even hit-testable. Positioning it fixed,
+   * clipping container — invisible and not even hit-testable. Positioning it fixed,
    * against viewport coordinates taken from the button, escapes every ancestor's
    * overflow.
    */
@@ -56,7 +84,7 @@ export function TerminalPanel(): JSX.Element {
     const right = window.innerWidth - rect.right
     // Normally opens upward. If the terminal has been dragged tall enough that there is
     // no room above, drop it downward instead rather than clipping at the viewport edge.
-    const MENU_HEIGHT = 150
+    const MENU_HEIGHT = 190
     setMenu(
       rect.top >= MENU_HEIGHT
         ? // Pinning the bottom means the menu's height need not be known in advance.
@@ -67,8 +95,9 @@ export function TerminalPanel(): JSX.Element {
 
   return (
     <div className="terminal-panel">
+      <div className="terminal-header">Sessions</div>
       <div className="terminal-bar">
-        <div className="terminal-tabs" role="tablist" aria-label="Terminals">
+        <div className="terminal-tabs" role="tablist" aria-label="Sessions">
           {terminals.map((tab) => (
             <div
               key={tab.id}
@@ -77,19 +106,47 @@ export function TerminalPanel(): JSX.Element {
               className={`terminal-tab${tab.id === activeTerminal ? ' active' : ''}`}
               onClick={() => setActiveTerminal(tab.id)}
               onAuxClick={(e) => {
-                if (e.button === 1) closeTerminal(tab.id)
+                if (e.button === 1) requestClose(tab.id)
               }}
               title={`${tab.title}${tab.exitCode !== null ? ` — exited (${tab.exitCode})` : ''}`}
             >
-              <span className={`terminal-dot ${tab.exitCode !== null ? 'dead' : tab.kind}`} aria-hidden="true" />
-              <span className="terminal-tab-name">{tab.title}</span>
+              <span
+                className={`terminal-dot ${tab.exitCode !== null ? 'dead' : tab.sessionId ? 'live' : 'pending'}`}
+                aria-label={tab.exitCode !== null ? 'exited' : tab.sessionId ? 'running' : 'starting'}
+              />
+              <Icon name={tab.kind === 'claude' ? 'claude' : 'sessions'} />
+              {renaming === tab.id ? (
+                <input
+                  className="terminal-tab-rename"
+                  defaultValue={tab.title}
+                  autoFocus
+                  aria-label="Session name"
+                  onFocus={(e) => e.currentTarget.select()}
+                  onClick={(e) => e.stopPropagation()}
+                  onBlur={(e) => {
+                    renameTerminal(tab.id, e.target.value)
+                    setRenaming(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      renameTerminal(tab.id, (e.target as HTMLInputElement).value)
+                      setRenaming(null)
+                    }
+                    if (e.key === 'Escape') setRenaming(null)
+                  }}
+                />
+              ) : (
+                <span className="terminal-tab-name" onDoubleClick={() => setRenaming(tab.id)}>
+                  {tab.title}
+                </span>
+              )}
               <button
                 className="tab-close"
                 aria-label={`Close ${tab.title}`}
-                title="Close terminal"
+                title={`Close session (${MOD}W)`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  closeTerminal(tab.id)
+                  requestClose(tab.id)
                 }}
               >
                 <Icon name="close" />
@@ -101,71 +158,41 @@ export function TerminalPanel(): JSX.Element {
         <div className="terminal-actions">
           <div className="terminal-new">
             <button
-              ref={newButton}
-              className="labelled"
+              className="labelled split-primary"
               disabled={!workspace}
-              title="Open another terminal"
-              aria-label="New terminal"
+              title={workspace ? `Start a Claude session (${MOD}⇧N)` : 'Open a folder to start a session'}
+              onClick={() => addTerminal('claude')}
+            >
+              <Icon name="add" /> New session
+            </button>
+            <button
+              ref={newButton}
+              className="icon-only split-caret"
+              disabled={!workspace}
+              title="More session types"
+              aria-label="More session types"
               aria-expanded={menu !== null}
               onClick={(e) => {
                 e.stopPropagation()
                 toggleMenu()
               }}
             >
-              <Icon name="add" /> New <Icon name="chevronDown" />
+              <Icon name="chevronDown" />
             </button>
             {menu && (
               <div
                 className="terminal-menu"
                 role="menu"
-                style={{ right: menu.right, bottom: menu.bottom }}
+                style={{ right: menu.right, bottom: menu.bottom, top: menu.top }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    addTerminal('claude')
-                    setMenu(null)
-                  }}
-                >
-                  Claude session
-                </button>
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    addTerminal('shell')
-                    setMenu(null)
-                  }}
-                >
-                  Shell
-                </button>
+                {PLAIN_SESSION_IDS.map((id) => (
+                  <MenuCommandItem key={id} id={id} onClose={() => setMenu(null)} />
+                ))}
                 <div className="context-sep" />
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    runProjectCheck()
-                    setMenu(null)
-                  }}
-                >
-                  Run project check
-                </button>
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    runUiAudit()
-                    setMenu(null)
-                  }}
-                >
-                  Test UI end to end
-                </button>
-                <label className="terminal-toggle">
-                  <input
-                    type="checkbox"
-                    checked={autoCheck}
-                    onChange={(e) => setAutoCheck(e.target.checked)}
-                  />
-                  Check project on open
-                </label>
+                {PREPARED_SESSION_IDS.map((id) => (
+                  <MenuCommandItem key={id} id={id} onClose={() => setMenu(null)} />
+                ))}
               </div>
             )}
           </div>
@@ -179,7 +206,7 @@ export function TerminalPanel(): JSX.Element {
 
         {terminals.length === 0 && (
           <div className="terminal-overlay">
-            <p>{workspace ? 'No terminals open' : 'No session running'}</p>
+            <p>{workspace ? 'No sessions open' : 'No session running'}</p>
             {workspace ? (
               <button className="primary" onClick={() => addTerminal('claude')}>
                 Start a Claude session
@@ -192,7 +219,67 @@ export function TerminalPanel(): JSX.Element {
           </div>
         )}
       </div>
+
+      {closeTarget && (
+        <Modal
+          variant="dialog"
+          label="End this session?"
+          onClose={() => setCloseTarget(null)}
+          initialFocus={cancelCloseRef}
+        >
+          <h2 className="sheet-title">End this session?</h2>
+          <p className="sheet-sub">
+            <b>{terminals.find((t) => t.id === closeTarget)?.title}</b> is still running.
+            Closing it ends the process. Anything it has not written to a file is lost.
+          </p>
+          <div className="sheet-foot">
+            <div className="sheet-buttons">
+              <button ref={cancelCloseRef} className="ghost" onClick={() => setCloseTarget(null)}>
+                Cancel
+              </button>
+              <button
+                className="danger"
+                onClick={() => {
+                  closeTerminal(closeTarget)
+                  setCloseTarget(null)
+                }}
+              >
+                End it
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
+  )
+}
+
+/**
+ * One row in the session menu, read straight from the command registry so its label
+ * can never drift from what the same action is called in the command palette.
+ */
+function MenuCommandItem({ id, onClose }: { id: string; onClose: () => void }): JSX.Element | null {
+  const state = useStore()
+  const command = getCommand(id)
+  if (!command) return null
+
+  const blocked = command.when(state) ? null : (command.blockedBy?.(state) ?? null)
+
+  return (
+    <button
+      role="menuitem"
+      className="menu-command"
+      disabled={blocked !== null}
+      title={blocked ?? undefined}
+      onClick={() => {
+        void command.run(useStore.getState())
+        onClose()
+      }}
+    >
+      <Icon name={command.icon} />
+      <span className="menu-command-title">{command.title}</span>
+      {command.shortcut && <span className="menu-shortcut">{command.shortcut}</span>}
+    </button>
   )
 }
 
@@ -299,10 +386,10 @@ function TerminalInstance({ tab, visible }: { tab: TerminalTab; visible: boolean
     let cancelled = false
     const start = async (): Promise<void> => {
       const spawned = await call('terminal:spawn', {
-        command: tab.kind === 'claude' ? 'claude' : undefined,
-        // The prompt is passed as an argv entry, never through a shell, so quoting and
-        // newlines in it cannot be reinterpreted as shell syntax.
-        args: tab.kind === 'claude' && tab.prompt ? [tab.prompt] : undefined,
+        command: tab.kind === 'claude' ? 'claude' : tab.command,
+        // The prompt/command args are passed as argv entries, never through a shell, so
+        // quoting and newlines in them cannot be reinterpreted as shell syntax.
+        args: tab.kind === 'claude' ? (tab.prompt ? [tab.prompt] : undefined) : tab.args,
         kind: tab.kind,
         title: tab.title,
         cols: term.current?.cols ?? 80,

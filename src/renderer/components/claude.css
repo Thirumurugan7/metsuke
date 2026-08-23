@@ -26,9 +26,6 @@
   margin: 0;
   text-transform: uppercase;
 }
-.claude-head .icon-only {
-  margin-left: auto;
-}
 .claude-count {
   background: var(--hover, #ffffff1a);
   border-radius: 8px;
@@ -61,7 +58,7 @@
 .claude-tabs {
   display: flex;
   gap: 2px;
-  margin-bottom: 10px;
+  width: 100%;
 }
 .claude-tabs button {
   border-radius: 5px;
@@ -207,6 +204,14 @@
 }
 .model-actions button {
   width: 100%;
+}
+/* Names which session actually received the change (L5) — contextual to this one
+   button, so a local fade rather than the global Toasts system. */
+.claude-sent {
+  color: var(--accent);
+  font-size: var(--text-small);
+  margin: 6px 0 0;
+  text-align: center;
 }
 
 /* -- skills --------------------------------------------------------------- */

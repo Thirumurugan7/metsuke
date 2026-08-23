@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore, wireEvents, type SidebarView } from './state/store'
-import { Explorer } from './components/Explorer'
-import { GitPanel } from './components/GitPanel'
-import { SearchPanel } from './components/SearchPanel'
-import { PortsPanel } from './components/PortsPanel'
-import { ClaudePanel } from './components/ClaudePanel'
-import { ThreadsPanel } from './components/ThreadsPanel'
+import { Explorer, ExplorerActions } from './components/Explorer'
+import { GitPanel, GitPanelActions } from './components/GitPanel'
+import { SearchPanel, SearchActions } from './components/SearchPanel'
+import { ThreadsPanel, ThreadsActions } from './components/ThreadsPanel'
+import { ClaudePanel, ClaudePanelActions } from './components/ClaudePanel'
 import { NewThread } from './components/NewThread'
 import { LandThread } from './components/LandThread'
 import { EditorPane } from './components/EditorPane'
@@ -19,9 +18,10 @@ import { ElementComment } from './components/ElementComment'
 import { Welcome } from './components/Welcome'
 import { Guide } from './components/Guide'
 import { Adaptation } from './components/Adaptation'
-import { NotificationSettings } from './components/NotificationSettings'
+import { Settings } from './components/Settings'
 import { TelemetryConsent } from './components/TelemetryConsent'
 import { Icon, ICONS } from './components/Icon'
+import { getCommand } from './state/commands'
 
 const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
 
@@ -33,12 +33,14 @@ const VIEWS: Array<{
   short: string
   shortcut: string
 }> = [
-  { id: 'explorer', icon: 'files', label: 'Explorer', short: 'Files', shortcut: `${MOD}⇧E` },
+  { id: 'explorer', icon: 'files', label: 'Explorer', short: 'Explorer', shortcut: `${MOD}⇧E` },
   { id: 'git', icon: 'git', label: 'Source Control', short: 'Git', shortcut: `${MOD}⇧G` },
   { id: 'search', icon: 'search', label: 'Search', short: 'Search', shortcut: `${MOD}⇧F` },
-  { id: 'ports', icon: 'ports', label: 'Ports', short: 'Ports', shortcut: `${MOD}⇧P` },
-  { id: 'threads', icon: 'agents', label: 'Threads', short: 'Threads', shortcut: `${MOD}⇧T` },
-  { id: 'claude', icon: 'agents', label: 'Claude', short: 'Claude', shortcut: `${MOD}⇧C` }
+  { id: 'agents', icon: 'agents', label: 'Agents', short: 'Agents', shortcut: `${MOD}⇧A` },
+  // Claude used to be a second tab inside Agents. Its own panel (usage, model, skills,
+  // plugins) earned a rail item of its own — this deliberately reopens C5/A3's "four
+  // items" count to five (batch 11).
+  { id: 'claude', icon: 'claude', label: 'Claude', short: 'Claude', shortcut: `${MOD}⇧C` }
 ]
 
 export function App(): JSX.Element {
@@ -52,8 +54,8 @@ export function App(): JSX.Element {
     previewWidth,
     terminalHeight,
     previewFullscreen,
+    inspecting,
     git,
-    ports,
     dirty,
     activePath,
     setSidebar,
@@ -118,12 +120,30 @@ export function App(): JSX.Element {
 
       const key = e.key.toLowerCase()
       if (e.shiftKey) {
+        if (key === 'n') {
+          e.preventDefault()
+          if (useStore.getState().workspace) useStore.getState().addTerminal('claude')
+          return
+        }
+        if (key === 'p') {
+          const cmd = getCommand('preview.pointAtElement')
+          const s = useStore.getState()
+          if (cmd?.when(s)) {
+            e.preventDefault()
+            void cmd.run(s)
+          }
+          return
+        }
+        if (key === 'v') {
+          e.preventDefault()
+          togglePanel('preview')
+          return
+        }
         const view = ({
           e: 'explorer',
           g: 'git',
           f: 'search',
-          p: 'ports',
-          t: 'threads',
+          a: 'agents',
           c: 'claude'
         } as const)[key]
         if (view) {
@@ -147,10 +167,16 @@ export function App(): JSX.Element {
         togglePanel('terminal')
       } else if (key === 'w') {
         e.preventDefault()
-        if (useStore.getState().activePath) closeFile(useStore.getState().activePath!)
+        const s = useStore.getState()
+        const inSessions = document.activeElement?.closest('.terminal-panel') !== null
+        if (inSessions && s.activeTerminal) s.requestCloseActiveTerminal()
+        else if (s.activePath) closeFile(s.activePath)
       } else if (key === 'o') {
         e.preventDefault()
         void openFolder()
+      } else if (key === ',') {
+        e.preventDefault()
+        useStore.getState().setSettingsOpen(true)
       }
     }
 
@@ -162,36 +188,56 @@ export function App(): JSX.Element {
   const activeView = VIEWS.find((v) => v.id === sidebar)
 
   return (
-    <div className="app">
+    <div className={`app${inspecting ? ' inspecting-mode' : ''}`}>
       <header className="title-bar">
         <span className="app-name">Metsuke</span>
         <span className="title-sep" />
-        <span className="title-folder">{workspace?.name ?? 'No folder open'}</span>
 
-        <div className="title-actions">
-          <button className="labelled" onClick={() => void openFolder()} title={`Open folder (${MOD}O)`}>
-            <Icon name="openFolder" /> Open Folder
-          </button>
+        <button
+          className="project-switcher"
+          onClick={() => void openFolder()}
+          title={workspace ? `Switch folder (${MOD}O)` : `Open folder (${MOD}O)`}
+        >
+          <Icon name="openFolder" />
+          <span className="project-name">{workspace?.name ?? 'No folder open'}</span>
+          {workspace?.isGitRepo && git?.branch && (
+            <span className="project-branch">
+              <Icon name="branch" />
+              {git.branch}
+            </span>
+          )}
+        </button>
+
+        {/* The chip lives in the status bar only now — centred here read as its own
+            floating thing rather than part of either the project switcher or the
+            layout control either side of it. Kept as a spacer so the layout control
+            stays pinned to the right edge. */}
+        <div className="title-agent-slot" />
+
+        <div className="layout-control" role="group" aria-label="Layout">
           <button
-            className={`labelled${sidebarVisible ? ' active' : ''}`}
+            className={sidebarVisible ? 'active' : ''}
             onClick={() => togglePanel('sidebar')}
             title={`Toggle sidebar (${MOD}B)`}
+            aria-pressed={sidebarVisible}
           >
-            <Icon name="sidebar" /> Sidebar
+            <Icon name="sidebar" />
           </button>
           <button
-            className={`labelled${previewVisible ? ' active' : ''}`}
+            className={previewVisible ? 'active' : ''}
             onClick={() => togglePanel('preview')}
-            title="Toggle preview panel"
+            title={`Toggle preview panel (${MOD}⇧V)`}
+            aria-pressed={previewVisible}
           >
-            <Icon name="previewPanel" /> Preview
+            <Icon name="previewPanel" />
           </button>
           <button
-            className={`labelled${terminalVisible ? ' active' : ''}`}
+            className={terminalVisible ? 'active' : ''}
             onClick={() => togglePanel('terminal')}
-            title={`Toggle terminal (${MOD}J)`}
+            title={`Toggle sessions (${MOD}J)`}
+            aria-pressed={terminalVisible}
           >
-            <Icon name="terminalPanel" /> Terminal
+            <Icon name="terminalPanel" />
           </button>
         </div>
       </header>
@@ -212,7 +258,6 @@ export function App(): JSX.Element {
               </span>
               <span className="activity-label">{view.short}</span>
               {view.id === 'git' && changes > 0 && <span className="dot">{changes}</span>}
-              {view.id === 'ports' && ports.length > 0 && <span className="dot">{ports.length}</span>}
             </button>
           ))}
         </nav>
@@ -221,22 +266,31 @@ export function App(): JSX.Element {
           <>
             <aside className="sidebar" style={{ width: sidebarWidth }} aria-label={activeView?.label}>
               <div className="sidebar-header">
-                <span>{activeView?.label}</span>
+                <span className="panel-title">{activeView?.label}</span>
+                <div className="panel-actions">
+                  {sidebar === 'explorer' && <ExplorerActions />}
+                  {sidebar === 'git' && <GitPanelActions />}
+                  {sidebar === 'search' && <SearchActions />}
+                  {sidebar === 'agents' && <ThreadsActions />}
+                  {sidebar === 'claude' && <ClaudePanelActions />}
+                </div>
+                <span className="header-sep" aria-hidden="true" />
+                {/* Same glyph as the rail's own hide affordance (D2) — one gesture, drawn
+                    the same way in both places, rather than an unrelated × next to it. */}
                 <button
                   className="icon-only"
                   title="Hide sidebar"
                   aria-label="Hide sidebar"
                   onClick={() => togglePanel('sidebar')}
                 >
-                  <Icon name="close" />
+                  <Icon name="sidebar" />
                 </button>
               </div>
               <div className="sidebar-body">
                 {sidebar === 'explorer' && <Explorer />}
                 {sidebar === 'git' && <GitPanel />}
                 {sidebar === 'search' && <SearchPanel />}
-                {sidebar === 'ports' && <PortsPanel />}
-                {sidebar === 'threads' && <ThreadsPanel />}
+                {sidebar === 'agents' && <ThreadsPanel />}
                 {sidebar === 'claude' && <ClaudePanel />}
               </div>
             </aside>
@@ -264,7 +318,7 @@ export function App(): JSX.Element {
             {terminalVisible && (
               <Splitter
                 orientation="horizontal"
-                label="Resize terminal"
+                label="Resize sessions"
                 onResize={resizeTerminal}
               />
             )}
@@ -302,7 +356,7 @@ export function App(): JSX.Element {
       <CommandPalette />
       <NewThread />
       <LandThread />
-      <NotificationSettings />
+      <Settings />
       <Toasts />
     </div>
   )

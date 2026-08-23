@@ -4,6 +4,7 @@ import { useStore } from '../state/store'
 import { getTheme, monacoThemeName, onThemeChange, applyMonacoTheme } from '../theme/apply'
 import { DiffView } from './DiffView'
 import { Icon } from './Icon'
+import { StartPanel } from './StartPanel'
 
 /** Monaco's language ids for the extensions this editor is likely to meet. */
 const LANGUAGES: Record<string, string> = {
@@ -46,8 +47,7 @@ export function EditorPane({
   /** Last tab we actually focused, so saves and background edits do not steal focus. */
   const focusedPath = useRef<string | null>(null)
 
-  const { openFiles, activePath, dirty, diffPath, workspace, saveFile, openFolder, setQuickOpen } =
-    useStore()
+  const { openFiles, activePath, dirty, diffPath, workspace, saveFile } = useStore()
 
   useEffect(() => {
     if (!container.current) return
@@ -190,29 +190,9 @@ export function EditorPane({
 
       {diffPath && <DiffView path={diffPath} />}
 
-      {!showEditor && !diffPath && (
-        <div className="panel-empty editor-empty">
-          {workspace ? (
-            <>
-              <p className="empty-title">No file open</p>
-              <p className="hint">Pick a file from the Explorer, or search for one by name.</p>
-              <button className="primary" onClick={() => setQuickOpen(true)}>
-                Go to File…
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="empty-title">Welcome to Metsuke</p>
-              <p className="hint">
-                Open a folder to browse its files, watch git changes, and run Claude against it.
-              </p>
-              <button className="primary" onClick={() => void openFolder()}>
-                Open Folder
-              </button>
-            </>
-          )}
-        </div>
-      )}
+      {/* No-folder-open is Welcome.tsx's job (rendered by App.tsx over this whole
+          region) — this pane only ever has one empty state of its own. */}
+      {!showEditor && !diffPath && workspace && <StartPanel />}
     </div>
   )
 }

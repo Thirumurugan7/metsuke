@@ -28,16 +28,16 @@ test.describe('threads', () => {
 
     await expect(page.locator('.sheet')).toBeVisible()
     await expect(page.locator('.sheet-mode-title', { hasText: 'Subagent' })).toBeVisible()
-    await expect(page.locator('.sheet-mode-title', { hasText: 'Separate instance' })).toBeVisible()
+    await expect(page.locator('.sheet-mode-title', { hasText: 'New session' })).toBeVisible()
     await shot(page, 'thread-sheet.png')
   })
 
   test('an instance gets a worktree that exists on disk', async ({ app }) => {
     const { page } = app
     await page.locator('.thread-new').click()
-    await page.locator('.sheet-mode', { hasText: 'Separate instance' }).click()
+    await page.locator('.sheet-mode', { hasText: 'New session' }).click()
     await page.locator('.sheet-field input').first().fill('Fixture thread')
-    await page.getByRole('button', { name: 'Start thread' }).click()
+    await page.getByRole('button', { name: 'Start session' }).click()
 
     await expect(page.locator('.thread-row', { hasText: 'Fixture thread' })).toBeVisible()
     await expect(page.locator('.thread-branch', { hasText: 'fixture-thread' })).toBeVisible()
@@ -61,9 +61,9 @@ test.describe('threads', () => {
   test('closing a thread removes the checkout and keeps the branch', async ({ app }) => {
     const { page } = app
     await page.locator('.thread-new').click()
-    await page.locator('.sheet-mode', { hasText: 'Separate instance' }).click()
+    await page.locator('.sheet-mode', { hasText: 'New session' }).click()
     await page.locator('.sheet-field input').first().fill('Fixture thread')
-    await page.getByRole('button', { name: 'Start thread' }).click()
+    await page.getByRole('button', { name: 'Start session' }).click()
 
     const row = page.locator('.thread-row', { hasText: 'Fixture thread' })
     await expect(row).toBeVisible()

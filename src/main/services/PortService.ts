@@ -1,37 +1,46 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { PortInfo } from '@shared/ipc'
+import type { PortInfo, PortProbe } from '@shared/ipc'
 
 const exec = promisify(execFile)
 
 /** Ports below this are system services, never a dev server worth surfacing. */
 const MIN_PORT = 1024
 
-/**
- * Processes that listen on a port but never serve a web page. Clicking one in the
- * preview gives a blank pane, so they are marked system and hidden by default rather
- * than sitting in the list looking like candidates.
- */
-const NON_WEB_PROCESSES = [
-  'controlcenter',
-  'rapportd',
-  'sharingd',
-  'identityservicesd',
-  'remoted',
-  'mongod',
-  'postgres',
-  'mysqld',
-  'redis-server',
-  'memcached',
-  'language_server',
-  'sshd',
-  'cupsd'
-]
+/** How long a probe waits for a response before calling the port unresponsive. */
+const PROBE_TIMEOUT_MS = 1200
 
-function isNonWeb(name: string | null): boolean {
-  if (!name) return false
-  const lower = name.toLowerCase()
-  return NON_WEB_PROCESSES.some((n) => lower.includes(n))
+/**
+ * How long a probe result is trusted before a port is probed again. Bounds probing to
+ * roughly once per this window per port, however often `list()` itself is polled — a
+ * dev server mid-compile that was unresponsive a second ago is worth checking again
+ * sooner than one that answered cleanly.
+ */
+const PROBE_TTL_MS = 5000
+
+/**
+ * Classifies what, if anything, answers on a port. This is what "system" now means for
+ * a port nobody started from a terminal here: not `ours`, and did not answer with HTML.
+ * Replaces the old hardcoded process-name list, which had to be told about every new
+ * daemon by name and still passed through things like a stray `java` or `figma_agent`
+ * process as if they were candidates (H2).
+ */
+async function probe(port: number): Promise<PortProbe> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS)
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/`, {
+      method: 'GET',
+      signal: controller.signal,
+      redirect: 'manual'
+    })
+    const contentType = res.headers.get('content-type') ?? ''
+    return contentType.toLowerCase().includes('text/html') ? 'html' : 'not-web'
+  } catch {
+    return 'unresponsive'
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**
@@ -47,6 +56,7 @@ export class PortService {
   #last = ''
   #onChange: ((ports: PortInfo[]) => void) | null = null
   #ourPids: () => number[] = () => []
+  #probeCache = new Map<number, { result: PortProbe; at: number }>()
 
   constructor(opts: { intervalMs?: number } = {}) {
     this.#intervalMs = opts.intervalMs ?? 3000
@@ -98,28 +108,55 @@ export class PortService {
     const isSelf = (pid: number): boolean =>
       selfChain.has(pid) || PortService.#isDescendant(pid, new Set([process.pid]), parents)
 
-    const seen = new Map<number, PortInfo>()
+    type Candidate = { port: number; pid: number | null; process: string | null; ours: boolean; self: boolean }
+    const seen = new Map<number, Candidate>()
     for (const { port, pid, process: name } of listeners) {
       if (port < MIN_PORT) continue
       // Servers commonly bind both IPv4 and IPv6; collapse to one entry per port.
       if (seen.has(port)) continue
 
-      const ours = pid !== null && PortService.#isDescendant(pid, ourPids, parents)
       seen.set(port, {
         port,
         pid,
         process: name,
-        ours,
-        // A port we started from a terminal is always a candidate, whatever it is.
-        system: !ours && ((pid !== null && isSelf(pid)) || isNonWeb(name))
+        ours: pid !== null && PortService.#isDescendant(pid, ourPids, parents),
+        self: pid !== null && isSelf(pid)
       })
     }
 
-    return [...seen.values()].sort((a, b) => {
+    // Self ports are never offered regardless of what answers on them, so probing one
+    // would only spend time on a result nobody will see.
+    const toProbe = [...seen.values()].filter((c) => !c.self)
+    const probed = await Promise.all(toProbe.map((c) => this.#probeCached(c.port)))
+    const probeByPort = new Map(toProbe.map((c, i) => [c.port, probed[i]]))
+
+    const ports: PortInfo[] = [...seen.values()].map((c) => {
+      const probeResult = c.self ? null : (probeByPort.get(c.port) ?? null)
+      return {
+        port: c.port,
+        pid: c.pid,
+        process: c.process,
+        ours: c.ours,
+        // A port we started from a terminal is always a candidate, whatever it serves.
+        system: !c.ours && (c.self || probeResult !== 'html'),
+        probe: probeResult
+      }
+    })
+
+    return ports.sort((a, b) => {
       if (a.ours !== b.ours) return a.ours ? -1 : 1
       if (a.system !== b.system) return a.system ? 1 : -1
       return a.port - b.port
     })
+  }
+
+  /** Reuses a recent probe result rather than hitting the port again every poll tick. */
+  async #probeCached(port: number): Promise<PortProbe> {
+    const cached = this.#probeCache.get(port)
+    if (cached && Date.now() - cached.at < PROBE_TTL_MS) return cached.result
+    const result = await probe(port)
+    this.#probeCache.set(port, { result, at: Date.now() })
+    return result
   }
 
   /** Walk the process tree upward looking for one of our pty processes. */
@@ -210,5 +247,6 @@ export class PortService {
     this.#timer = null
     this.#onChange = null
     this.#last = ''
+    this.#probeCache.clear()
   }
 }

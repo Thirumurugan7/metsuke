@@ -8,8 +8,17 @@ const dirname = path.dirname(fileURLToPath(import.meta.url))
 const WIDTH = 380
 const HEIGHT = 168
 const MARGIN = 18
-/** Alerts that are not blocking Claude clear themselves; a permission prompt does not. */
+/** Alerts that are not blocking Claude clear themselves quickly. */
 const AUTO_HIDE_MS = 20_000
+/**
+ * A permission prompt gets much longer, but it still clears itself. The actual
+ * decision lives in the terminal's own prompt and is untouched by this timing out —
+ * this only hides the floating window, so leaving it up forever just leaves an
+ * always-on-top window stranded on screen (including across macOS Spaces) after the
+ * user has moved on. `AgentStatusChip`'s "Needs you" stays up in the chrome for as
+ * long as the request is actually still pending.
+ */
+const AUTO_HIDE_PERMISSION_MS = 3 * 60_000
 
 /**
  * The alert that floats above every application.
@@ -129,10 +138,10 @@ export class AlertWindow {
     window.setAlwaysOnTop(true, 'screen-saver')
 
     if (this.#timer) clearTimeout(this.#timer)
-    this.#timer = null
-    if (payload.event !== 'permission') {
-      this.#timer = setTimeout(() => this.hide(), AUTO_HIDE_MS)
-    }
+    this.#timer = setTimeout(
+      () => this.hide(),
+      payload.event === 'permission' ? AUTO_HIDE_PERMISSION_MS : AUTO_HIDE_MS
+    )
   }
 
   hide(): void {

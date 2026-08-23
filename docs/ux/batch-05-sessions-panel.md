@@ -27,16 +27,8 @@ Replace the current `＋ New ▾` single button with a split button:
 - **Primary segment** (larger click area, left side): starts a Claude session
   immediately — calls whatever `addTerminal('claude')` does today. This is the 80% case
   and should cost exactly one click, per the audit.
-- **Caret segment** (narrow, right side, `Icon name="chevronDown"`): opens a menu with
-  *creation options only*:
-  - Claude session (same as clicking the primary segment — include it in the menu too
-    for discoverability, with its shortcut shown)
-  - Claude session on a new branch (worktree) — if this capability doesn't exist as a
-    single action yet, check whether `NewThread.tsx`'s worktree checkbox logic can be
-    reused/exposed here rather than duplicating that logic; if it can't cleanly, wire it
-    through `NewThread.tsx`'s existing sheet instead of building a second path — don't
-    create two different worktree-creation code paths
-  - Shell
+- **Caret segment** (narrow, right side, `Icon name="chevronDown"`): opens the menu
+  specified in section 3 below.
 
 Give the primary segment the shortcut `⌘⇧N` / `Ctrl+Shift+N`. Register both the split
 button's primary action and each menu item as commands in `state/commands.ts` (from
@@ -46,26 +38,54 @@ keeps the palette and this button reading from the same source rather than diver
 When `!workspace`, don't just disable the button — per F4 (closed in batch 3) the
 button's tooltip/label should say why: "Open a folder to start a session."
 
-## 3. Remove tasks and the settings checkbox from this menu (closes F2, F3)
+## 3. Rewrite the menu so every item is the same kind of thing (closes F2, F3)
 
-The current menu contains, below a separator: "Run project check," "Test UI end to
-end," and a "Check project on open" checkbox. Per F2, a creation menu should contain
-only ways to create a session — remove all three from this menu.
+The original audit said to remove the two task entries from this menu entirely. That was
+too strict, and this spec supersedes it. `runProjectCheck` and `runUiAudit` **do** start
+a Claude session, just with a prepared opening prompt, so they genuinely belong in a
+session-creation menu. The real defect in the current menu is different:
 
-- "Run project check" and "Test UI end to end" — these become **task cards** the Start
-  panel offers (batch 7 builds the Start panel itself; for this batch, just make sure
-  removing them from here doesn't remove the underlying `runProjectCheck`/`runUiAudit`
-  store functions, since batch 3 already registered commands wrapping them and batch 7
-  will surface them as cards). If batch 7 hasn't landed yet, these two actions are still
-  reachable via `⌘K` in the meantime — that's an acceptable gap between batches, not a
-  regression, since the palette already covers them.
-- "Check project on open" checkbox — remove from this menu. This is a persistent
-  per-project preference and belongs in Settings (batch 9). If Settings doesn't exist
-  yet when this batch runs, leave the underlying `autoCheck`/`setAutoCheck` store state
-  intact but stash the checkbox somewhere temporary and clearly marked — e.g. render it
-  once inside the Welcome screen's system-check area with a comment noting it's a
-  stopgap until batch 9 — rather than deleting the only way to control this setting.
-  Note this stopgap location in `PROGRESS.md` so batch 9 knows to find and remove it.
+1. **Inconsistent grammar.** "Claude session" and "Shell" are nouns naming a thing you
+   get. "Run project check" and "Test UI end to end" are imperative commands. Mixing the
+   two in one list is what makes it read as a junk drawer.
+2. **A persistent setting inside a transient surface.** The "Check project on open"
+   checkbox has no defence and still moves out.
+
+Target menu, every entry phrased as a session you are starting:
+
+```
+＋ New session ▾
+  ┌────────────────────────────────────────┐
+  │ Claude session                  ⌘⇧N    │
+  │ Claude session on a new branch         │
+  │ Shell                                  │
+  ├────────────────────────────────────────┤
+  │ Session that checks this project       │
+  │ Session that tests every screen        │
+  └────────────────────────────────────────┘
+```
+
+- The separator groups plain sessions above from prepared sessions below. Keep it.
+- "Claude session on a new branch" is the worktree option. If this capability doesn't
+  exist as a single action yet, check whether `NewThread.tsx`'s worktree logic can be
+  reused or exposed here rather than duplicated; if it can't cleanly, wire this entry
+  through `NewThread.tsx`'s existing sheet instead of building a second worktree-creation
+  code path.
+- The two prepared-session entries call the existing `runProjectCheck` and `runUiAudit`
+  store functions unchanged. Only their labels change.
+- ~~These same two actions **also** appear as cards in the Start panel (batch 7).~~
+  **Superseded by M9 (batch 12): the two prepared sessions are dropped from the Start
+  panel entirely, and this menu is their single home.** Both are still registered as
+  commands in `state/commands.ts` so this menu's labels and the palette's can never
+  drift apart.
+
+**The checkbox still moves out (F3).** "Check project on open" is a persistent
+per-project preference and belongs in Settings (batch 9). If Settings doesn't exist yet
+when this batch runs, leave the underlying `autoCheck`/`setAutoCheck` store state intact
+but stash the checkbox somewhere temporary and clearly marked — e.g. render it once
+inside the Welcome screen's system-check area with a comment noting it's a stopgap until
+batch 9 — rather than deleting the only way to control this setting. Note the stopgap
+location in `PROGRESS.md` so batch 9 knows to find and remove it.
 
 ## 4. Name session tabs meaningfully (closes F5)
 
@@ -115,10 +135,13 @@ is a dead process, or otherwise shows `claude` vs `shell` — kind, not state). 
 
 - `npm run typecheck && npm test`
 - `npm run dev`: confirm one click on the split button's primary segment starts a
-  Claude session; confirm the caret menu contains only the three creation options;
-  confirm the removed items (tasks, checkbox) are gone from this menu specifically;
-  confirm tab names differ across multiple sessions with different prompts; confirm
-  rename-on-double-click works.
+  Claude session; confirm the caret menu shows all five session entries with the
+  separator between plain and prepared ones, and that every entry reads as a noun
+  phrase rather than a command; confirm the "Check project on open" checkbox is gone
+  from this menu and still reachable at its stopgap location; confirm the two prepared
+  sessions still actually run the project check and the UI test; confirm tab names
+  differ across multiple sessions with different prompts; confirm rename-on-double-click
+  works.
 - `npm run test:ui`
 
 ## When done

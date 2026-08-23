@@ -40,6 +40,15 @@
   --preview-ground: #ffffff;
   --row: 22px;
 
+  /* Sidebar panel layout tokens (batch 10). One horizontal grid and two extra row
+     heights, shared by every panel so the left edge of the text column stops moving
+     when you switch from Explorer to Source Control to Search. */
+  --panel-header: 30px; /* sidebar header height */
+  --row-header: 26px; /* toolbar zone height; the natural height of a base input */
+  --panel-gutter: 8px; /* the single horizontal padding for every panel row */
+  --icon-col: 16px; /* fixed leading icon column, so text columns align */
+  --indent-step: 12px; /* tree depth step */
+
   /* Six-step type scale. Every font-size declaration in this file uses one of these. */
   --text-micro: 11px; /* badges, counts, port numbers, rail labels */
   --text-small: 12px; /* status bar, tab labels, secondary metadata */
@@ -98,6 +107,7 @@ button.active {
 /* Every control is reachable and visibly focusable by keyboard. */
 button:focus-visible,
 [role='treeitem']:focus-visible,
+[role='option']:focus-visible,
 .splitter:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
@@ -111,11 +121,15 @@ button.labelled {
   padding: 3px 8px;
   white-space: nowrap;
 }
-/* Genuinely iconographic controls, which carry their meaning in title/aria-label. */
+/* Genuinely iconographic controls, which carry their meaning in title/aria-label.
+   Flex centring, not text-align: an inline SVG's default baseline alignment sits it
+   visibly off-centre with nothing else on the line to align it against. */
 button.icon-only {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
   line-height: 1;
   min-width: 22px;
-  text-align: center;
 }
 button.primary {
   background: var(--accent);
@@ -125,8 +139,13 @@ button.primary {
 button.primary:hover:not(:disabled) {
   background: var(--accent-hover);
 }
+/* A destructive action needs to read as one at rest, not only on hover (D4). */
+button.danger {
+  color: var(--danger-fg);
+}
 button.danger:hover:not(:disabled) {
   background: var(--danger-border);
+  color: var(--fg);
 }
 
 input,
@@ -142,7 +161,7 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-  outline: 1px solid var(--accent);
+  outline: 2px solid var(--focus);
 }
 
 .app {
@@ -177,17 +196,136 @@ body.is-mac .title-bar {
   height: 14px;
   width: 1px;
 }
-.title-folder {
-  color: var(--fg-dim);
+
+/* The folder name is the control now, not inert text next to one. */
+.project-switcher {
+  -webkit-app-region: no-drag;
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  max-width: 42vw;
+  overflow: hidden;
+}
+.project-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.title-actions {
+.project-branch {
+  align-items: center;
+  color: var(--fg-dim);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--text-small);
+  gap: 3px;
+  white-space: nowrap;
+}
+
+/* Empty spacer: fills the space between the project switcher and the layout control, so
+   the latter stays pinned to the right edge without a separate margin-left: auto. The
+   agent status chip lives in the status bar only now, not here. */
+.title-agent-slot {
+  flex: 1;
+}
+
+/* Three toggles as one visual unit, not three independent buttons — the segmented
+   look is what says "these are one control with three positions." */
+.layout-control {
   -webkit-app-region: no-drag;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   display: flex;
-  gap: 4px;
-  margin-left: auto;
+  overflow: hidden;
+}
+/*
+ * Three states have to read apart without hovering, or the whole group looks like inert
+ * decoration rather than three buttons: a dim icon at rest says "here, but not the
+ * thing you're looking at"; hover brightens it as feedback; active pairs the accent
+ * wash with the same bright icon so "toggled on" doesn't depend on the mouse being
+ * there. Fixed, equal boxes (not padding sized to each icon's own bounding box) is what
+ * keeps the three segments from looking independently aligned.
+ */
+.layout-control button {
+  align-items: center;
+  border-radius: 0;
+  color: var(--fg-dim);
+  display: flex;
+  height: 26px;
+  justify-content: center;
+  padding: 0;
+  width: 32px;
+}
+.layout-control button:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+.layout-control button:hover:not(:disabled) {
+  color: var(--fg);
+}
+.layout-control button.active {
+  background: var(--selected-bg);
+  color: var(--fg);
+}
+
+/* -- agent status chip ----------------------------------------------------- */
+
+/*
+ * Reads from a resting tint like any other clickable status item (I2) rather than
+ * looking like plain text. Sized to match .status-item exactly (same 1px vertical
+ * padding, same line-height context) — the status bar is only 22px tall, and the
+ * chip's earlier 3px padding was enough taller than its neighbours to overflow the
+ * row and visibly collide with its top border.
+ */
+.agent-chip {
+  align-items: center;
+  background: var(--hover);
+  border-radius: 3px;
+  display: inline-flex;
+  gap: 5px;
+  padding: 1px 8px;
+}
+.agent-chip:hover:not(:disabled) {
+  background: var(--hover-strong);
+}
+.agent-chip-dot {
+  font-size: 9px;
+  line-height: 1;
+}
+.agent-chip-working .agent-chip-dot {
+  color: var(--accent);
+}
+.agent-chip-needs-you .agent-chip-dot {
+  color: var(--modified);
+}
+.agent-chip-stopped .agent-chip-dot {
+  color: var(--removed);
+}
+.agent-chip-idle .agent-chip-dot {
+  color: var(--fg-dim);
+  opacity: 0.6;
+}
+.agent-chip-elapsed {
+  color: var(--fg-dim);
+  font-family: ui-monospace, monospace;
+  font-size: var(--text-micro);
+}
+/*
+ * The one animated element in the whole app (per the audit's motion budget) — a slow
+ * pulse on the dot alone, never the chip or its text, so it reads as "this wants you"
+ * without turning into a distraction magnet.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .agent-chip-needs-you .agent-chip-dot {
+    animation: agent-chip-pulse 2s ease-in-out infinite;
+  }
+}
+@keyframes agent-chip-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 /* -- toasts -------------------------------------------------------------- */
@@ -297,6 +435,8 @@ body.is-mac .title-bar {
 
 .sidebar {
   background: var(--bg-alt);
+  container-name: sidebar;
+  container-type: inline-size;
   display: flex;
   /* Hold the dragged width: the default flex-shrink let it collapse below the size the
      store had recorded, so measured and stored widths drifted apart. */
@@ -305,14 +445,73 @@ body.is-mac .title-bar {
   min-width: 0;
   overflow: hidden;
 }
+/* The one header every sidebar panel shares (K8): title, then the panel's own actions
+   slot, then the hide-sidebar button — never a panel-drawn header of its own. */
 .sidebar-header {
   align-items: center;
   color: var(--fg);
   display: flex;
-  flex: 0 0 30px;
+  flex: 0 0 var(--panel-header);
   font-size: var(--text-panel);
-  justify-content: space-between;
+  gap: 2px;
   padding: 0 6px 0 12px;
+}
+.panel-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel-actions {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+}
+.panel-actions:empty {
+  display: none;
+}
+/* Direct child only: GitPanelActions renders its overflow menu as a fragment inside
+   this slot, so its .context-menu buttons are technically descendants too, and must
+   not be squashed to icon-button size along with the header's own action buttons. */
+.panel-actions > button {
+  align-items: center;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+.header-sep {
+  background: var(--border);
+  flex: 0 0 auto;
+  height: 12px;
+  margin: 0 6px;
+  width: 1px;
+}
+.panel-actions:empty + .header-sep {
+  display: none;
+}
+
+/* Below 260px: the filename and the badge always survive in every panel; everything
+   else degrades in priority order (K14). One block, not per-panel media queries. */
+@container sidebar (max-width: 260px) {
+  .panel {
+    --indent-step: 8px;
+  }
+  .git-dir {
+    display: none;
+  }
+  /* The toggles wrap to their own line rather than crushing the input (section 7). */
+  .search-row {
+    flex-wrap: wrap;
+  }
+  .search-row input {
+    flex-basis: 100%;
+  }
+  .search-toggles {
+    justify-content: flex-end;
+    width: 100%;
+  }
 }
 
 /* -- splitters ----------------------------------------------------------- */
@@ -321,30 +520,38 @@ body.is-mac .title-bar {
   background: var(--border);
   flex: 0 0 1px;
   position: relative;
+  transition: background-color 0.1s ease;
   z-index: 5;
 }
-/* A 1px line is impossible to grab, so the hit area is widened invisibly. */
+/* A 1px line is impossible to grab, so the hit area is widened invisibly, at least
+   8px on each side (J6). */
 .splitter::after {
   content: '';
   position: absolute;
-  inset: -3px;
+  inset: -8px;
 }
 .splitter-vertical {
   cursor: col-resize;
 }
 .splitter-vertical::after {
-  inset: 0 -3px;
+  inset: 0 -8px;
 }
 .splitter-horizontal {
   cursor: row-resize;
   flex: 0 0 1px;
 }
 .splitter-horizontal::after {
-  inset: -3px 0;
+  inset: -8px 0;
 }
 .splitter:hover,
 .splitter:focus-visible {
   background: var(--accent);
+}
+/* Distinct from hover, not just the same colour repeated: a splitter actually being
+   dragged widens too, so the drag itself stays visible under a fast-moving cursor. */
+.splitter[data-dragging='true'] {
+  background: var(--accent);
+  flex-basis: 3px;
 }
 /* During a drag, stop the editor and the webview from swallowing the pointer. */
 body.resizing {
@@ -356,10 +563,51 @@ body.resizing webview,
 body.resizing .monaco-container {
   pointer-events: none;
 }
+/* overflow: hidden, not auto — each panel is its own scroll container (.panel-content)
+   so its toolbar and footer can stay put while only the rows scroll (K8's sticky
+   contract). Letting this element scroll was what took the query box, the branch bar
+   and the commit box with it. */
 .sidebar-body {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+}
+
+/* The four-zone panel grid every sidebar panel builds on (K8). A panel with no toolbar
+   or footer renders nothing in those rows; `auto` collapses them to zero. */
+.panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  min-height: 0;
+}
+.panel-toolbar {
+  align-items: center;
+  background: var(--bg-alt);
+  display: flex;
+  gap: 4px;
+  min-height: var(--row-header);
+  padding: 4px var(--panel-gutter);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.panel-content {
+  min-height: 0;
   overflow: auto;
+  padding-bottom: 12px;
+}
+.panel-footer {
+  background: var(--bg-alt);
+  border-top: 1px solid var(--border);
+  color: var(--fg-dim);
+  font-size: var(--text-small);
+  min-height: var(--row);
+  line-height: var(--row);
+  padding: 0 var(--panel-gutter);
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
 }
 
 .main {
@@ -401,25 +649,39 @@ body.resizing .monaco-container {
   align-items: center;
   cursor: pointer;
   display: flex;
-  gap: 4px;
+  gap: 6px;
   height: var(--row);
-  padding-right: 8px;
+  padding: 0 var(--panel-gutter);
   white-space: nowrap;
 }
 .tree-row:hover {
   background: var(--hover);
 }
+/* Selected is a different property from hover, not more of it (rule 1, section 3.1). */
 .tree-row.active {
-  background: var(--hover-strong);
+  background: var(--selected-bg);
 }
 .tree-caret {
+  align-items: center;
   color: var(--fg-dim);
-  display: inline-block;
-  font-size: var(--text-micro);
-  width: 10px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  /* Indent lives here, not on the row, so hover/selection still bleeds to the panel
+     edge at every depth (section 4.4). */
+  margin-left: calc(var(--depth, 0) * var(--indent-step));
+  width: 14px;
 }
 .tree-icon {
-  font-size: var(--text-small);
+  align-items: center;
+  color: var(--fg-dim);
+  display: inline-flex;
+  flex: 0 0 var(--icon-col);
+  justify-content: center;
+}
+.tree-row:hover .tree-icon,
+.tree-row.active .tree-icon {
+  color: var(--fg);
 }
 .tree-name {
   overflow: hidden;
@@ -429,6 +691,8 @@ body.resizing .monaco-container {
   font-size: var(--text-small);
   font-weight: 700;
   margin-left: auto;
+  text-align: center;
+  width: 14px;
 }
 .badge-modified {
   color: var(--modified);
@@ -466,33 +730,25 @@ body.resizing .monaco-container {
   line-height: 1.5;
   max-width: 300px;
 }
-.editor-empty {
-  flex: 1;
-  justify-content: center;
-}
 .section-empty,
 .tree-empty {
   color: var(--fg-dim);
   font-size: var(--text-small);
-  padding: 2px 12px 8px;
+  padding: 2px var(--panel-gutter) 8px;
 }
-
-/* -- explorer toolbar and inline editing ---------------------------------- */
-
-.explorer-toolbar {
+.tree-empty-actions {
   display: flex;
-  gap: 2px;
-  justify-content: flex-end;
-  padding: 2px 6px 4px;
+  gap: 6px;
+  padding: 4px var(--panel-gutter) 8px;
 }
+
+/* -- explorer inline editing ----------------------------------------------- */
+
 .tree-input {
   flex: 1;
   font: inherit;
   min-width: 0;
   padding: 0 4px;
-}
-.tree-row.draft {
-  gap: 4px;
 }
 
 .context-menu {
@@ -510,6 +766,7 @@ body.resizing .monaco-container {
 .context-menu button {
   padding: 5px 10px;
   text-align: left;
+  white-space: nowrap;
 }
 .context-sep {
   background: var(--border);
@@ -641,6 +898,22 @@ body.resizing .monaco-container {
 }
 .body.preview-fullscreen .preview-footer {
   display: none;
+}
+
+/* -- element-picking mode --------------------------------------------------- */
+
+/*
+ * The rest of the chrome dims rather than hides, so picking mode is unmistakable (G1)
+ * without losing your place in the editor or terminal underneath it.
+ */
+.app.inspecting-mode > .title-bar,
+.app.inspecting-mode .body > .activity-bar,
+.app.inspecting-mode .body > .sidebar,
+.app.inspecting-mode .body .main > .center,
+.app.inspecting-mode .body .main > .splitter,
+.app.inspecting-mode > .status-bar {
+  filter: brightness(0.4);
+  pointer-events: none;
 }
 
 /* -- element picker and comment -------------------------------------------- */
@@ -810,6 +1083,8 @@ body.resizing .monaco-container {
   }
 }
 
+/* -- agents (threads + claude usage, one rail destination, two tabs) ------ */
+
 /* -- threads -------------------------------------------------------------- */
 
 /*
@@ -817,45 +1092,6 @@ body.resizing .monaco-container {
  * markup has to hold up across all seven themes including the light ones, and a hard
  * coded white wash disappears on a pale ground.
  */
-.threads-panel {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-.threads-actions {
-  align-items: center;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  flex: 0 0 auto;
-  gap: 8px;
-  padding: 8px 10px;
-}
-.thread-new {
-  background: var(--accent);
-  border: none;
-  border-radius: 5px;
-  color: var(--on-accent);
-  cursor: pointer;
-  flex: 1;
-  font: inherit;
-  font-size: var(--text-body);
-  padding: 5px 10px;
-}
-.thread-new:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-.thread-new:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-.threads-count {
-  background: var(--hover-strong);
-  border-radius: 8px;
-  color: var(--fg-dim);
-  font-size: var(--text-small);
-  padding: 1px 7px;
-}
 .threads-empty {
   color: var(--fg-dim);
   font-size: var(--text-body);
@@ -869,11 +1105,8 @@ body.resizing .monaco-container {
 }
 
 .thread-list {
-  flex: 1;
   list-style: none;
   margin: 0;
-  min-height: 0;
-  overflow-y: auto;
   padding: 0;
 }
 .thread-row {
@@ -947,8 +1180,10 @@ body.resizing .monaco-container {
 }
 .thread-arrow {
   color: var(--fg-dim);
+  display: inline-flex;
   margin-right: 5px;
   opacity: 0.7;
+  vertical-align: -1px;
 }
 /* One line, clipped rather than wrapped: a sidebar row that reflows to three lines
    turns the list into a wall and loses the at-a-glance read entirely. */
@@ -1007,24 +1242,19 @@ body.resizing .monaco-container {
 
 /* -- the new-thread sheet -------------------------------------------------- */
 
-.sheet-scrim {
-  align-items: center;
-  background: var(--shadow);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  position: fixed;
-  z-index: 80;
-}
 .sheet {
   background: var(--bg-bar);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 24px 70px var(--shadow-strong);
+  left: 50%;
   max-height: 88vh;
   max-width: 94vw;
   overflow-y: auto;
   padding: 20px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
   width: 660px;
 }
 .sheet-title {
@@ -1188,6 +1418,15 @@ body.resizing .monaco-container {
   cursor: not-allowed;
   opacity: 0.45;
 }
+.sheet-buttons .danger {
+  background: var(--danger-border);
+  border: 1px solid transparent;
+  color: var(--fg);
+}
+.sheet-buttons .danger:hover:not(:disabled) {
+  background: var(--removed);
+  color: var(--on-accent);
+}
 
 /* The two cards side by side need the width; stack them when there is not any. */
 @media (max-width: 720px) {
@@ -1254,19 +1493,15 @@ body.resizing .monaco-container {
 
 /* -- settings ------------------------------------------------------------- */
 
-.settings-modal {
-  background: var(--bg-bar);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 20px 60px var(--shadow-strong);
+/* Settings needs a fixed header and its own independently-scrolling body, unlike a
+   flat .sheet — so it overrides just the properties that shape differs on, layered on
+   top of .sheet's shared position/border/shadow (one overlay system, J3). */
+.sheet.settings-modal {
   display: flex;
   flex-direction: column;
-  left: 50%;
   max-height: 80vh;
-  max-width: 94vw;
-  position: absolute;
-  top: 10%;
-  transform: translateX(-50%);
+  overflow: visible;
+  padding: 0;
   width: 640px;
 }
 .settings-header {
@@ -1280,7 +1515,29 @@ body.resizing .monaco-container {
   font-size: var(--text-panel);
   margin: 0;
 }
+.settings-tabs {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 0 12px;
+}
+.settings-tab {
+  border-bottom: 2px solid transparent;
+  color: var(--fg-dim);
+  padding: 9px 10px;
+}
+.settings-tab:hover {
+  color: var(--fg);
+}
+.settings-tab.active {
+  border-bottom-color: var(--accent);
+  color: var(--fg);
+  font-weight: 600;
+}
 .settings-body {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 4px 16px 16px;
 }
@@ -1373,8 +1630,29 @@ body.resizing .monaco-container {
   padding: 1px 6px;
   white-space: nowrap;
 }
-.status-spacer {
+/* A button reads as clickable at rest, not only on hover — a plain <span> status
+   readout stays bare, so the two are told apart without reading every label. */
+button.status-item {
+  background: var(--hover);
+  border-radius: 3px;
+}
+.status-group {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+}
+/* Empty spacer: fills the space between the left and right groups so the right group
+   stays pinned to the far edge. The agent status chip lives in the right group now,
+   not centred here — centred read as a floating, disconnected thing. */
+.status-group-agent {
   flex: 1;
+}
+.status-sep {
+  background: var(--border);
+  flex: 0 0 auto;
+  height: 12px;
+  margin: 0 6px;
+  width: 1px;
 }
 .status-count {
   color: var(--fg);
@@ -1384,6 +1662,120 @@ body.resizing .monaco-container {
 }
 .status-ok {
   color: var(--untracked);
+}
+
+/* -- start panel (batch 12: rebuilt, supersedes batch 7's layout) ---------- */
+
+/*
+ * One column, one left edge, nothing centred inside it (M1, M2). The 560px cap moves
+ * onto this one named element instead of a rule that happened to apply to every direct
+ * child, and the two horizontal rules that used to be the only thing expressing the
+ * column's width are gone (M2) — a shared left edge does that job instead.
+ */
+.start-panel {
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  overflow: auto;
+  /* Asymmetric on purpose (section 3.2): the extra bottom padding is what the auto
+     margins below split, biasing the column slightly above true centre. */
+  padding: 32px 32px calc(32px + 6vh);
+}
+.start-column {
+  /* margin: auto in a flex column, not align-items: center — while the column is
+     shorter than the pane the free space splits evenly and it centres; once it grows
+     taller the auto margins resolve to zero and it pins to the top instead of clipping
+     (section 3.1). */
+  margin: auto;
+  max-width: 560px;
+  width: 100%;
+}
+.start-header {
+  align-items: baseline;
+  color: var(--fg);
+  display: flex;
+  font-size: var(--text-display);
+  font-weight: 600;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.start-header .project-branch {
+  align-items: center;
+  display: inline-flex;
+  font-size: var(--text-small);
+  font-weight: 400;
+  gap: 4px;
+}
+.start-section {
+  margin-bottom: 20px;
+}
+.start-section:last-child {
+  margin-bottom: 0;
+}
+/* The quietest text on the screen (M3) — a signpost, not a heading. Sentence case, no
+   letterspacing, no uppercase: that is the D1 defect, and it has already had to be
+   removed twice elsewhere in this app. */
+.start-label {
+  color: var(--fg-dim);
+  font-size: var(--text-small);
+  font-weight: 400;
+  margin: 0 0 4px;
+}
+/* One row idiom for every actionable line (M7), reusing batch 10's row token and grid
+   rather than inventing a screen-local one. The wash is deliberately wider than the
+   content column so it has room to breathe while the icon column still starts at the
+   column's own left edge — see the ASCII diagram in batch-12 section 4.1. */
+.start-row {
+  align-items: center;
+  border-radius: 4px;
+  display: flex;
+  gap: 8px;
+  height: var(--row);
+  margin: 0 calc(var(--panel-gutter) * -1);
+  padding: 0 var(--panel-gutter);
+  text-align: left;
+  white-space: nowrap;
+  width: calc(100% + var(--panel-gutter) * 2);
+}
+.start-row:hover {
+  background: var(--hover);
+}
+.start-row-icon {
+  align-items: center;
+  color: var(--fg-dim);
+  display: inline-flex;
+  flex: 0 0 var(--icon-col);
+}
+.start-row:hover .start-row-icon,
+.start-row:focus-visible .start-row-icon {
+  color: var(--fg);
+}
+.start-row-label {
+  color: var(--fg);
+  flex: 0 1 auto;
+  font-size: var(--text-body);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.start-row-secondary {
+  color: var(--fg-dim);
+  font-size: var(--text-small);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.start-row-hint {
+  color: var(--fg-dim);
+  flex: 0 0 auto;
+  font-size: var(--text-small);
+  margin-left: auto;
+}
+/* Part of the sentence ("N files changed +A -R"), not trailing metadata like a
+   shortcut or a timestamp — sits right after the label instead of pinned to the
+   row's far edge, so the two read as one statement instead of two unrelated halves. */
+.start-row-diffstat {
+  font-size: var(--text-small);
 }
 
 /* -- editor -------------------------------------------------------------- */
@@ -1434,6 +1826,15 @@ body.resizing .monaco-container {
 }
 .tab:hover .tab-close,
 .tab-close:hover {
+  opacity: 1;
+}
+.terminal-tab .tab-close {
+  opacity: 0;
+}
+.terminal-tab:hover .tab-close,
+.terminal-tab.active .tab-close,
+.terminal-tab .tab-close:hover,
+.terminal-tab .tab-close:focus-visible {
   opacity: 1;
 }
 .editor-host {
@@ -1505,69 +1906,109 @@ body.resizing .monaco-container {
 /* -- git panel ----------------------------------------------------------- */
 
 .git-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-bottom: 16px;
+  padding-bottom: 0;
 }
+
+/* -- toolbar: branch + sync ------------------------------------------------- */
+
 .git-branch-bar {
-  display: flex;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 4px;
 }
+/* A real <select> kept for now (K7's simpler acceptable path) — the branch list UI is
+   out of this batch's scope, the accessible name is not. */
 .git-branch-bar select {
   flex: 1;
   min-width: 0;
 }
 .git-sync {
   display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
 }
+.git-sync button {
+  align-items: center;
+  display: inline-flex;
+  gap: 2px;
+  height: 24px;
+  padding: 0 6px;
+}
+
+/* -- commit composer, single line at rest -------------------------------- */
+
 .git-commit {
+  border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 4px 8px 10px;
+  padding: 6px var(--panel-gutter);
 }
 .git-commit textarea {
-  min-height: 52px;
+  height: var(--row-header);
+  resize: none;
+  transition: height 0.1s ease;
+}
+.git-commit textarea:focus,
+.git-commit textarea.has-content {
+  height: 52px;
   resize: vertical;
 }
-.git-busy {
-  color: var(--fg-dim);
-  font-size: var(--text-small);
-  padding: 0 8px 4px;
-}
-.log-author {
-  color: var(--fg-dim);
-  font-size: var(--text-small);
-  margin-left: auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+
+/* -- collapsible sections -------------------------------------------------- */
+
 .section-header {
   align-items: center;
-  color: var(--fg-dim);
+  background: var(--bg-alt);
+  border-radius: 0;
+  color: var(--fg);
   display: flex;
-  font-size: var(--text-small);
+  font-size: var(--text-body);
+  font-weight: 600;
+  gap: 6px;
+  height: var(--row-header);
   justify-content: space-between;
-  letter-spacing: 0.06em;
-  padding: 6px 8px 2px;
-  text-transform: uppercase;
+  padding: 0 var(--panel-gutter);
+  position: sticky;
+  text-align: left;
+  top: 0;
+  width: 100%;
+  z-index: 1;
+}
+.section-header-title {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.section-header .icon-only {
+  color: var(--fg-dim);
 }
 .count {
-  background: var(--hover-strong);
+  background: var(--badge);
   border-radius: 8px;
+  font-size: var(--text-micro);
   padding: 0 5px;
 }
+
+/* -- rows: shared grid, git and log -------------------------------------- */
+
 .git-row {
   align-items: center;
   cursor: pointer;
   display: flex;
+  gap: 6px;
   height: var(--row);
-  padding: 0 8px;
+  padding: 0 var(--panel-gutter);
 }
 .git-row:hover {
   background: var(--hover);
+}
+.git-row-icon {
+  align-items: center;
+  color: var(--fg-dim);
+  display: inline-flex;
+  flex: 0 0 var(--icon-col);
+  justify-content: center;
 }
 .git-path {
   display: flex;
@@ -1578,8 +2019,10 @@ body.resizing .monaco-container {
 }
 .git-dir {
   color: var(--fg-dim);
+  direction: rtl;
   font-size: var(--text-small);
   overflow: hidden;
+  text-align: left;
   text-overflow: ellipsis;
 }
 .git-actions {
@@ -1588,38 +2031,21 @@ body.resizing .monaco-container {
   gap: 2px;
   margin-left: auto;
 }
+/* Keyboard focus reveals the same affordances hover does (rule 3, section 3.1) — a
+   roving-focused row is not only a moused-over one. */
 .git-row .git-actions button {
   opacity: 0;
 }
-.git-row:hover .git-actions button {
+.git-row:hover .git-actions button,
+.git-row:focus-within .git-actions button {
   opacity: 1;
-}
-.git-letter {
-  font-weight: 700;
-  width: 14px;
-  text-align: center;
-}
-.letter-modified,
-.letter-renamed,
-.letter-copied {
-  color: var(--modified);
-}
-.letter-added,
-.letter-untracked {
-  color: var(--untracked);
-}
-.letter-deleted {
-  color: var(--removed);
-}
-.letter-conflicted {
-  color: var(--conflict);
 }
 .log-row {
   display: flex;
   gap: 8px;
   height: var(--row);
   overflow: hidden;
-  padding: 0 8px;
+  padding: 0 var(--panel-gutter);
   white-space: nowrap;
 }
 .log-hash {
@@ -1631,40 +2057,76 @@ body.resizing .monaco-container {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.log-author {
+  color: var(--fg-dim);
+  font-size: var(--text-small);
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* -- search -------------------------------------------------------------- */
 
 .search-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 6px 8px;
+  padding-bottom: 0;
 }
-.search-controls {
+/* Two rows, always both present — no chevron gating a hidden field (section 6.2). */
+.search-toolbar {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px var(--panel-gutter);
+}
+.search-row {
   display: flex;
   gap: 4px;
 }
-.search-controls input {
+.search-row input {
   flex: 1;
   min-width: 0;
 }
 .search-toggles {
   display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
 }
 .search-toggles button {
   font-size: var(--text-small);
+  font-weight: 600;
+  height: 26px;
+  padding: 0 6px;
 }
-.search-summary {
-  color: var(--fg-dim);
-  font-size: var(--text-small);
+.search-row .primary {
+  flex: 0 0 auto;
+  font-size: var(--text-body);
+  padding: 0 10px;
 }
 .search-file-name {
-  color: var(--fg-dim);
-  font-size: var(--text-small);
+  align-items: center;
+  background: var(--bg-alt);
+  border-radius: 0;
+  color: var(--fg);
+  display: flex;
+  font-size: var(--text-body);
+  font-weight: 600;
+  gap: 6px;
+  height: var(--row-header);
+  justify-content: space-between;
   overflow: hidden;
-  padding-top: 6px;
+  padding: 0 var(--panel-gutter);
+  position: sticky;
+  text-align: left;
   text-overflow: ellipsis;
+  top: 0;
   white-space: nowrap;
+  width: 100%;
+  z-index: 1;
+}
+.search-file-path {
+  direction: rtl;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
 }
 .search-hit {
   cursor: pointer;
@@ -1672,6 +2134,7 @@ body.resizing .monaco-container {
   gap: 8px;
   height: var(--row);
   overflow: hidden;
+  padding: 0 var(--panel-gutter);
   white-space: nowrap;
 }
 .search-hit:hover {
@@ -1707,22 +2170,182 @@ body.resizing .monaco-container {
   display: flex;
   flex: 0 0 34px;
   gap: 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 0 8px;
+  position: relative;
 }
-/* Back/forward/reload/fullscreen only: real icons want a real target, not the
-   button.icon-only default. G2 scopes this to these four, not a global bump. */
+/* Nothing on this bar should ever be unreachable at any width — the priority collapse
+   driven by Preview.tsx's own ResizeObserver handles the controls that matter, and this
+   is the fallback for whatever is still too tight: scroll to it, never clip it off. */
+.preview-bar::-webkit-scrollbar {
+  display: none;
+}
+/* Back/forward/reload/fullscreen/external/overflow/close: real icons want a real
+   target, not the button.icon-only default. G2 scopes this to these, not a global
+   bump. */
 .preview-bar .preview-tool {
   align-items: center;
   display: inline-flex;
+  flex-shrink: 0;
   height: 28px;
   justify-content: center;
   min-width: 28px;
 }
-.preview-bar input {
+.preview-address {
   flex: 1;
   font-size: var(--text-body);
   margin: 0 4px;
-  min-width: 0;
+  /* The one thing on this bar that should absorb the available width (the user's own
+     ask: the most important field was the smallest). Everything else holds its size. */
+  min-width: 120px;
+}
+.preview-bar .point-at-it {
+  flex-shrink: 0;
+}
+/* Ghost at rest: a mode you can turn on, not a claim of importance. The fill only
+   appears while `inspecting` is true, so the colour itself communicates the state
+   rather than sitting there as a permanently loud button beside quieter ones. */
+.point-at-it {
+  align-items: center;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--accent);
+  display: inline-flex;
+  gap: 5px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+.point-at-it:hover:not(:disabled) {
+  background: var(--hover);
+}
+.point-at-it.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.point-at-it.active:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.point-at-it:disabled {
+  opacity: 0.5;
+}
+.width-preset {
+  position: relative;
+}
+.width-menu {
+  background: var(--bg-bar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 4px;
+  position: fixed;
+  z-index: 70;
+}
+.width-menu button {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  padding: 5px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Priority-based responsive collapse lives in Preview.tsx via a ResizeObserver on
+   this bar, not here — a CSS-only hide cannot relocate a control into the overflow
+   menu, which is what narrowing actually needs to do. This is just the resulting
+   compact spacing once the label is gone. */
+.point-at-it.compact {
+  padding: 5px 8px;
+}
+
+/* 2px loading indicator under the toolbar, driven by the same `loading` state the
+   reload button already tracks (G7) — no new event wiring, just a rendering addition. */
+.preview-progress {
+  background: transparent;
+  flex: 0 0 2px;
+  overflow: hidden;
+  position: relative;
+}
+.preview-progress.active {
+  background: var(--hover-strong);
+}
+.preview-progress.active::after {
+  background: var(--accent);
+  content: '';
+  height: 100%;
+  position: absolute;
+  width: 40%;
+}
+.preview-progress.active:not(.reduced)::after {
+  animation: preview-progress-sweep 1.1s ease-in-out infinite;
+}
+/* Reduced motion: a static fill rather than a sweep, still visible proof of loading. */
+.preview-progress.active.reduced::after {
+  width: 100%;
+}
+@keyframes preview-progress-sweep {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+/* Fades on its own after a couple of seconds — the "how do I get out of this" answer
+   for full screen and element-picking mode, both of which already listen for Escape. */
+.escape-hint {
+  animation: escape-hint-fade 2.6s ease-out forwards;
+  background: var(--bg-bar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px var(--shadow);
+  color: var(--fg);
+  font-size: var(--text-small);
+  left: 50%;
+  padding: 6px 12px;
+  position: absolute;
+  top: 12px;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+@media (prefers-reduced-motion: reduce) {
+  .escape-hint {
+    animation: none;
+  }
+}
+@keyframes escape-hint-fade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.preview-coach {
+  align-items: center;
+  background: var(--bg-bar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px var(--shadow);
+  display: flex;
+  gap: 8px;
+  max-width: 260px;
+  padding: 8px 8px 8px 12px;
+  position: absolute;
+  right: 8px;
+  top: 40px;
+  z-index: 3;
+}
+.preview-coach p {
+  color: var(--fg);
+  flex: 1;
+  font-size: var(--text-small);
+  line-height: 1.4;
+  margin: 0;
 }
 .preview-footer {
   border-top: 1px solid var(--border);
@@ -1737,13 +2360,22 @@ body.resizing .monaco-container {
   text-transform: none;
 }
 .cdp-pill.on {
-  color: var(--untracked);
+  /* An agency statement ("Claude can act here"), not a health statement — orange,
+     the one colour that means that, not the green used for a clean git status. */
+  color: var(--accent);
 }
 .preview-body {
   background: var(--preview-ground);
   flex: 1;
   min-height: 0;
+  overflow-x: auto;
   position: relative;
+  /* Centers the webview when a width preset constrains it (G9) — text-align rather
+     than flex, so the empty/error states below (both block-level) keep filling the
+     pane exactly as before. The panel is very often narrower than even the tablet
+     preset (the default preview width is under 768px); `overflow-x` keeps the excess
+     scrollable instead of bleeding into whatever sits past the panel's right edge. */
+  text-align: center;
 }
 /* Sits over the blank webview rather than replacing it, so Retry can reuse the frame. */
 .preview-error {
@@ -1788,6 +2420,12 @@ body.resizing .monaco-container {
   border: none;
   display: inline-flex;
   height: 100%;
+  /* `<webview>` is a composited guest surface that does not reliably respect an
+     ancestor's `overflow: hidden`/`auto` clip (a known Electron quirk), so the width
+     preset (G9) is capped here instead of relying on the parent to clip it — a preset
+     wider than the pane behaves as "as wide as the pane allows" rather than bleeding
+     past it. */
+  max-width: 100%;
   width: 100%;
 }
 .preview .panel-empty {
@@ -1807,13 +2445,9 @@ body.resizing .monaco-container {
 }
 .port-row {
   align-items: center;
-  border-radius: 0;
-  cursor: pointer;
   display: flex;
-  gap: 8px;
   height: 24px;
-  padding: 0 8px;
-  text-align: left;
+  padding-right: 4px;
   width: 100%;
 }
 .port-row:hover {
@@ -1821,6 +2455,17 @@ body.resizing .monaco-container {
 }
 .port-row.active {
   background: var(--sunken);
+}
+.port-row-main {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  height: 100%;
+  min-width: 0;
+  padding: 0 8px;
+  text-align: left;
 }
 .port-number {
   color: var(--accent);
@@ -1843,7 +2488,14 @@ body.resizing .monaco-container {
 }
 .port-open {
   color: var(--fg-dim);
-  margin-left: auto;
+  white-space: nowrap;
+}
+.port-external {
+  opacity: 0.55;
+}
+.port-row:hover .port-external,
+.port-external:hover {
+  opacity: 1;
 }
 
 /* -- terminal ------------------------------------------------------------ */
@@ -1854,13 +2506,23 @@ body.resizing .monaco-container {
   flex-direction: column;
   height: 100%;
 }
+/* The panel that runs the agent had no name at all — the one unlabelled region in
+   the window (F7). */
+.terminal-header {
+  background: var(--bg-bar);
+  border-bottom: 1px solid var(--border);
+  color: var(--fg);
+  flex: 0 0 auto;
+  font-size: var(--text-panel);
+  padding: 8px 10px;
+}
 .terminal-bar {
   align-items: center;
   background: var(--bg-bar);
   display: flex;
-  flex: 0 0 28px;
+  flex: 0 0 34px;
   gap: 4px;
-  padding: 0 8px;
+  padding: 0 10px;
 }
 .terminal-bar button {
   font-size: var(--text-small);
@@ -1887,21 +2549,26 @@ body.resizing .monaco-container {
   background: var(--hover);
 }
 .terminal-tab.active {
-  background: var(--hover-strong);
+  background: var(--selected-bg);
   color: var(--fg);
 }
-/* Colour-codes what is running: a Claude session, a plain shell, or a dead process. */
+/*
+ * State, not kind (F6): kind is the icon next to the name now. This dot is a coarser
+ * signal than ThreadsPanel's running/waiting/idle — a plain session has no hook-driven
+ * status reaching it, only whether it has a live process. See PROGRESS.md for what a
+ * full fix needs.
+ */
 .terminal-dot {
   border-radius: 50%;
   flex: 0 0 auto;
   height: 6px;
   width: 6px;
 }
-.terminal-dot.claude {
-  background: var(--accent);
+.terminal-dot.live {
+  background: var(--untracked);
 }
-.terminal-dot.shell {
-  background: var(--fg-dim);
+.terminal-dot.pending {
+  background: var(--modified);
 }
 .terminal-dot.dead {
   background: var(--removed);
@@ -1911,13 +2578,39 @@ body.resizing .monaco-container {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.terminal-tab-rename {
+  background: var(--input-bg);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  font: inherit;
+  max-width: 140px;
+  padding: 0 3px;
+}
 
 .terminal-actions {
   display: flex;
   flex: 0 0 auto;
 }
 .terminal-new {
+  display: flex;
   position: relative;
+}
+/* Split button: one click starts a Claude session (F1), the caret opens the rest. Same
+   segmented look as the title bar's layout-control, for the same reason — it reads as
+   one control with two ways in, not two competing buttons. Both segments share a fixed
+   height so the seam between them lines up exactly, not just approximately. */
+.split-primary {
+  border: 1px solid var(--border);
+  border-radius: 5px 0 0 5px;
+  border-right: none;
+  height: 26px;
+  padding: 0 10px;
+}
+.split-caret {
+  border: 1px solid var(--border);
+  border-radius: 0 5px 5px 0;
+  height: 26px;
+  min-width: 24px;
 }
 /*
   Fixed, not absolute: the terminal panel clips with `overflow: hidden`, and this menu
@@ -1932,7 +2625,7 @@ body.resizing .monaco-container {
   box-shadow: 0 8px 24px var(--shadow);
   display: flex;
   flex-direction: column;
-  min-width: 190px;
+  min-width: 240px;
   padding: 4px;
   position: fixed;
   z-index: 70;
@@ -1941,14 +2634,19 @@ body.resizing .monaco-container {
   padding: 5px 10px;
   text-align: left;
 }
-.terminal-toggle {
+.menu-command {
   align-items: center;
-  color: var(--fg-dim);
-  cursor: pointer;
   display: flex;
-  font-size: var(--text-small);
-  gap: 6px;
-  padding: 5px 10px;
+  gap: 8px;
+}
+.menu-command-title {
+  flex: 1;
+}
+.menu-shortcut {
+  color: var(--fg-dim);
+  font-family: ui-monospace, monospace;
+  font-size: var(--text-micro);
+  white-space: nowrap;
 }
 
 .terminal-instance {
@@ -2095,6 +2793,17 @@ body.resizing .monaco-container {
   right: 5px;
   width: 12px;
 }
+/* "Follow system" has no palette of its own, so its swatch is literally half of each,
+   split down the middle, rather than pretending to be a real theme's miniature. */
+.theme-swatch-system {
+  display: flex;
+}
+.theme-swatch-half {
+  flex: 1;
+}
+.theme-swatch-half + .theme-swatch-half {
+  border-left: 1px solid;
+}
 
 .theme-meta {
   display: flex;
@@ -2114,12 +2823,13 @@ body.resizing .monaco-container {
 
 /* Landing a thread: the merge preview sheet and the row action that opens it. */
 .thread-land {
+  align-items: center;
   background: none;
   border: 0;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: var(--text-body);
-  line-height: 1;
+  display: inline-flex;
+  justify-content: center;
   opacity: 0;
   padding: 4px 2px;
 }
@@ -2131,7 +2841,7 @@ body.resizing .monaco-container {
   color: var(--accent);
 }
 
-.land-sheet .land-conflicts {
+.land-conflicts {
   background: var(--bg-raised);
   border-left: 2px solid var(--danger, #e5534b);
   border-radius: 4px;
@@ -2139,37 +2849,19 @@ body.resizing .monaco-container {
   margin: 12px 0;
   padding: 10px 12px;
 }
-.land-sheet .land-conflicts ul {
+.land-conflicts ul {
   margin: 8px 0 0;
   padding-left: 18px;
 }
-.land-sheet .land-conflicts li {
+.land-conflicts li {
   font-family: var(--mono);
 }
-.land-sheet .land-unknown {
+.land-unknown {
   color: var(--text-dim);
   font-size: var(--text-body);
   margin: 12px 0 0;
 }
 
-/* Replace, folded away under the search box until it is wanted. */
-.search-replace {
-  display: flex;
-  gap: 6px;
-  padding: 0 8px 8px;
-}
-.search-replace input {
-  flex: 1;
-  min-width: 0;
-}
-.search-replace .primary {
-  flex: 0 0 auto;
-  font-size: var(--text-body);
-  padding: 4px 10px;
-}
-.search-expand {
-  flex: 0 0 auto;
-}
 
 /*
  * A subagent's report, in the sidebar next to the row that produced it.
@@ -2179,11 +2871,14 @@ body.resizing .monaco-container {
  * scrollback to search. Hence the generous max height and the real text selection.
  */
 .thread-report-toggle {
+  align-items: center;
   background: none;
   border: 0;
   color: var(--text-dim);
   cursor: pointer;
+  display: inline-flex;
   font-size: var(--text-small);
+  gap: 4px;
   grid-column: 1 / -1;
   padding: 2px 0 4px 28px;
   text-align: left;

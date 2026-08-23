@@ -1,7 +1,28 @@
 import { useEffect, useState } from 'react'
 import { call, useStore } from '../state/store'
+import { getCommand } from '../state/commands'
 import type { Thread, ThreadStatus } from '@shared/ipc'
 import { Icon } from './Icon'
+
+/** The panel header's actions slot (K8, inherited by batch 11): New Session, reading
+ *  the registered command so the header and the command palette can never drift. */
+export function ThreadsActions(): JSX.Element | null {
+  const state = useStore()
+  const command = getCommand('agents.newSession')
+  if (!command) return null
+  const blocked = command.blockedBy?.(state) ?? null
+  return (
+    <button
+      className="icon-only"
+      title={blocked ?? command.title}
+      aria-label={command.title}
+      disabled={blocked !== null}
+      onClick={() => void command.run(state)}
+    >
+      <Icon name={command.icon} />
+    </button>
+  )
+}
 
 /** Glyph and colour class per status, so the list reads at a glance and not by label. */
 const DOT: Record<ThreadStatus, { glyph: string; cls: string; label: string }> = {
@@ -13,7 +34,7 @@ const DOT: Record<ThreadStatus, { glyph: string; cls: string; label: string }> =
 }
 
 /** "4m", "2h", "3d". Absolute times are noise for something that started minutes ago. */
-function age(from: number, to: number | null): string {
+export function age(from: number, to: number | null): string {
   const seconds = Math.max(0, Math.round(((to ?? Date.now()) - from) / 1000))
   if (seconds < 60) return `${seconds}s`
   if (seconds < 3600) return `${Math.round(seconds / 60)}m`
@@ -36,7 +57,6 @@ export function ThreadsPanel(): JSX.Element {
   const selectThread = useStore((s) => s.selectThread)
   const closeThread = useStore((s) => s.closeThread)
   const openLandThread = useStore((s) => s.openLandThread)
-  const setNewThreadOpen = useStore((s) => s.setNewThreadOpen)
   // Only one report open at a time: they are long, and two expanded at once turns the
   // sidebar into a wall of text with no list left to navigate.
   const [openReport, setOpenReport] = useState<string | null>(null)
@@ -57,43 +77,34 @@ export function ThreadsPanel(): JSX.Element {
   const running = threads.filter((t) => t.status === 'running').length
 
   return (
-    <div className="threads-panel">
-      <div className="threads-actions">
-        <button
-          className="thread-new"
-          onClick={() => setNewThreadOpen(true)}
-          disabled={!workspace}
-          title={workspace ? 'Start a thread' : 'Open a folder first'}
-        >
-          <Icon name="add" /> New thread
-        </button>
-        {running > 0 && <span className="threads-count">{running} running</span>}
+    <div className="threads-panel panel">
+      <div className="panel-content">
+        {threads.length === 0 ? (
+          <p className="threads-empty">
+            No sessions yet. A session is its own <b>claude</b> process on its own
+            branch, or a <b>subagent</b> running inside one. Start one and it appears here
+            with its status, its branch and what it has changed.
+          </p>
+        ) : (
+          <ul className="thread-list">
+            {threads.map((thread) => (
+              <ThreadRow
+                key={thread.id}
+                thread={thread}
+                selected={selected === thread.id}
+                onSelect={() => selectThread(thread.id)}
+                onClose={() => void closeThread(thread.id, { removeWorktree: true })}
+                onLand={() => void openLandThread(thread.id)}
+                expanded={openReport === thread.id}
+                onToggleReport={() =>
+                  setOpenReport((current) => (current === thread.id ? null : thread.id))
+                }
+              />
+            ))}
+          </ul>
+        )}
       </div>
-
-      {threads.length === 0 ? (
-        <p className="threads-empty">
-          No threads yet. A thread is either its own <b>claude</b> session on its own
-          branch, or a <b>subagent</b> running inside one. Start one and it appears here
-          with its status, its branch and what it has changed.
-        </p>
-      ) : (
-        <ul className="thread-list">
-          {threads.map((thread) => (
-            <ThreadRow
-              key={thread.id}
-              thread={thread}
-              selected={selected === thread.id}
-              onSelect={() => selectThread(thread.id)}
-              onClose={() => void closeThread(thread.id, { removeWorktree: true })}
-              onLand={() => void openLandThread(thread.id)}
-              expanded={openReport === thread.id}
-              onToggleReport={() =>
-                setOpenReport((current) => (current === thread.id ? null : thread.id))
-              }
-            />
-          ))}
-        </ul>
-      )}
+      {running > 0 && <div className="panel-footer">{running} running</div>}
     </div>
   )
 }
@@ -126,11 +137,15 @@ function ThreadRow({
         </span>
         <span className="thread-text">
           <span className="thread-name">
-            {sub && <span className="thread-arrow">↳</span>}
+            {sub && (
+              <span className="thread-arrow">
+                <Icon name="forward" size={12} />
+              </span>
+            )}
             {thread.title}
           </span>
           <span className="thread-meta">
-            <span className="thread-kind">{sub ? 'subagent' : '◆ instance'}</span>
+            <span className="thread-kind">{sub ? 'subagent' : 'session'}</span>
             {thread.branch && (
               <span className="thread-branch">
                 <Icon name="branch" /> {thread.branch}
@@ -151,15 +166,15 @@ function ThreadRow({
           className="thread-land"
           onClick={onLand}
           title={`Merge ${thread.branch} into the branch you have open`}
-          aria-label={`Land ${thread.title}`}
+          aria-label={`Merge ${thread.title}`}
         >
-          ⤓
+          <Icon name="land" />
         </button>
       )}
       <button
         className="thread-close"
         onClick={onClose}
-        title={thread.worktree ? 'Close and remove its worktree, keeping the branch' : 'Close thread'}
+        title={thread.worktree ? 'Close and remove its worktree, keeping the branch' : 'Close session'}
         aria-label={`Close ${thread.title}`}
       >
         <Icon name="close" />
@@ -172,7 +187,7 @@ function ThreadRow({
           aria-expanded={expanded}
           title={expanded ? 'Hide what it reported' : 'Show what it reported'}
         >
-          {expanded ? '▾' : '▸'} report
+          <Icon name={expanded ? 'chevronDown' : 'forward'} size={12} /> report
         </button>
       )}
 

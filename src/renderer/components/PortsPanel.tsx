@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useStore } from '../state/store'
+import { call, useStore } from '../state/store'
+import { Icon } from './Icon'
 
 /**
  * Listening ports, extracted from the preview panel so the sidebar view and the preview
@@ -39,21 +40,33 @@ export function PortsPanel({ compact = false }: { compact?: boolean }): JSX.Elem
         const url = `http://localhost:${port.port}`
         const active = previewUrl.startsWith(url)
         return (
-          <button
+          <div
             key={port.port}
             className={`port-row${port.ours ? ' ours' : ''}${active ? ' active' : ''}${port.system ? ' system' : ''}`}
-            onClick={() => showInPreview(url)}
-            title={`Open ${url} in the preview${port.pid ? ` · pid ${port.pid}` : ''}${
-              port.system ? ' · not a web server, this will probably be blank' : ''
-            }`}
           >
-            <span className="port-number">{port.port}</span>
-            <span className="port-process">{port.process ?? 'unknown process'}</span>
-            {port.ours && <span className="port-badge">started here</span>}
+            <button
+              className="port-row-main"
+              onClick={() => showInPreview(url)}
+              title={`Load ${url} in the preview${port.pid ? ` · pid ${port.pid}` : ''}${
+                port.system ? ' · not a web server, this will probably be blank' : ''
+              }`}
+            >
+              <span className="port-number">{port.port}</span>
+              <span className="port-process">{port.process ?? 'unknown process'}</span>
+              {port.ours && <span className="port-badge">started here</span>}
+            </button>
             <span className="port-open" aria-hidden="true">
-              {active ? 'showing' : 'open ↗'}
+              {active ? 'showing' : 'Preview'}
             </span>
-          </button>
+            <button
+              className="icon-only port-external"
+              title={`Open ${url} in your browser`}
+              aria-label={`Open ${url} in your browser`}
+              onClick={() => void call('app:openExternal', url)}
+            >
+              <Icon name="external" />
+            </button>
+          </div>
         )
       })}
 

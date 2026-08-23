@@ -142,13 +142,48 @@ export function xtermTheme(theme: Theme): XtermTheme {
 
 // ── the whole lot ────────────────────────────────────────────────────────────
 
+/**
+ * Not a `Spec`/`Theme` of its own — a meta-choice that resolves to `dark` or `light`
+ * at runtime from `prefers-color-scheme`, and keeps resolving as the OS setting
+ * changes while it stays selected.
+ */
+export const SYSTEM_PREFERENCE = 'system'
+
+function resolveSystemThemeId(): string {
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 type Listener = (theme: Theme) => void
 const listeners = new Set<Listener>()
 
-let current: Theme = themeById(readStoredTheme())
+/** The raw stored choice — a real theme id, or `SYSTEM_PREFERENCE`. */
+let preference: string = readStoredTheme()
+let current: Theme = themeById(preference === SYSTEM_PREFERENCE ? resolveSystemThemeId() : preference)
+
+let systemMedia: MediaQueryList | null = null
+function onSystemChange(): void {
+  current = themeById(resolveSystemThemeId())
+  applyCssTokens(current)
+  if (typeof monaco?.editor?.setTheme === 'function') applyMonacoTheme(current)
+  for (const listener of listeners) listener(current)
+}
+function watchSystem(on: boolean): void {
+  if (on && !systemMedia) {
+    systemMedia = window.matchMedia('(prefers-color-scheme: dark)')
+    systemMedia.addEventListener('change', onSystemChange)
+  } else if (!on && systemMedia) {
+    systemMedia.removeEventListener('change', onSystemChange)
+    systemMedia = null
+  }
+}
 
 export function getTheme(): Theme {
   return current
+}
+
+/** The raw preference for the picker's "active" highlight — `SYSTEM_PREFERENCE` or a real theme id. */
+export function getThemePreference(): string {
+  return preference
 }
 
 /** Subscribe to theme changes. Returns an unsubscribe function. */
@@ -158,11 +193,13 @@ export function onThemeChange(listener: Listener): () => void {
 }
 
 export function setTheme(id: string, opts: { persist?: boolean } = {}): void {
-  current = themeById(id)
+  preference = id
+  current = themeById(id === SYSTEM_PREFERENCE ? resolveSystemThemeId() : id)
   applyCssTokens(current)
   // Monaco is only touched once it exists; the alert window never loads it.
   if (typeof monaco?.editor?.setTheme === 'function') applyMonacoTheme(current)
-  if (opts.persist !== false) storeTheme(current.id)
+  if (opts.persist !== false) storeTheme(preference)
+  watchSystem(preference === SYSTEM_PREFERENCE)
   for (const listener of listeners) listener(current)
 }
 
@@ -171,8 +208,10 @@ export function setTheme(id: string, opts: { persist?: boolean } = {}): void {
  * Deliberately does not touch Monaco, which does not exist yet at this point.
  */
 export function bootstrapTheme(): Theme {
-  current = themeById(readStoredTheme())
+  preference = readStoredTheme()
+  current = themeById(preference === SYSTEM_PREFERENCE ? resolveSystemThemeId() : preference)
   applyCssTokens(current)
+  watchSystem(preference === SYSTEM_PREFERENCE)
   return current
 }
 

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from '../state/store'
+import { Icon } from './Icon'
 import './onboarding.css'
 
 /**
@@ -68,7 +69,8 @@ export function Welcome(): JSX.Element {
         {systemCheck && (
           <p className="welcome-env">
             {systemCheck.claude.installed ? (
-              <span className="ok">
+              <span className="ok welcome-claude">
+                <Icon name="claude" />
                 {/* `claude --version` prints "2.1.226 (Claude Code)", which would read
                     as "Claude Code 2.1.226 (Claude Code)" if shown whole. */}
                 Claude Code {systemCheck.claude.version?.replace(/\s*\(.*\)\s*$/, '') ?? 'found'}

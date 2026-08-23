@@ -1,5 +1,5 @@
-import type { JSX } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import type { JSX, ReactNode } from 'react'
+import { ClaudeMark } from './ClaudeMark'
 import {
   FolderTree,
   Search,
@@ -25,8 +25,33 @@ import {
   PanelLeft,
   PanelBottom,
   PanelRight,
-  Hash
+  Hash,
+  FolderPlus,
+  Folder,
+  File,
+  ChevronsDownUp,
+  ArrowDown,
+  ArrowUp,
+  Minus,
+  Undo2,
+  MoreHorizontal,
+  GitMerge,
+  Lock,
+  Clock,
+  CheckCircle2
 } from 'lucide-react'
+
+/**
+ * Structural shape every entry below must accept — every `lucide-react` icon already
+ * does, and it is loose enough for the one bespoke component in the set (`ClaudeMark`)
+ * to as well, without pulling in Lucide's own (unexported) prop type.
+ */
+type IconGlyph = (props: {
+  size?: number
+  strokeWidth?: number
+  className?: string
+  'aria-hidden'?: boolean | 'true' | 'false'
+}) => ReactNode
 
 /**
  * One glyph, one meaning, one place this is declared. Every icon used anywhere in the
@@ -60,9 +85,25 @@ export const ICONS = {
   sidebar: PanelLeft,
   terminalPanel: PanelBottom,
   previewPanel: PanelRight,
-  gotoLine: Hash
+  gotoLine: Hash,
+  folderAdd: FolderPlus,
+  folder: Folder,
+  folderOpen: FolderOpen, // same glyph as `openFolder`, deliberately — same meaning
+  file: File,
+  collapseAll: ChevronsDownUp,
+  pull: ArrowDown,
+  push: ArrowUp,
+  unstage: Minus,
+  discard: Undo2,
+  more: MoreHorizontal,
+  land: GitMerge,
+  lock: Lock,
+  waiting: Clock,
+  done: CheckCircle2,
+  // Not a Lucide icon — see ClaudeMark.tsx for why it still belongs in this set.
+  claude: ClaudeMark
   // add more only when a real batch needs one — do not pre-populate speculative icons
-} as const satisfies Record<string, LucideIcon>
+} as const satisfies Record<string, IconGlyph>
 
 export function Icon({
   name,
@@ -70,7 +111,8 @@ export function Icon({
   className
 }: {
   name: keyof typeof ICONS
-  size?: 16 | 20
+  // 12 is the tree/list disclosure caret's size (batch 10) — every other use stays 16 or 20.
+  size?: 12 | 16 | 20
   className?: string
 }): JSX.Element {
   const Glyph = ICONS[name]

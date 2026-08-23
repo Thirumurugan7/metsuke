@@ -2,15 +2,16 @@ import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './alert.css'
 import { bootstrapTheme } from './theme/apply'
+import { Icon } from './components/Icon'
 import type { NotificationPayload, NotifyEvent } from '@shared/ipc'
 
 // Same origin as the main window, so the stored choice is already there to read.
 bootstrapTheme()
 
-const ICONS: Record<NotifyEvent, string> = {
-  permission: '🔐',
-  idle: '⏳',
-  finished: '✅'
+const EVENT_ICON: Record<NotifyEvent, 'lock' | 'waiting' | 'done'> = {
+  permission: 'lock',
+  idle: 'waiting',
+  finished: 'done'
 }
 
 /**
@@ -42,7 +43,7 @@ function Alert(): JSX.Element | null {
   return (
     <div className={`alert-card alert-${payload.event}`}>
       <div className="alert-icon" aria-hidden="true">
-        {ICONS[payload.event]}
+        <Icon name={EVENT_ICON[payload.event]} size={16} />
       </div>
 
       <div className="alert-body">
@@ -56,12 +57,14 @@ function Alert(): JSX.Element | null {
           >
             Go to Claude
           </button>
-          <button onClick={() => void window.api.invoke('alert:dismiss')}>Dismiss</button>
+          <button className="ghost" onClick={() => void window.api.invoke('alert:dismiss')}>
+            Dismiss
+          </button>
         </div>
       </div>
 
       <button className="alert-close" aria-label="Dismiss" onClick={() => void window.api.invoke('alert:dismiss')}>
-        ×
+        <Icon name="close" size={16} />
       </button>
     </div>
   )

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../state/store'
-import { useFocusTrap } from '../a11y/useFocusTrap'
+import { Modal } from './Modal'
 
 /**
  * What landing a thread would do, and the button that does it.
@@ -29,18 +29,6 @@ export function LandThread(): JSX.Element | null {
     setBusy(false)
   }, [id])
 
-  const sheet = useRef<HTMLDivElement>(null)
-  useFocusTrap(sheet, Boolean(id && thread))
-
-  useEffect(() => {
-    if (!id) return
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') close()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [id, close])
-
   if (!id || !thread) return null
 
   const conflicts = preview?.conflicts ?? []
@@ -53,81 +41,76 @@ export function LandThread(): JSX.Element | null {
     setBusy(false)
   }
 
+  const target = preview?.base ?? 'the base branch'
+
   return (
-    <div className="sheet-scrim" onMouseDown={close}>
-      <div
-        ref={sheet}
-        className="sheet land-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Land thread"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <h2 className="sheet-title">Land “{thread.title}”</h2>
+    <Modal variant="dialog" label={`Merge into ${target}`} onClose={close}>
+      <h2 className="sheet-title">
+        Merge &ldquo;{thread.title}&rdquo; into {target}
+      </h2>
 
-        {!preview ? (
-          <p className="sheet-sub">Working out what this would change…</p>
-        ) : preview.alreadyMerged ? (
+      {!preview ? (
+        <p className="sheet-sub">Working out what this would change…</p>
+      ) : preview.alreadyMerged ? (
+        <p className="sheet-sub">
+          Everything on <b>{preview.branch}</b> is already in <b>{preview.base}</b>. Merging it
+          just closes the session and removes its worktree.
+        </p>
+      ) : (
+        <>
           <p className="sheet-sub">
-            Everything on <b>{preview.branch}</b> is already in <b>{preview.base}</b>. Landing it
-            just closes the thread and removes its worktree.
+            Merging <b>{preview.branch}</b> into <b>{preview.base}</b>:{' '}
+            {preview.commits} commit{preview.commits === 1 ? '' : 's'},{' '}
+            <span className="add">+{preview.added}</span>{' '}
+            <span className="del">−{preview.removed}</span>.
           </p>
-        ) : (
-          <>
-            <p className="sheet-sub">
-              Merging <b>{preview.branch}</b> into <b>{preview.base}</b>:{' '}
-              {preview.commits} commit{preview.commits === 1 ? '' : 's'},{' '}
-              <span className="add">+{preview.added}</span>{' '}
-              <span className="del">−{preview.removed}</span>.
-            </p>
 
-            {blocked && (
-              <div className="land-conflicts">
-                <p>
-                  These files changed on both sides and would conflict. Landing is disabled
-                  until that is resolved, because a half-finished merge in your working tree
-                  is worse than not starting one.
-                </p>
-                <ul>
-                  {conflicts.map((file) => (
-                    <li key={file}>{file}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {unknown && (
-              <p className="land-unknown">
-                This version of git cannot say in advance whether the merge conflicts. If it
-                does, nothing will be left half-done: the merge is undone and your working
-                tree stays as it is.
+          {blocked && (
+            <div className="land-conflicts">
+              <p>
+                These files changed on both sides and would conflict. Merging is disabled
+                until that is resolved, because a half-finished merge in your working tree
+                is worse than not starting one.
               </p>
-            )}
-          </>
-        )}
+              <ul>
+                {conflicts.map((file) => (
+                  <li key={file}>{file}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-        <div className="sheet-foot">
-          <label className="sheet-check">
-            <input
-              type="checkbox"
-              checked={deleteBranch}
-              onChange={(e) => setDeleteBranch(e.target.checked)}
-            />
-            <span>
-              Delete the branch afterwards
-              <em> (its commits are in {preview?.base ?? 'the base branch'} either way)</em>
-            </span>
-          </label>
-          <div className="sheet-buttons">
-            <button className="ghost" onClick={close}>
-              Cancel
-            </button>
-            <button className="primary" onClick={() => void run()} disabled={!preview || blocked || busy}>
-              {busy ? 'Landing…' : 'Land it'}
-            </button>
-          </div>
+          {unknown && (
+            <p className="land-unknown">
+              This version of git cannot say in advance whether the merge conflicts. If it
+              does, nothing will be left half-done: the merge is undone and your working
+              tree stays as it is.
+            </p>
+          )}
+        </>
+      )}
+
+      <div className="sheet-foot">
+        <label className="sheet-check">
+          <input
+            type="checkbox"
+            checked={deleteBranch}
+            onChange={(e) => setDeleteBranch(e.target.checked)}
+          />
+          <span>
+            Delete the branch afterwards
+            <em> (its commits are in {target} either way)</em>
+          </span>
+        </label>
+        <div className="sheet-buttons">
+          <button className="ghost" onClick={close}>
+            Cancel
+          </button>
+          <button className="primary" onClick={() => void run()} disabled={!preview || blocked || busy}>
+            {busy ? 'Merging…' : `Merge into ${target}`}
+          </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

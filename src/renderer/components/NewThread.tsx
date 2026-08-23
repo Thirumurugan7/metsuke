@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
-import { useFocusTrap } from '../a11y/useFocusTrap'
+import { Modal } from './Modal'
 import type { ThreadMode } from '@shared/ipc'
 
 /**
@@ -33,7 +33,7 @@ const MODES: Array<{
   {
     id: 'instance',
     glyph: '◆',
-    title: 'Separate instance',
+    title: 'New session',
     points: [
       'Its own claude process and its own conversation',
       'Optionally its own worktree and branch, so it cannot touch your files',
@@ -46,6 +46,7 @@ const MODES: Array<{
 
 export function NewThread(): JSX.Element | null {
   const open = useStore((s) => s.newThreadOpen)
+  const presetMode = useStore((s) => s.newThreadPresetMode)
   const setOpen = useStore((s) => s.setNewThreadOpen)
   const createThread = useStore((s) => s.createThread)
   const threads = useStore((s) => s.threads)
@@ -58,8 +59,6 @@ export function NewThread(): JSX.Element | null {
   const [parentId, setParentId] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
-  const sheet = useRef<HTMLDivElement>(null)
-  useFocusTrap(sheet, open, titleRef)
 
   const instances = threads.filter((t) => t.mode === 'instance' && t.endedAt === null)
 
@@ -69,22 +68,13 @@ export function NewThread(): JSX.Element | null {
     setTitle('')
     setPrompt('')
     setBusy(false)
-    setMode(instances.length > 0 ? 'subagent' : 'instance')
+    setMode(presetMode ?? (instances.length > 0 ? 'subagent' : 'instance'))
     setParentId(instances[0]?.id ?? '')
     setWorktree(isGitRepo)
     titleRef.current?.focus()
     // Only when the sheet opens. Recomputing on every keystroke would wipe the form.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, setOpen])
 
   if (!open) return null
 
@@ -105,19 +95,11 @@ export function NewThread(): JSX.Element | null {
   }
 
   return (
-    <div className="sheet-scrim" onMouseDown={() => setOpen(false)}>
-      <div
-        ref={sheet}
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label="New thread"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <h2 className="sheet-title">New thread</h2>
-        <p className="sheet-sub">
-          Two ways to run it. They are not the same thing and the difference matters.
-        </p>
+    <Modal variant="dialog" label="New session" onClose={() => setOpen(false)} initialFocus={titleRef}>
+      <h2 className="sheet-title">New session</h2>
+      <p className="sheet-sub">
+        Two ways to run it. They are not the same thing and the difference matters.
+      </p>
 
         <div className="sheet-modes">
           {MODES.map((option) => {
@@ -129,7 +111,7 @@ export function NewThread(): JSX.Element | null {
                 onClick={() => !unavailable && setMode(option.id)}
                 aria-pressed={mode === option.id}
                 disabled={unavailable}
-                title={unavailable ? 'Start an instance first: a subagent runs inside one' : undefined}
+                title={unavailable ? 'Start a session first: a subagent runs inside one' : undefined}
               >
                 <span className="sheet-glyph" aria-hidden="true">
                   {option.glyph}
@@ -206,11 +188,10 @@ export function NewThread(): JSX.Element | null {
               Cancel
             </button>
             <button className="primary" onClick={() => void start()} disabled={!canStart}>
-              {busy ? 'Starting…' : 'Start thread'}
+              {busy ? 'Starting…' : 'Start session'}
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

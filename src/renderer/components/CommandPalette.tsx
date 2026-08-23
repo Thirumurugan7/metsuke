@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { call, useStore } from '../state/store'
 import { rank, fuzzyMatch, score } from '../state/fuzzy'
 import { commandsFor, type Command } from '../state/commands'
-import { useFocusTrap } from '../a11y/useFocusTrap'
+import { Modal } from './Modal'
 import { Icon } from './Icon'
 
 type Row =
   | { kind: 'file'; path: string }
   | { kind: 'command'; command: Command & { blocked: string | null } }
-  | { kind: 'session'; id: string; title: string; detail: string }
+  | { kind: 'session'; id: string; title: string; detail: string; terminalKind: 'claude' | 'shell' }
   | { kind: 'line'; line: number }
   | { kind: 'ask'; text: string }
 
@@ -42,8 +42,6 @@ export function CommandPalette(): JSX.Element | null {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
   const input = useRef<HTMLInputElement>(null)
-  const dialog = useRef<HTMLDivElement>(null)
-  useFocusTrap(dialog, open, input)
 
   useEffect(() => {
     if (!open || !workspace) return
@@ -93,7 +91,8 @@ export function CommandPalette(): JSX.Element | null {
         kind: 'session' as const,
         id: t.id,
         title: t.title,
-        detail: t.sessionId ? (t.kind === 'claude' ? 'Claude session' : 'shell') : 'not running'
+        detail: t.sessionId ? (t.kind === 'claude' ? 'Claude session' : 'shell') : 'not running',
+        terminalKind: t.kind
       }))
   }, [mode, rest, state.terminals])
 
@@ -152,7 +151,7 @@ export function CommandPalette(): JSX.Element | null {
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Escape') return close()
+    // Escape is handled by Modal itself.
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setSelected((i) => Math.min(i + 1, rows.length - 1))
@@ -169,69 +168,60 @@ export function CommandPalette(): JSX.Element | null {
     : 'Go to file, > for commands, @ for sessions, : for a line…'
 
   return (
-    <div className="overlay" onMouseDown={close}>
-      <div
-        ref={dialog}
-        className="quick-open"
-        onMouseDown={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command palette"
-      >
-        <input
-          ref={input}
-          autoFocus
-          value={query}
-          placeholder={placeholder}
-          aria-label="Command palette input"
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
+    <Modal variant="command" label="Command palette" onClose={close} initialFocus={input}>
+      <input
+        ref={input}
+        autoFocus
+        value={query}
+        placeholder={placeholder}
+        aria-label="Command palette input"
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={onKeyDown}
+      />
 
-        <div className="quick-open-results">
-          {rows.length === 0 && (
-            <div className="quick-open-empty">
-              {mode === 'files' && files.length === 0 && 'Indexing…'}
-              {mode === 'files' && files.length > 0 && 'No matching files'}
-              {mode === 'commands' && 'No matching commands'}
-              {mode === 'sessions' && 'No sessions'}
-              {mode === 'line' && (activePath ? 'Type a line number' : 'Open a file first')}
-            </div>
-          )}
+      <div className="quick-open-results">
+        {rows.length === 0 && (
+          <div className="quick-open-empty">
+            {mode === 'files' && files.length === 0 && 'Indexing…'}
+            {mode === 'files' && files.length > 0 && 'No matching files'}
+            {mode === 'commands' && 'No matching commands'}
+            {mode === 'sessions' && 'No sessions'}
+            {mode === 'line' && (activePath ? 'Type a line number' : 'Open a file first')}
+          </div>
+        )}
 
-          {mode === 'commands'
-            ? SECTIONS.map((section) => {
-                const inSection = rows.filter(
-                  (r): r is Row & { kind: 'command' } => r.kind === 'command' && r.command.section === section
-                )
-                if (inSection.length === 0) return null
-                return (
-                  <div key={section}>
-                    <div className="palette-section">{section}</div>
-                    {inSection.map((row) => (
-                      <PaletteRow
-                        key={row.command.id}
-                        row={row}
-                        selected={rows.indexOf(row) === selected}
-                        onPick={() => choose(row)}
-                        onHover={() => setSelected(rows.indexOf(row))}
-                      />
-                    ))}
-                  </div>
-                )
-              })
-            : rows.map((row, i) => (
-                <PaletteRow
-                  key={rowKey(row)}
-                  row={row}
-                  selected={i === selected}
-                  onPick={() => choose(row)}
-                  onHover={() => setSelected(i)}
-                />
-              ))}
-        </div>
+        {mode === 'commands'
+          ? SECTIONS.map((section) => {
+              const inSection = rows.filter(
+                (r): r is Row & { kind: 'command' } => r.kind === 'command' && r.command.section === section
+              )
+              if (inSection.length === 0) return null
+              return (
+                <div key={section}>
+                  <div className="palette-section">{section}</div>
+                  {inSection.map((row) => (
+                    <PaletteRow
+                      key={row.command.id}
+                      row={row}
+                      selected={rows.indexOf(row) === selected}
+                      onPick={() => choose(row)}
+                      onHover={() => setSelected(rows.indexOf(row))}
+                    />
+                  ))}
+                </div>
+              )
+            })
+          : rows.map((row, i) => (
+              <PaletteRow
+                key={rowKey(row)}
+                row={row}
+                selected={i === selected}
+                onPick={() => choose(row)}
+                onHover={() => setSelected(i)}
+              />
+            ))}
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -288,7 +278,7 @@ function PaletteRow({
       )}
       {row.kind === 'session' && (
         <>
-          <Icon name="sessions" />
+          <Icon name={row.terminalKind === 'claude' ? 'claude' : 'sessions'} />
           <span className="quick-open-name">{row.title}</span>
           <span className="quick-open-dir">{row.detail}</span>
         </>
@@ -296,7 +286,7 @@ function PaletteRow({
       {row.kind === 'line' && <span className="quick-open-name">Go to line {row.line}</span>}
       {row.kind === 'ask' && (
         <>
-          <Icon name="agents" />
+          <Icon name="claude" />
           <span className="quick-open-name">Ask Claude &quot;{row.text}&quot;</span>
         </>
       )}

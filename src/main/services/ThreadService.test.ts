@@ -229,7 +229,7 @@ describe('ThreadService', () => {
   it('refuses a subagent when there is no instance for it to live in', async () => {
     await expect(
       threads.create({ title: 'Orphan', mode: 'subagent', worktree: false })
-    ).rejects.toThrow(/needs a running instance/i)
+    ).rejects.toThrow(/needs a running session/i)
   })
 
   it('orders parents before their own children', async () => {

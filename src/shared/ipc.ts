@@ -96,6 +96,8 @@ export interface GitDiff {
   binary: boolean
 }
 
+export type PortProbe = 'html' | 'not-web' | 'unresponsive'
+
 export interface PortInfo {
   port: number
   /** Best-effort process name, e.g. "node", "vite". */
@@ -104,11 +106,19 @@ export interface PortInfo {
   /** True when the listening process is a descendant of a terminal we spawned. */
   ours: boolean
   /**
-   * True for ports that are not somebody's dev server: the editor's own processes, and
-   * known daemons that do not serve web pages. Hidden by default — opening one shows a
-   * blank pane, which reads as the preview being broken.
+   * True for ports that are not a usable dev server: the editor's own processes, and
+   * anything that did not probe as HTML-serving. Hidden by default — opening one shows a
+   * blank pane, which reads as the preview being broken. Always false for `ours` ports,
+   * whatever they probed as.
    */
   system: boolean
+  /**
+   * Result of an HTTP liveness probe, null only for the editor's own ports, which are
+   * never offered so are never probed. 'html' means the response's content-type was
+   * text/html; 'not-web' means something answered but not with a page; 'unresponsive'
+   * means the connection was refused or timed out.
+   */
+  probe: PortProbe | null
 }
 
 export interface TerminalSpawnOptions {
@@ -403,6 +413,8 @@ export interface InvokeChannels {
 
   /** What tooling is present on this machine. Cheap, and cached after the first call. */
   'system:check': { args: []; result: SystemCheck }
+  /** Open a URL in the user's real browser, e.g. a port or the current preview address. */
+  'app:openExternal': { args: [url: string]; result: void }
 
   // -- files ----------------------------------------------------------------
   /** One level of the tree. `dir` is relative to the workspace root; '' is the root. */
@@ -443,7 +455,13 @@ export interface InvokeChannels {
   'git:checkout': { args: [branch: string, opts: { create?: boolean }]; result: void }
   'git:push': { args: [opts: { setUpstream?: boolean }]; result: string }
   'git:pull': { args: [opts: { rebase?: boolean }]; result: string }
+  'git:fetch': { args: []; result: string }
+  'git:stash': { args: [message?: string]; result: string }
   'git:log': { args: [opts: { limit?: number; path?: string }]; result: GitLogEntry[] }
+  /** Lines added/removed in the working tree since HEAD, untracked files included. For
+   *  the Start panel's "since you were last here" summary — not pushed reactively like
+   *  `git:status`, called on demand since it is only needed while that panel is up. */
+  'git:dirtyStat': { args: []; result: { added: number; removed: number } }
 
   // -- terminal -------------------------------------------------------------
   'terminal:spawn': { args: [opts: TerminalSpawnOptions]; result: TerminalSession }
@@ -594,6 +612,7 @@ export const INVOKE_CHANNELS = [
   'workspace:current',
   'workspace:close',
   'system:check',
+  'app:openExternal',
   'files:list',
   'files:all',
   'files:read',
@@ -613,7 +632,10 @@ export const INVOKE_CHANNELS = [
   'git:checkout',
   'git:push',
   'git:pull',
+  'git:fetch',
+  'git:stash',
   'git:log',
+  'git:dirtyStat',
   'terminal:spawn',
   'terminal:write',
   'terminal:resize',

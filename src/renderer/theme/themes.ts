@@ -197,9 +197,14 @@ const SPECS: Spec[] = [
     border: '#3c3c3c',
     fg: '#d4d4d4',
     fgDim: '#9d9d9d',
-    accent: '#0b6fd4',
-    accentHover: '#2f8ff0',
-    onAccent: '#ffffff',
+    // Claude's own clay, not a generic system blue (every other app already uses that
+    // one) — this is meant to read as a Claude product, not a VS Code reskin. Hue is
+    // 23° off `removed` (0°) rather than the ~15° an unadjusted clay sits at, so it
+    // reads as orange next to a git-deletion red, not as a warmer shade of the same
+    // colour — checked with `contrast()`, not just eyeballed.
+    accent: '#cc8558',
+    accentHover: '#d6996f',
+    onAccent: '#2a1208',
     added: '#4ec9b0',
     removed: '#f14c4c',
     modified: '#e2c08d',
@@ -231,8 +236,8 @@ const SPECS: Spec[] = [
     border: '#d6d9de',
     fg: '#1c1e21',
     fgDim: '#5a5f66',
-    accent: '#0a5fd0',
-    accentHover: '#0b4fae',
+    accent: '#a25e29',
+    accentHover: '#b0764a',
     onAccent: '#ffffff',
     added: '#0a7a5c',
     removed: '#c0392b',
@@ -250,6 +255,40 @@ const SPECS: Spec[] = [
       operator: '#1c1e21'
     },
     ansi: ['#2b2f36', '#c0392b', '#12784f', '#9a6b12', '#0a5fd0', '#8a2fa0', '#0a6a72', '#f4f5f7']
+  },
+
+  {
+    id: 'high-contrast',
+    name: 'High Contrast',
+    group: 'core',
+    blurb: 'Pure black and white, no soft greys, built for maximum readability.',
+    dark: true,
+    bg: '#000000',
+    bgAlt: '#0d0d0d',
+    bgDeep: '#000000',
+    bgBar: '#0d0d0d',
+    border: '#ffffff',
+    fg: '#ffffff',
+    fgDim: '#cccccc',
+    accent: '#ffdd33',
+    accentHover: '#ffe866',
+    onAccent: '#000000',
+    added: '#00e676',
+    removed: '#ff5252',
+    modified: '#ffca28',
+    untracked: '#69f0ae',
+    conflict: '#ffab40',
+    syntax: {
+      comment: '#9a9a9a',
+      keyword: '#ff79c6',
+      string: '#8be9fd',
+      number: '#bd93f9',
+      type: '#50fa7b',
+      func: '#f1fa8c',
+      variable: '#ffffff',
+      operator: '#ffffff'
+    },
+    ansi: ['#000000', '#ff5252', '#00e676', '#ffca28', '#8be9fd', '#ff79c6', '#8be9fd', '#ffffff']
   },
 
   {
@@ -424,7 +463,16 @@ const SPECS: Spec[] = [
 ]
 
 export const THEMES: Theme[] = SPECS.map(build)
-export const DEFAULT_THEME = 'dark'
+
+// New installs follow the OS rather than assuming dark — 'system' is resolved to a
+// real theme id by theme/apply.ts, not a Spec of its own.
+export const DEFAULT_THEME = 'system'
+
+if (import.meta.env.DEV) {
+  const hc = SPECS.find((s) => s.id === 'high-contrast')!
+  const ratio = contrast(hc.fg, hc.bg)
+  console.assert(ratio >= 4.5, `high-contrast theme body text only reaches ${ratio.toFixed(1)}:1, WCAG AA wants 4.5`)
+}
 
 export function themeById(id: string | null): Theme {
   return THEMES.find((t) => t.id === id) ?? THEMES[0]

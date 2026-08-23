@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, shell } from 'electron'
 import {
   err,
   ok,
@@ -182,6 +182,7 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
   // Re-probe on an explicit open: someone who just installed Claude should not have to
   // restart the editor to be told it worked.
   handle('system:check', () => systemCheck())
+  handle('app:openExternal', (url) => shell.openExternal(url))
   handle('workspace:openPath', (root) => {
     clearSystemCheck()
     return openFolder(root)
@@ -218,7 +219,10 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
   handle('git:checkout', (branch, opts) => ws().requireGit().checkout(branch, opts))
   handle('git:push', (opts) => ws().requireGit().push(opts))
   handle('git:pull', (opts) => ws().requireGit().pull(opts))
+  handle('git:fetch', () => ws().requireGit().fetch())
+  handle('git:stash', (message) => ws().requireGit().stash(message))
   handle('git:log', (opts) => ws().requireGit().log(opts))
+  handle('git:dirtyStat', () => ws().requireGit().dirtyStat())
 
   // -- terminal -------------------------------------------------------------
 

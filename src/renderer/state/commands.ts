@@ -34,6 +34,12 @@ export function allCommands(): Command[] {
   return Array.from(registry.values())
 }
 
+/** Look one up by id, e.g. to render it as a menu item that reads from the same
+ *  source as the palette rather than duplicating its label. */
+export function getCommand(id: string): Command | undefined {
+  return registry.get(id)
+}
+
 /** Every command that should render right now, blocked ones included. */
 export function commandsFor(state: State): Array<Command & { blocked: string | null }> {
   return allCommands()
@@ -68,10 +74,11 @@ registerCommand({
 
 registerCommand({
   id: 'session.new.claude',
-  title: 'New Claude Session',
+  title: 'Claude session',
   section: 'Agent',
   keywords: ['terminal', 'claude', 'new', 'session'],
-  icon: 'agents',
+  icon: 'claude',
+  shortcut: '⌘⇧N',
   when: (s) => s.workspace !== null,
   blockedBy: (s) => (s.workspace === null ? noWorkspace : null),
   run: (s) => {
@@ -80,8 +87,30 @@ registerCommand({
 })
 
 registerCommand({
+  id: 'agents.newSession',
+  title: 'New Session…',
+  section: 'Agent',
+  keywords: ['session', 'new', 'worktree', 'subagent', 'branch'],
+  icon: 'add',
+  when: (s) => s.workspace !== null,
+  blockedBy: (s) => (s.workspace === null ? noWorkspace : null),
+  run: (s) => s.setNewThreadOpen(true)
+})
+
+registerCommand({
+  id: 'session.new.worktree',
+  title: 'Claude session on a new branch',
+  section: 'Agent',
+  keywords: ['terminal', 'claude', 'new', 'session', 'worktree', 'branch', 'git', 'instance'],
+  icon: 'branch',
+  when: (s) => s.workspace !== null,
+  blockedBy: (s) => (s.workspace === null ? noWorkspace : null),
+  run: (s) => s.openNewThreadAs('instance')
+})
+
+registerCommand({
   id: 'session.new.shell',
-  title: 'New Shell',
+  title: 'Shell',
   section: 'Agent',
   keywords: ['terminal', 'shell', 'new', 'session'],
   icon: 'sessions',
@@ -93,8 +122,20 @@ registerCommand({
 })
 
 registerCommand({
+  id: 'session.close',
+  title: 'Close Session',
+  section: 'Agent',
+  keywords: ['close', 'session', 'terminal', 'end'],
+  icon: 'close',
+  shortcut: '⌘W',
+  when: (s) => s.activeTerminal !== null,
+  blockedBy: (s) => (s.activeTerminal === null ? 'No session is open' : null),
+  run: (s) => s.requestCloseActiveTerminal()
+})
+
+registerCommand({
   id: 'agent.checkProject',
-  title: 'Check Project',
+  title: 'Session that checks this project',
   section: 'Agent',
   keywords: ['check', 'project', 'audit', 'walk'],
   icon: 'check',
@@ -105,7 +146,7 @@ registerCommand({
 
 registerCommand({
   id: 'agent.testUi',
-  title: 'Test UI',
+  title: 'Session that tests every screen',
   section: 'Agent',
   keywords: ['test', 'ui', 'audit', 'preview'],
   icon: 'agents',
@@ -118,10 +159,12 @@ registerCommand({
 
 registerCommand({
   id: 'preview.pointAtElement',
-  title: 'Point at Element',
+  title: 'Point at It',
   section: 'Preview',
-  keywords: ['select', 'inspect', 'element', 'pick'],
+  keywords: ['select', 'inspect', 'element', 'pick', 'point'],
   icon: 'pointAtElement',
+  // ⌘⇧C now opens the Claude rail item (batch 11); this is the next free shift-combo.
+  shortcut: '⌘⇧P',
   when: (s) => s.previewUrl !== '',
   blockedBy: (s) => (s.previewUrl === '' ? 'Load a page in the preview first' : null),
   run: (s) => void (s.inspecting ? s.stopInspect() : s.startInspect())
@@ -179,8 +222,20 @@ registerCommand({
   section: 'View',
   keywords: ['preview', 'panel', 'toggle', 'view', 'browser'],
   icon: 'previewPanel',
+  shortcut: '⌘⇧V',
   when: () => true,
   run: (s) => s.togglePanel('preview')
+})
+
+registerCommand({
+  id: 'view.claude',
+  title: 'Claude',
+  section: 'View',
+  keywords: ['claude', 'usage', 'model', 'skills', 'plugins'],
+  icon: 'claude',
+  shortcut: '⌘⇧C',
+  when: () => true,
+  run: (s) => s.setSidebar('claude')
 })
 
 registerCommand({
@@ -206,7 +261,7 @@ registerCommand({
   when: (s) => s.workspace !== null,
   blockedBy: (s) => (s.workspace === null ? noWorkspace : null),
   run: (s) => {
-    s.setSidebar('explorer')
+    s.showSidebar('explorer')
     s.requestNewEntry('', false)
   }
 })
@@ -216,13 +271,45 @@ registerCommand({
   title: 'New Folder',
   section: 'View',
   keywords: ['new', 'folder', 'create', 'explorer', 'directory'],
-  icon: 'add',
+  icon: 'folderAdd',
   when: (s) => s.workspace !== null,
   blockedBy: (s) => (s.workspace === null ? noWorkspace : null),
   run: (s) => {
-    s.setSidebar('explorer')
+    s.showSidebar('explorer')
     s.requestNewEntry('', true)
   }
+})
+
+registerCommand({
+  id: 'view.refreshExplorer',
+  title: 'Refresh Explorer',
+  section: 'View',
+  keywords: ['refresh', 'reload', 'explorer', 'tree'],
+  icon: 'reload',
+  when: (s) => s.workspace !== null,
+  blockedBy: (s) => (s.workspace === null ? noWorkspace : null),
+  run: (s) => void s.loadDir('')
+})
+
+registerCommand({
+  id: 'explorer.collapseAll',
+  title: 'Collapse All',
+  section: 'View',
+  keywords: ['collapse', 'explorer', 'tree', 'fold'],
+  icon: 'collapseAll',
+  when: (s) => s.workspace !== null,
+  blockedBy: (s) => (s.workspace === null ? noWorkspace : null),
+  run: (s) => s.collapseAll()
+})
+
+registerCommand({
+  id: 'search.clear',
+  title: 'Clear Search',
+  section: 'View',
+  keywords: ['clear', 'search', 'reset'],
+  icon: 'close',
+  when: () => true,
+  run: (s) => s.requestSearchClear()
 })
 
 registerCommand({
@@ -234,4 +321,17 @@ registerCommand({
   shortcut: '⌘O',
   when: () => true,
   run: (s) => void s.openFolder()
+})
+
+// -- Settings -----------------------------------------------------------------------
+
+registerCommand({
+  id: 'settings.open',
+  title: 'Open Settings',
+  section: 'Settings',
+  keywords: ['settings', 'preferences', 'theme', 'notifications', 'privacy'],
+  icon: 'settings',
+  shortcut: '⌘,',
+  when: () => true,
+  run: (s) => s.setSettingsOpen(true)
 })

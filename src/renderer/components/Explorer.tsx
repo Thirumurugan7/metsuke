@@ -1,37 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { call, useStore } from '../state/store'
-import type { DirEntry, GitStatus } from '@shared/ipc'
+import { getCommand } from '../state/commands'
+import { statusBadge } from '../state/gitStatus'
+import type { DirEntry } from '@shared/ipc'
 import { Icon } from './Icon'
-
-/**
- * Single-letter badge matching the git status of a file. Takes the status as an
- * argument rather than reading the store, so the caller's subscription drives repaints.
- */
-function statusBadge(
-  path: string,
-  git: GitStatus | null
-): { letter: string; className: string; label: string } | null {
-  const file = git?.files.find((f) => f.path === path)
-  if (!file) return null
-
-  const state = file.unstaged !== 'unchanged' ? file.unstaged : file.staged
-  switch (state) {
-    case 'untracked':
-      return { letter: 'U', className: 'badge-untracked', label: 'Untracked' }
-    case 'added':
-      return { letter: 'A', className: 'badge-added', label: 'Added' }
-    case 'deleted':
-      return { letter: 'D', className: 'badge-deleted', label: 'Deleted' }
-    case 'conflicted':
-      return { letter: '!', className: 'badge-conflict', label: 'Conflicted' }
-    case 'modified':
-    case 'renamed':
-    case 'copied':
-      return { letter: 'M', className: 'badge-modified', label: 'Modified' }
-    default:
-      return null
-  }
-}
+import { Modal } from './Modal'
 
 interface MenuState {
   x: number
@@ -44,6 +17,38 @@ interface MenuState {
 interface Draft {
   parent: string
   isDirectory: boolean
+}
+
+/**
+ * The panel header's actions slot (K8/K11): New file, New folder, Refresh, Collapse
+ * all. Reads the registry commands batch 3 already built, so this row and the command
+ * palette can never drift on label or icon — it does not need any of Explorer's own
+ * component state.
+ */
+export function ExplorerActions(): JSX.Element {
+  const state = useStore()
+  const buttons = ['explorer.newFile', 'explorer.newFolder', 'view.refreshExplorer', 'explorer.collapseAll']
+  return (
+    <>
+      {buttons.map((id) => {
+        const command = getCommand(id)
+        if (!command) return null
+        const blocked = command.blockedBy?.(state) ?? null
+        return (
+          <button
+            key={id}
+            className="icon-only"
+            title={blocked ?? command.title}
+            aria-label={command.title}
+            disabled={blocked !== null}
+            onClick={() => void command.run(state)}
+          >
+            <Icon name={command.icon} />
+          </button>
+        )
+      })}
+    </>
+  )
 }
 
 export function Explorer(): JSX.Element {
@@ -61,6 +66,8 @@ export function Explorer(): JSX.Element {
   const [menu, setMenu] = useState<MenuState | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+  const cancelDeleteRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!menu) return
@@ -114,9 +121,15 @@ export function Explorer(): JSX.Element {
     await refreshGit()
   }
 
-  const remove = async (path: string): Promise<void> => {
+  const remove = (path: string): void => {
     setMenu(null)
-    if (!confirm(`Delete ${path}? This cannot be undone.`)) return
+    setDeleteTarget(path)
+  }
+
+  const confirmDelete = async (): Promise<void> => {
+    const path = deleteTarget
+    if (!path) return
+    setDeleteTarget(null)
     if ((await call('files:delete', path)) === null) return
     useStore.getState().closeFile(path)
     await loadDir(parentOf(path))
@@ -184,61 +197,50 @@ export function Explorer(): JSX.Element {
     }
   }
 
+  const root = tree[''] ?? []
+
   return (
-    <div className="explorer">
-      <div className="explorer-toolbar">
-        <button
-          className="icon-only"
-          title="New file in the root folder"
-          aria-label="New file"
-          onClick={() => setDraft({ parent: '', isDirectory: false })}
-        >
-          <Icon name="add" />
-        </button>
-        <button
-          className="icon-only"
-          title="New folder in the root folder"
-          aria-label="New folder"
-          onClick={() => setDraft({ parent: '', isDirectory: true })}
-        >
-          🗀
-        </button>
-        <button
-          className="icon-only"
-          title="Refresh the file tree"
-          aria-label="Refresh"
-          onClick={() => void loadDir('')}
-        >
-          ↻
-        </button>
-      </div>
+    <div className="explorer panel">
+      <div className="panel-content">
+        <div className="tree" role="tree" aria-label="Files" onKeyDown={onTreeKeyDown}>
+          {draft?.parent === '' && (
+            <DraftRow
+              depth={0}
+              isDirectory={draft.isDirectory}
+              onCommit={(name) => void create('', name, draft.isDirectory)}
+              onCancel={() => setDraft(null)}
+            />
+          )}
 
-      <div className="tree" role="tree" aria-label="Files" onKeyDown={onTreeKeyDown}>
-        {draft?.parent === '' && (
-          <DraftRow
-            depth={0}
-            isDirectory={draft.isDirectory}
-            onCommit={(name) => void create('', name, draft.isDirectory)}
-            onCancel={() => setDraft(null)}
-          />
-        )}
+          {root.map((entry) => (
+            <Row
+              key={entry.path}
+              entry={entry}
+              depth={0}
+              draft={draft}
+              renaming={renaming}
+              onMenu={setMenu}
+              onCreate={create}
+              onRename={rename}
+              onCancelDraft={() => setDraft(null)}
+              onCancelRename={() => setRenaming(null)}
+            />
+          ))}
 
-        {(tree[''] ?? []).map((entry) => (
-          <Row
-            key={entry.path}
-            entry={entry}
-            depth={0}
-            draft={draft}
-            renaming={renaming}
-            onMenu={setMenu}
-            onCreate={create}
-            onRename={rename}
-            onCancelDraft={() => setDraft(null)}
-            onCancelRename={() => setRenaming(null)}
-          />
-        ))}
-
-        {(tree[''] ?? []).length === 0 && <div className="tree-empty">This folder is empty</div>}
+          {root.length === 0 && (
+            <>
+              <div className="tree-empty">This folder is empty.</div>
+              <div className="tree-empty-actions">
+                <button className="labelled" onClick={() => setDraft({ parent: '', isDirectory: false })}>
+                  New file
+                </button>
+                <button className="labelled" onClick={() => setDraft({ parent: '', isDirectory: true })}>
+                  New folder
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {menu && (
@@ -281,10 +283,36 @@ export function Explorer(): JSX.Element {
             Copy Path
           </button>
           <div className="context-sep" />
-          <button role="menuitem" className="danger" onClick={() => void remove(menu.path)}>
+          <button role="menuitem" className="danger" onClick={() => remove(menu.path)}>
             Delete
           </button>
         </div>
+      )}
+
+      {deleteTarget && (
+        <Modal
+          variant="dialog"
+          label={`Delete ${deleteTarget.split('/').pop()}`}
+          onClose={() => setDeleteTarget(null)}
+          initialFocus={cancelDeleteRef}
+        >
+          <h2 className="sheet-title">
+            Delete <b>{deleteTarget.split('/').pop()}</b>?
+          </h2>
+          <p className="sheet-sub">
+            <code>{deleteTarget}</code> will be removed. This cannot be undone.
+          </p>
+          <div className="sheet-foot">
+            <div className="sheet-buttons">
+              <button ref={cancelDeleteRef} className="ghost" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </button>
+              <button className="danger" onClick={() => void confirmDelete()}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   )
@@ -314,7 +342,9 @@ function Row({
   const { expanded, tree, activePath, git, toggleDir, openFile, treeFocus, setTreeFocus } =
     useStore()
   const isOpen = expanded.has(entry.path)
-  const badge = statusBadge(entry.path, git)
+  const file = git?.files.find((f) => f.path === entry.path)
+  const state = file ? (file.unstaged !== 'unchanged' ? file.unstaged : file.staged) : null
+  const badge = state ? statusBadge(state) : null
   // Before anything has been focused, the first root row holds the tab stop, so Tab into
   // the tree always lands somewhere rather than being swallowed.
   const tabbable = treeFocus ? treeFocus === entry.path : (tree[''] ?? [])[0]?.path === entry.path
@@ -335,7 +365,7 @@ function Row({
     <>
       <div
         className={`tree-row${activePath === entry.path ? ' active' : ''}`}
-        style={{ paddingLeft: depth * 12 + 8 }}
+        style={{ '--depth': depth } as React.CSSProperties}
         role="treeitem"
         aria-expanded={entry.isDirectory ? isOpen : undefined}
         aria-selected={activePath === entry.path}
@@ -360,10 +390,10 @@ function Row({
         title={entry.path}
       >
         <span className="tree-caret" aria-hidden="true">
-          {entry.isDirectory ? (isOpen ? '▾' : '▸') : ''}
+          {entry.isDirectory && <Icon name={isOpen ? 'chevronDown' : 'forward'} size={12} />}
         </span>
         <span className="tree-icon" aria-hidden="true">
-          {entry.isDirectory ? (isOpen ? '📂' : '📁') : '📄'}
+          <Icon name={entry.isDirectory ? (isOpen ? 'folderOpen' : 'folder') : 'file'} size={16} />
         </span>
         <span className="tree-name">{entry.name}</span>
         {badge && (
@@ -427,10 +457,10 @@ function DraftRow({
   }, [initial])
 
   return (
-    <div className="tree-row draft" style={{ paddingLeft: depth * 12 + 8 }}>
+    <div className="tree-row draft" style={{ '--depth': depth } as React.CSSProperties}>
       <span className="tree-caret" />
       <span className="tree-icon" aria-hidden="true">
-        {isDirectory ? '📁' : '📄'}
+        <Icon name={isDirectory ? 'folder' : 'file'} size={16} />
       </span>
       <input
         ref={input}

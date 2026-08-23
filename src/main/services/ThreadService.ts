@@ -224,7 +224,7 @@ export class ThreadService {
 
   async #createInstance(opts: NewThreadOptions): Promise<Thread> {
     const root = this.#deps.workspaceRoot()
-    if (!root) throw new Error('Open a folder before starting a thread')
+    if (!root) throw new Error('Open a folder before starting a session')
 
     let cwd = root
     let branch: string | null = null
@@ -319,9 +319,9 @@ export class ThreadService {
       : this.#mostRecentInstance()
 
     if (!parent || parent.mode !== 'instance') {
-      throw new Error('A subagent needs a running instance thread to live in')
+      throw new Error('A subagent needs a running session to live in')
     }
-    if (!parent.terminalId) throw new Error('That thread has no live session')
+    if (!parent.terminalId) throw new Error('That session has no live process')
 
     const thread: Thread = {
       id: randomUUID(),
@@ -702,9 +702,9 @@ export class ThreadService {
    */
   #landable(id: string): { git: GitService; thread: Thread } {
     const thread = this.#threads.get(id)
-    if (!thread) throw new Error('That thread no longer exists')
+    if (!thread) throw new Error('That session no longer exists')
     if (!thread.branch) {
-      throw new Error('This thread shares the workspace, so it has no branch to land')
+      throw new Error('This session shares the workspace, so it has no branch to merge')
     }
 
     const git = this.#deps.git()

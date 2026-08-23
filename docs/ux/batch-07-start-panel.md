@@ -1,5 +1,25 @@
 # Batch 7 — Start panel and empty states
 
+> **⚠ Section 2's layout is superseded by `batch-12-start-panel-and-dismissal.md`. Do not
+> implement it.**
+>
+> This batch shipped, and the screen it produced was wrong: two competing alignment axes,
+> dividers that were the only thing expressing the content column, section labels louder
+> than their own content, four visual idioms on seven actionable lines, and a third of the
+> pane empty. Batch 12 (zone M) rebuilds the layout from scratch.
+>
+> **What still stands, unchanged, and is reused by batch 12:** the `git:dirtyStat` IPC
+> channel and its handler (section 3), the `recentFiles` list and its localStorage
+> mechanism (section 2), the "since you were last here" derivation including the
+> `showSummary` guard, and section 1's one-empty-state split between `Welcome.tsx` and
+> `EditorPane.tsx` (E3).
+>
+> **What is withdrawn:** section 2's arrangement of those sections on screen, the
+> `.start-*` CSS block it produced, the centred `button.primary` primary action, and
+> section 2's "Or start something" block. Per M9, the two prepared-task actions are
+> dropped from this screen entirely and the New-session menu from batch 5 is their single
+> home, which reverses this batch's own decision to make the Start panel their primary one.
+
 Closes: A8, E1, E2, E3, E4. Reference: `AUDIT.md` zone E in full, A (A8), and the "empty
 to start" section with the Start panel mock-up.
 

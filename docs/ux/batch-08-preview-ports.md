@@ -1,7 +1,7 @@
 # Batch 8 — Preview and ports
 
-Closes: G1, G3, G4, G5, G6, C4, H1, H2, H3, H4. Reference: `AUDIT.md` zones G and H in
-full, and the "preview and ports" section with the toolbar/ports mock-ups.
+Closes: G1, G3, G4, G5, G6, G7, G8, G9, C4, H1, H2, H3, H4. Reference: `AUDIT.md` zones
+G and H in full, and the "preview and ports" section with the toolbar/ports mock-ups.
 
 Depends on batch 2 (icons), batch 4 (rail no longer has a separate Ports item), batch 6
 (the "not attached" copy pattern this batch also applies to ports). Likely needs new
@@ -106,6 +106,41 @@ already exists (Electron's `shell.openExternal` is the standard mechanism; check
 links) and reuse/extend that rather than building new main-process code from scratch if
 something adjacent already exists.
 
+## 5. Further preview polish (closes G7, G8, G9)
+
+Sections 1-4 cover the toolbar, the attachment pill, and ports. Once those land, three
+gaps remain in `Preview.tsx` itself that the original audit didn't catch because they're
+not visible until you use the preview for a real session rather than a screenshot:
+
+**No sense that a slow load is in progress (G7).** The only loading indicator today is
+the reload button swapping to `◌` (line ~185) — everything else in the toolbar and the
+address bar stays static. On a dev server with a slow first compile, this reads as
+nothing happening rather than something loading. Add a thin progress indicator (a 2px
+bar under `.preview-bar`, similar to how a browser tab's loading bar works) driven by
+the `loading` state `Preview.tsx` already tracks via `did-start-loading`/
+`did-stop-loading` — no new event wiring needed, this is a rendering addition only.
+Respect `prefers-reduced-motion` (a static "loading" state instead of an animated
+sweep).
+
+**No way to open the current page in a real browser from the address bar (G8).** H3
+above adds an external-open control to each row in the ports list, but the address bar
+— the more common way anyone actually navigates the preview — has no equivalent. Add a
+small icon-only button next to the address input (reuse whatever `shell.openExternal`
+wiring H3 introduces) that opens `previewUrl` in the user's default browser. This is
+also useful as a workaround the moment the preview shows an error the internal webview
+can't recover from.
+
+**No way to check a responsive layout without resizing the whole panel (G9).** The only
+way to see how a page looks narrower today is dragging the preview/editor splitter,
+which also resizes the editor pane — there's no way to preview at a fixed mobile or
+tablet width while keeping everything else full size. Add a small width-preset control
+in `.preview-bar` (e.g. a `chevronDown`-menu button reading "Full width" by default,
+with "Tablet — 768px" and "Mobile — 375px" options) that constrains the `<webview>`'s
+CSS width and centers it within `.preview-body`, independent of `previewWidth`. This is
+a CSS/layout change local to `Preview.tsx` and its stylesheet — it doesn't need new
+main-process work or a new store field beyond a simple local `useState` for the chosen
+preset, since it doesn't need to persist across restarts.
+
 ## Do not touch
 
 - `Explorer.tsx`, `GitPanel.tsx`, `SearchPanel.tsx` — unrelated to this batch.
@@ -132,10 +167,14 @@ something adjacent already exists.
   subsequent loads.
 - Confirm every remaining port count in the UI reflects the usable/filtered count, not
   the raw total.
+- Load a slow-starting dev server and confirm the progress indicator appears while it
+  compiles; confirm the address bar's external-open button opens the current URL in the
+  real browser; cycle through the width presets and confirm the webview visibly narrows
+  and centers without resizing the editor.
 - `npm run test:ui`
 
 ## When done
 
-Tick G1, G3, G4, G5, G6, C4, H1, H2, H3, H4 in `PROGRESS.md`. Also mark A8 as fully
-closed (batch 7 left it partial pending this batch's smart Preview empty state).
-Commit as: `ux(batch-08): preview and ports`
+Tick G1, G3, G4, G5, G6, G7, G8, G9, C4, H1, H2, H3, H4 in `PROGRESS.md`. Also mark A8
+as fully closed (batch 7 left it partial pending this batch's smart Preview empty
+state). Commit as: `ux(batch-08): preview and ports`
