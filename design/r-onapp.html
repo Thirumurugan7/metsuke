@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>R · Drawn on your app</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /*
+   * The test for every pixel here: could a terminal print this? If yes it does not
+   * belong. What is left is the app itself, the change drawn on top of it, and the
+   * ability to point at something.
+   */
+  .room { background: #0b0b0e; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .roomtop { align-items: center; display: flex; flex: 0 0 44px; gap: 10px; padding: 0 18px; }
+  .roomtop .bead { background: var(--accent-fg); border-radius: 50%; height: 8px; width: 8px;
+                   animation: bl 1.8s ease-in-out infinite }
+  @keyframes bl { 50% { opacity: .25 } }
+  .roomtop b { font-size: 13px; font-weight: 500 }
+  .roomtop .swap { display: flex; gap: 0; margin-left: auto; border: 1px solid var(--border);
+                   border-radius: 7px; overflow: hidden }
+  .roomtop .swap button { background: none; border: none; color: var(--fg-dim); cursor: pointer;
+                          font: inherit; font-size: 12px; padding: 5px 13px }
+  .roomtop .swap button.on { background: #ffffff16; color: var(--fg) }
+
+  .canvas { align-items: center; display: flex; flex: 1; justify-content: center; min-height: 0;
+            padding: 0 20px 14px; }
+
+  /* their actual app */
+  .site { background: #fff; border-radius: 10px; box-shadow: 0 20px 70px #000a; height: 100%;
+          max-height: 520px; max-width: 620px; overflow: hidden; position: relative; width: 100% }
+  .site .top { background: #f1f1f4; height: 26px }
+  .site .pg { padding: 30px 40px }
+  .site h3 { color: #16161a; font-size: 20px; margin: 0 0 20px }
+  .site label { color: #55555f; display: block; font-size: 12px; margin-bottom: 5px }
+  .site .inp { background: #fff; border: 1px solid #d5d5dc; border-radius: 6px; height: 34px;
+               margin-bottom: 16px; transition: border-color .3s }
+  .site .btn2 { background: #0b6fd4; border-radius: 6px; color: #fff; font-size: 13px;
+                padding: 11px 0; text-align: center; transition: width .35s ease; width: 42% }
+
+  /* the after state, which is the only thing the two buttons change */
+  body.after .site .inp.email { border-color: #d33 }
+  body.after .site .btn2 { width: 100% }
+  .err2 { color: #d33; font-size: 12px; margin: -11px 0 16px; opacity: 0; transition: opacity .3s }
+  body.after .err2 { opacity: 1 }
+
+  /* --- the annotations: the part a terminal cannot do -------------------- */
+  .ann { border: 2px dashed var(--accent-fg); border-radius: 6px; position: absolute; height: 0;
+         pointer-events: none; opacity: 0; transition: opacity .3s }
+  body.after .ann { opacity: 1 }
+  .ann.live { border-style: solid; animation: gl 1.6s ease-in-out infinite; opacity: 1 }
+  @keyframes gl { 50% { box-shadow: 0 0 0 4px #6cb6ff22 } }
+  .ann .chip2 { background: var(--accent-fg); border-radius: 4px; color: #06121f; font-size: 10.5px;
+                font-weight: 600; left: -2px; padding: 2px 7px; position: absolute; top: -20px;
+                white-space: nowrap }
+  .ann.warm { border-color: var(--amber) } .ann.warm .chip2 { background: var(--amber) }
+
+  /* before / after of the whole page, as pictures */
+  .past { border-top: 1px solid var(--border); flex: 0 0 96px; padding: 10px 18px }
+  .pasth { color: var(--fg-dim); font-size: 11.5px; margin-bottom: 8px }
+  .shots { display: flex; gap: 8px; height: 58px }
+  .sh { background: #fff; border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
+        flex: 0 0 92px; overflow: hidden; padding: 6px; position: relative }
+  .sh.on { border-color: var(--accent-fg); box-shadow: 0 0 0 1px var(--accent-fg) }
+  .sh i { background: #e3e3e8; border-radius: 1px; display: block; margin-bottom: 3px }
+  .sh .b { background: #0b6fd4 } .sh .r { background: #f0b8b8 }
+  .sh em { bottom: 2px; color: #8a8a95; font-size: 8px; font-style: normal; left: 6px;
+           position: absolute }
+
+  .foot2 { align-items: center; border-top: 1px solid var(--border); color: var(--fg-faint);
+           display: flex; flex: 0 0 40px; font-size: 12px; gap: 8px; justify-content: center }
+  .foot2 b { color: var(--fg-dim); font-weight: 400 }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div class="room">
+      <div class="roomtop">
+        <i class="bead"></i>
+        <b id="say">Adding the message that appears when the email is wrong</b>
+        <span class="swap">
+          <button id="bBefore">Before</button>
+          <button id="bAfter" class="on">After</button>
+        </span>
+      </div>
+
+      <div class="canvas">
+        <div class="site">
+          <div class="top"></div>
+          <div class="pg">
+            <h3>Create your account</h3>
+            <label>Email address</label>
+            <div class="inp email"></div>
+            <div class="err2">Enter a real email address</div>
+            <label>Password</label>
+            <div class="inp"></div>
+            <div class="btn2">Create account</div>
+          </div>
+
+          <!--
+            Drawn on the app. Positions are measured from the real elements at runtime
+            rather than typed in, because hand-placed coordinates were wrong the moment
+            the text wrapped differently, and an outline round the wrong control is worse
+            than no outline at all.
+          -->
+          <div class="ann live" data-on=".err2"><span class="chip2">adding this now</span></div>
+          <div class="ann warm" data-on=".inp.email"><span class="chip2">turned red</span></div>
+          <div class="ann warm" data-on=".btn2"><span class="chip2">made full width</span></div>
+        </div>
+      </div>
+
+      <div class="past">
+        <div class="pasth">Your app, every time it changed</div>
+        <div class="shots" id="shots"></div>
+      </div>
+
+      <div class="foot2"><b>Click anything above to change it.</b> No need to describe where it is.</div>
+    </div>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar()
+document.getElementById('status').outerHTML = P.status()
+
+const SHOTS = [
+  { t: '10:38', rows: ['', '', 'b'] },
+  { t: '10:40', rows: ['', '', 'b'] },
+  { t: '10:41', rows: ['', 'r', 'b'] },
+  { t: '10:43', rows: ['', 'r', 'b'] },
+  { t: 'now',   rows: ['', 'r', 'b'] }
+]
+document.getElementById('shots').innerHTML = SHOTS.map((s, i) => `
+  <div class="sh ${i === SHOTS.length - 1 ? 'on' : ''}">
+    <i style="height:4px;width:52%"></i>
+    <i style="height:7px"></i>
+    ${s.rows[1] === 'r' ? '<i class="r" style="height:4px;width:64%"></i>' : ''}
+    <i style="height:7px"></i>
+    <i class="b" style="height:8px;width:${i > 2 ? '100%' : '42%'}"></i>
+    <em>${s.t}</em>
+  </div>`).join('')
+document.querySelectorAll('.sh').forEach((el) => el.addEventListener('click', () => {
+  document.querySelector('.sh.on')?.classList.remove('on'); el.classList.add('on')
+}))
+
+/* Put every outline exactly over the element it names, and keep it there. */
+function place() {
+  const site = document.querySelector('.site').getBoundingClientRect()
+  document.querySelectorAll('.ann').forEach((a) => {
+    const t = document.querySelector(a.dataset.on)?.getBoundingClientRect()
+    if (!t) return
+    a.style.left = `${t.left - site.left - 5}px`
+    a.style.top = `${t.top - site.top - 5}px`
+    a.style.width = `${t.width + 10}px`
+    a.style.height = `${t.height + 10}px`
+  })
+}
+new ResizeObserver(place).observe(document.querySelector('.site'))
+window.addEventListener('resize', place)
+
+const before = document.getElementById('bBefore'), after = document.getElementById('bAfter')
+function show(isAfter) {
+  document.body.classList.toggle('after', isAfter)
+  after.classList.toggle('on', isAfter); before.classList.toggle('on', !isAfter)
+  place()
+  // the button animates to full width, so follow it rather than snapping to the end state
+  const t0 = Date.now()
+  const follow = setInterval(() => { place(); if (Date.now() - t0 > 450) clearInterval(follow) }, 16)
+  document.getElementById('say').textContent = isAfter
+    ? 'Adding the message that appears when the email is wrong'
+    : 'This is how your app looked 6 minutes ago'
+}
+before.addEventListener('click', () => show(false))
+after.addEventListener('click', () => show(true))
+show(true)
+
+notes({
+  kicker: 'Variant R · the answer to "why not just a terminal"',
+  title: 'Draw the change on the app itself',
+  body: [
+    'Q was a prettier terminal. Everything on it could be printed as text, so it did not justify a window. The test for every pixel here is the opposite one: could a terminal do this? Whatever survives is the reason the app exists.',
+    'Three things survive. Their running app, at a size you can actually read. The change drawn <em>on</em> it, as outlines over the exact elements that moved, so "made the button full width" is a box around the button rather than a sentence about it. And Before / After, which flips the real app between the two states while the outlines stay put.',
+    'The strip along the bottom is the same idea over a longer span: your app at each point it changed, as pictures. Not filenames, not diffs. Pictures of the thing you are making.',
+    'And it points both ways. You click an element to change it, so you never describe where something is. The selector is exact, which is the half the editor already has and the terminal never will.'
+  ],
+  good: 'None of this can be printed. Nobody has to learn a vocabulary, because the vocabulary is their own app. It answers "what changed" by showing the change, in place.',
+  bad: 'It only works for something with a visible interface. For a CLI tool, a migration or a background job there is nothing to draw on, so this needs an honest fallback rather than an empty rectangle.',
+  toggles: [
+    { label: 'Flip to before', apply: (on) => show(!on) },
+    { label: 'Hide the outlines', apply: (on) => document.querySelectorAll('.ann')
+        .forEach((a) => a.style.display = on ? 'none' : 'block') },
+    { label: 'Hide the picture history', apply: (on) => document.querySelector('.past').style.display = on ? 'none' : 'block' }
+  ]
+})
+</script></body></html>
