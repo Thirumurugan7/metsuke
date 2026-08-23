@@ -244,10 +244,19 @@ const nextTerminalId = (): string => `t${++terminalSeq}`
 
 const KIND_LABEL: Record<TerminalKind, string> = { claude: 'Claude', shell: 'Shell' }
 
-/** First several words of an opening prompt, so a tab reads as what it is doing. */
+const TAB_TITLE_MAX = 24
+
+/** First several words of an opening prompt, so a tab reads as what it is doing. Cuts
+ *  on a word boundary near the limit rather than mid-word — a tab strip is narrow
+ *  enough that a chopped word reads as broken, not just short. */
 function titleFromPrompt(prompt: string): string {
   const oneLine = prompt.replace(/\s+/g, ' ').trim()
-  return oneLine.length > 40 ? `${oneLine.slice(0, 40).trimEnd()}…` : oneLine
+  if (oneLine.length <= TAB_TITLE_MAX) return oneLine
+  const cut = oneLine.slice(0, TAB_TITLE_MAX)
+  const lastSpace = cut.lastIndexOf(' ')
+  // No space in range at all (one long word) — fall back to the hard cut rather than
+  // returning nothing.
+  return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`
 }
 
 // ── agent status chip ─────────────────────────────────────────────────────────

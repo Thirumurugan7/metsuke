@@ -7,6 +7,7 @@ import { getTheme, onThemeChange, xtermTheme } from '../theme/apply'
 import { getCommand } from '../state/commands'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
+import type { Thread } from '@shared/ipc'
 
 const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
 
@@ -14,6 +15,46 @@ const MOD = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl+'
  *  stays consistent (a noun you get vs. what it does), which is the whole fix for F2. */
 const PLAIN_SESSION_IDS = ['session.new.claude', 'session.new.worktree', 'session.new.shell']
 const PREPARED_SESSION_IDS = ['agent.checkProject', 'agent.testUi']
+
+type DotState = 'running' | 'waiting' | 'idle' | 'pending' | 'dead'
+
+/**
+ * The dot used to show kind, duplicating the icon beside it, and collapsed every real
+ * state into "not dead" (F6). Every `claude`-kind terminal is adopted as a `Thread` the
+ * moment it spawns (see `ipc.ts`'s `terminal:spawn` handler), so the same hook-driven
+ * `ThreadStatus` vocabulary `ThreadsPanel.tsx` already uses is available here too — no
+ * second state model, no new plumbing. Shell tabs aren't threads, so they fall back to
+ * the coarser live/pending/dead a plain pty can actually report.
+ */
+function dotState(tab: TerminalTab, threads: Thread[]): DotState {
+  if (tab.exitCode !== null) return 'dead'
+  if (tab.kind !== 'claude') return tab.sessionId ? 'running' : 'pending'
+
+  const thread = threads.find((t) => t.terminalId === tab.sessionId)
+  if (!thread) return tab.sessionId ? 'running' : 'pending'
+
+  switch (thread.status) {
+    case 'running':
+      return 'running'
+    case 'waiting':
+      return 'waiting'
+    case 'idle':
+      return 'idle'
+    // An instance thread only reaches these once its pty has already exited, which
+    // `tab.exitCode` above already caught — kept for completeness, not reachability.
+    case 'done':
+    case 'failed':
+      return 'dead'
+  }
+}
+
+const DOT_LABEL: Record<DotState, string> = {
+  running: 'running',
+  waiting: 'waiting on you',
+  idle: 'idle',
+  pending: 'starting',
+  dead: 'exited'
+}
 
 /**
  * Multiple real ptys, one per tab.
@@ -31,7 +72,8 @@ export function TerminalPanel(): JSX.Element {
     closeTerminal,
     setActiveTerminal,
     renameTerminal,
-    closeActiveTerminalRequest
+    closeActiveTerminalRequest,
+    threads
   } = useStore()
   const newButton = useRef<HTMLButtonElement>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -108,11 +150,11 @@ export function TerminalPanel(): JSX.Element {
               onAuxClick={(e) => {
                 if (e.button === 1) requestClose(tab.id)
               }}
-              title={`${tab.title}${tab.exitCode !== null ? ` — exited (${tab.exitCode})` : ''}`}
+              title={`${tab.prompt ?? tab.title}${tab.exitCode !== null ? ` — exited (${tab.exitCode})` : ''}`}
             >
               <span
-                className={`terminal-dot ${tab.exitCode !== null ? 'dead' : tab.sessionId ? 'live' : 'pending'}`}
-                aria-label={tab.exitCode !== null ? 'exited' : tab.sessionId ? 'running' : 'starting'}
+                className={`terminal-dot ${dotState(tab, threads)}`}
+                aria-label={DOT_LABEL[dotState(tab, threads)]}
               />
               <Icon name={tab.kind === 'claude' ? 'claude' : 'sessions'} />
               {renaming === tab.id ? (

@@ -136,8 +136,21 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
 
   // -- workspace ------------------------------------------------------------
 
+  // True once `openFolder` has run at least once in this process. A renderer-only
+  // reload keeps `services.workspace` populated, so the root comparison below already
+  // tells "same project" from "switched project" correctly — but a main-process
+  // restart (dev hot-reload, or main recovering while the detached pty host keeps
+  // running) rebuilds `services` from scratch, so `previousRoot` reads `null` on the
+  // very first call even when it is the same project reopening. That made the
+  // very-first call always look like a switch and wipe threads adopted from sessions
+  // reattached moments earlier. The first call in a fresh process has nothing genuine
+  // to compare against, so it never clears.
+  let openedOnceThisProcess = false
+
   const openFolder = async (root: string) => {
     const previousRoot = services.workspace?.info.root ?? null
+    const firstCallThisProcess = !openedOnceThisProcess
+    openedOnceThisProcess = true
 
     await services.workspace?.dispose()
     const context = await WorkspaceContext.open(root)
@@ -151,7 +164,7 @@ export function registerIpc(services: AppServices, getWindow: () => BrowserWindo
      * away the list of agents still running in the background, which is precisely what
      * a reload is supposed to survive.
      */
-    if (previousRoot !== context.info.root) services.threads?.clear()
+    if (!firstCallThisProcess && previousRoot !== context.info.root) services.threads?.clear()
 
     // Bring back threads from an earlier run of the app. Their processes are gone, but
     // their branches and worktrees are still on disk, so they come back finished and

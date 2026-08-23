@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { socketPathFor } from './services/PtyHost'
 import type { TerminalService } from './services/TerminalService'
+import type { TerminalSession } from '@shared/ipc'
 
 /** Attempts to connect after starting a host, before giving up on it. */
 const CONNECT_ATTEMPTS = 20
@@ -23,7 +24,7 @@ const CONNECT_DELAY_MS = 100
  * ptys in-process, as it always did. A terminal that does not survive a restart is a
  * disappointment; a terminal that does not open is a broken editor.
  */
-export async function attachPtyHost(terminals: TerminalService): Promise<string[]> {
+export async function attachPtyHost(terminals: TerminalService): Promise<TerminalSession[]> {
   const userData = app.getPath('userData')
   const socketPath = socketPathFor(userData)
   const token = readOrCreateToken(path.join(userData, 'pty-token'))
@@ -54,10 +55,9 @@ async function tryAttach(
   terminals: TerminalService,
   socketPath: string,
   token: string
-): Promise<string[] | null> {
+): Promise<TerminalSession[] | null> {
   try {
-    const sessions = await terminals.attach(socketPath, token)
-    return sessions.map((session) => session.id)
+    return await terminals.attach(socketPath, token)
   } catch {
     // No host yet, or one that will not have us. Either way the caller starts one.
     return null

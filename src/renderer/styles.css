@@ -309,9 +309,10 @@ body.is-mac .title-bar {
   font-size: var(--text-micro);
 }
 /*
- * The one animated element in the whole app (per the audit's motion budget) — a slow
- * pulse on the dot alone, never the chip or its text, so it reads as "this wants you"
- * without turning into a distraction magnet.
+ * A slow pulse on the dot alone, never the chip or its text, so it reads as "this wants
+ * you" without turning into a distraction magnet. The terminal tab dot's own waiting
+ * state reuses this exact animation (see `.terminal-dot.waiting`) rather than adding a
+ * second motion language for the same underlying signal.
  */
 @media (prefers-reduced-motion: no-preference) {
   .agent-chip-needs-you .agent-chip-dot {
@@ -2553,10 +2554,9 @@ button.status-item {
   color: var(--fg);
 }
 /*
- * State, not kind (F6): kind is the icon next to the name now. This dot is a coarser
- * signal than ThreadsPanel's running/waiting/idle — a plain session has no hook-driven
- * status reaching it, only whether it has a live process. See PROGRESS.md for what a
- * full fix needs.
+ * State, not kind (F6): kind is the icon next to the name now. Every `claude`-kind
+ * terminal is adopted as a `Thread` on spawn, so this reads the same hook-driven
+ * running/waiting/idle vocabulary ThreadsPanel's dot already uses, not a second model.
  */
 .terminal-dot {
   border-radius: 50%;
@@ -2564,14 +2564,29 @@ button.status-item {
   height: 6px;
   width: 6px;
 }
-.terminal-dot.live {
+.terminal-dot.running {
   background: var(--untracked);
+}
+.terminal-dot.waiting {
+  background: var(--modified);
+}
+.terminal-dot.idle {
+  background: var(--fg-dim);
 }
 .terminal-dot.pending {
   background: var(--modified);
 }
 .terminal-dot.dead {
   background: var(--removed);
+}
+/* Blocked on you is the most important state in this panel and colour alone is not
+   enough to carry it, so waiting also gets the same slow pulse the agent status chip
+   uses for the same underlying signal — consistent cue, not a second animation
+   language. */
+@media (prefers-reduced-motion: no-preference) {
+  .terminal-dot.waiting {
+    animation: agent-chip-pulse 2s ease-in-out infinite;
+  }
 }
 .terminal-tab-name {
   max-width: 140px;

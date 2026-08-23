@@ -290,6 +290,13 @@ app.whenReady().then(async () => {
   bridge.onOpenPreview((url) => window?.webContents.send('preview:open', url))
 
   registerIpc(services, () => window)
+
+  // Reattached sessions never went through terminal:spawn, so they were never adopted
+  // as threads — without this, a session that survives a main-process restart (dev
+  // hot-reload, or main crashing while the detached pty host keeps running) shows
+  // running/pending forever in the tab dot instead of the real hook-driven state.
+  for (const session of restored) services.threads?.adoptTerminal(session)
+
   createWindow()
 
   app.on('activate', () => {
