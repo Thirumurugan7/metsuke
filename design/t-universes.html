@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>T · Eight universes</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /*
+   * You describe it once. It builds eight, running, side by side. You do not specify,
+   * you recognise. Every piece of this exists in the repo already: a worktree and a
+   * branch per agent, and a preview driven over CDP. This is eight of both.
+   */
+  .uni { background: #0b0b0e; display: flex; flex: 1; flex-direction: column; min-width: 0 }
+
+  .uhead { align-items: center; border-bottom: 1px solid var(--border); display: flex;
+           flex: 0 0 60px; gap: 14px; padding: 0 20px }
+  .uhead .said2 { font-size: 14.5px }
+  .uhead .said2 b { color: var(--fg-dim); font-weight: 400; margin-right: 7px; font-size: 12.5px }
+  .uhead .taste { color: var(--fg-faint); font-size: 11.5px; margin-left: auto; text-align: right;
+                  line-height: 1.45 }
+  .uhead .taste b { color: var(--mint); font-weight: 400 }
+
+  .grid { display: grid; flex: 1; gap: 10px; grid-template-columns: repeat(4, 1fr);
+          grid-template-rows: repeat(2, 1fr); min-height: 0; padding: 14px 20px }
+
+  .u { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 9px;
+       cursor: pointer; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+       transition: border-color .18s, transform .18s, opacity .3s }
+  .u:hover { border-color: #5a5a68; transform: translateY(-2px) }
+  .u.pick2 { border-color: var(--mint); box-shadow: 0 0 0 1px var(--mint), 0 14px 40px #0008 }
+
+  .uh { align-items: center; display: flex; flex: 0 0 26px; gap: 7px; padding: 0 9px }
+  .uh .n2 { color: var(--fg-faint); font-family: var(--mono); font-size: 10px }
+  .uh .dot2 { border-radius: 50%; height: 6px; width: 6px; background: var(--mint) }
+  .uh .dot2.run { background: var(--accent-fg); animation: bl 1.4s infinite }
+  @keyframes bl { 50% { opacity: .25 } }
+  .uh .sz { color: var(--fg-faint); font-family: var(--mono); font-size: 9.5px; margin-left: auto }
+
+  /* the live app in each universe */
+  .screen2 { background: #fff; flex: 1; min-height: 0; overflow: hidden; position: relative }
+  .mini2 { transform-origin: top left; width: 420px; height: 340px; padding: 18px 20px;
+           font-family: var(--ui); color: #16161a }
+  .mini2 h4 { font-size: 15px; margin: 0 0 3px; font-weight: 650 }
+  .mini2 .sub3 { color: #77777f; font-size: 9px; margin: 0 0 14px }
+  .plans { display: flex; gap: 7px }
+  .plan { border: 1px solid #e2e2e8; border-radius: 6px; flex: 1; padding: 9px 8px }
+  .plan .nm { font-size: 8.5px; color: #77777f; margin-bottom: 3px }
+  .plan .pr { font-size: 15px; font-weight: 650; margin-bottom: 6px }
+  .plan .li { background: #eeeef2; border-radius: 1px; height: 3px; margin-bottom: 3px }
+  .plan .cta2 { border-radius: 4px; font-size: 8px; margin-top: 7px; padding: 5px 0; text-align: center }
+
+  .uw { color: var(--fg-dim); flex: 0 0 auto; font-size: 10.5px; line-height: 1.4; padding: 7px 9px 8px }
+
+  /* the state after you choose */
+  body.chosen .u:not(.pick2) { opacity: .16; pointer-events: none; filter: grayscale(1) }
+  body.chosen .u:not(.pick2) .uh .dot2 { background: #55555f; animation: none }
+  .bar4 { align-items: center; border-top: 1px solid var(--border); display: flex; flex: 0 0 58px;
+          gap: 10px; padding: 0 20px }
+  .bar4 .msg2 { color: var(--fg-dim); font-size: 13px }
+  .bar4 .msg2 b { color: var(--fg) }
+  .bar4 .right2 { display: flex; gap: 8px; margin-left: auto }
+  .b3 { background: #ffffff14; border: 1px solid transparent; border-radius: 8px; color: var(--fg);
+        cursor: pointer; font: inherit; font-size: 13px; padding: 8px 15px }
+  .b3:hover { background: #ffffff22 }
+  .b3.main2 { background: var(--mint); color: #06231a; font-weight: 500 }
+  .b3.main2:hover { background: #63dfc4 }
+  body:not(.chosen) .bar4 .right2 { display: none }
+  body.chosen .bar4 .idle2 { display: none }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div class="uni">
+      <div class="uhead">
+        <span class="said2"><b>You asked for</b>A pricing page with three plans</span>
+        <span class="taste">Eight versions, all running, all real.<br>
+          <b>From your last 6 picks: you keep choosing the calmer ones.</b></span>
+      </div>
+
+      <div class="grid" id="grid"></div>
+
+      <div class="bar4">
+        <span class="msg2 idle2">Click the one you like. The other seven stop and their branches are deleted.</span>
+        <span class="msg2" id="chosenMsg" style="display:none">Keeping <b id="whichOne">version 3</b>. The other seven have stopped.</span>
+        <span class="right2">
+          <button class="b3 main2">Keep this one</button>
+          <button class="b3">Build eight more like it</button>
+          <button class="b3" id="undoPick">Back to all eight</button>
+        </span>
+      </div>
+    </div>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar('<span class="title-meta">8 agents · 8 worktrees · 8 dev servers</span>')
+document.getElementById('status').outerHTML = P.status()
+
+/*
+ * Eight genuinely different renderings, because the whole argument is that you choose
+ * by looking. Eight tinted copies of one layout would prove nothing.
+ */
+const U = [
+  { note: 'Three cards, middle one highlighted', done: true, sz: '+180 −12',
+    accent: '#0b6fd4', style: 'cards', hero: 'Simple pricing', mid: true },
+  { note: 'Same, but calm. No highlight, more air', done: true, sz: '+150 −12',
+    accent: '#3a3a44', style: 'cards', hero: 'Pricing', air: true },
+  { note: 'A comparison table instead of cards', done: true, sz: '+210 −18',
+    accent: '#0b6fd4', style: 'table', hero: 'Compare plans' },
+  { note: 'Stacked rows, works better on phones', done: true, sz: '+165 −12',
+    accent: '#16a06a', style: 'rows', hero: 'Choose a plan' },
+  { note: 'Bold, big type, one colour', done: true, sz: '+140 −10',
+    accent: '#111', style: 'cards', hero: 'PRICING', bold: true },
+  { note: 'Dark section, cards float on it', done: true, sz: '+195 −14',
+    accent: '#6cb6ff', style: 'cards', hero: 'Pick your plan', dark: true },
+  { note: 'Monthly / yearly toggle up top', done: false, sz: '+205 −16',
+    accent: '#7a4ae0', style: 'cards', hero: 'Plans', toggle: true },
+  { note: 'One plan, sell the other two as add-ons', done: true, sz: '+120 −22',
+    accent: '#d4691a', style: 'single', hero: 'One plan. Everything in it.' }
+]
+
+const PLANS = [['Free', '$0'], ['Pro', '$12'], ['Team', '$40']]
+
+function inner(u) {
+  const line = (w) => `<div class="li" style="width:${w}%"></div>`
+  const cta = (fill) => `<div class="cta2" style="${fill
+    ? `background:${u.accent};color:#fff`
+    : `border:1px solid ${u.dark ? '#44444e' : '#e2e2e8'};color:${u.dark ? '#c9c9d2' : '#55555f'}`}">Choose</div>`
+
+  if (u.style === 'table') {
+    return `<h4>${u.hero}</h4><p class="sub3">Everything side by side</p>
+      <div style="border:1px solid #e2e2e8;border-radius:6px;overflow:hidden">
+        ${['Plan', ...PLANS.map((p) => p[0])].map(() => '').join('')}
+        <div style="display:flex;background:#f6f6f9;padding:6px 8px;font-size:8.5px;color:#77777f">
+          <span style="flex:2">Feature</span>${PLANS.map((p) => `<span style="flex:1">${p[0]}</span>`).join('')}</div>
+        ${[70, 55, 80, 45].map((w) => `<div style="display:flex;padding:6px 8px;border-top:1px solid #eeeef2">
+          <span style="flex:2">${line(w)}</span>
+          <span style="flex:1;font-size:9px">✓</span><span style="flex:1;font-size:9px">✓</span>
+          <span style="flex:1;font-size:9px;color:#c4c4cc">–</span></div>`).join('')}
+        <div style="display:flex;padding:8px;gap:6px;border-top:1px solid #eeeef2">
+          <span style="flex:2"></span>${PLANS.map((_, i) => `<span style="flex:1">${cta(i === 1)}</span>`).join('')}</div>
+      </div>`
+  }
+  if (u.style === 'rows') {
+    return `<h4>${u.hero}</h4><p class="sub3">One after another</p>
+      ${PLANS.map(([n, p], i) => `<div style="border:1px solid #e2e2e8;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:center;gap:10px">
+        <span><div class="nm">${n}</div><div class="pr" style="margin:0">${p}</div></span>
+        <span style="flex:1">${line(80)}${line(60)}</span>
+        <span style="width:64px">${cta(i === 1)}</span></div>`).join('')}`
+  }
+  if (u.style === 'single') {
+    return `<h4 style="font-size:17px">${u.hero}</h4><p class="sub3">No tiers, no maths</p>
+      <div style="border:2px solid ${u.accent};border-radius:8px;padding:14px;text-align:center">
+        <div class="pr" style="font-size:26px">$19</div>
+        <div class="nm" style="margin-bottom:9px">per month, everything included</div>
+        ${line(90)}${line(75)}${line(85)}
+        <div style="margin-top:10px">${cta(true)}</div>
+      </div>
+      <p class="sub3" style="margin-top:10px">Add-ons: extra seats, priority support</p>`
+  }
+  // cards
+  return `<h4 style="${u.bold ? 'font-size:22px;letter-spacing:-.5px' : ''}">${u.hero}</h4>
+    <p class="sub3">${u.air ? 'Take your time' : 'Pick what fits'}</p>
+    ${u.toggle ? `<div style="display:inline-flex;border:1px solid #e2e2e8;border-radius:999px;padding:2px;margin-bottom:11px;font-size:8px">
+        <span style="background:${u.accent};color:#fff;border-radius:999px;padding:3px 10px">Monthly</span>
+        <span style="color:#77777f;padding:3px 10px">Yearly, save 20%</span></div>` : ''}
+    <div class="plans" style="${u.air ? 'gap:12px' : ''}">
+      ${PLANS.map(([n, p], i) => {
+        const star = u.mid && i === 1
+        return `<div class="plan" style="${star ? `border-color:${u.accent};border-width:2px;` : ''}${
+          u.dark ? 'background:#fff;border-color:#2a2a32;color:#16161a;' : ''}${u.air ? 'padding:12px 10px;' : ''}">
+          <div class="nm">${n}</div><div class="pr">${p}</div>
+          ${line(90)}${line(70)}${line(80)}
+          ${cta(star || (!u.mid && i === 1))}</div>`
+      }).join('')}
+    </div>`
+}
+
+document.getElementById('grid').innerHTML = U.map((u, i) => `
+  <div class="u" data-i="${i}">
+    <div class="uh">
+      <i class="dot2 ${u.done ? '' : 'run'}"></i>
+      <span class="n2">version ${i + 1}</span>
+      <span class="sz">${u.sz}</span>
+    </div>
+    <div class="screen2"><div class="mini2" style="${u.dark ? 'background:#16161a;color:#f2f2f5' : ''}">${inner(u)}</div></div>
+    <div class="uw">${u.note}</div>
+  </div>`).join('')
+
+/* Each preview is a real 420px-wide page scaled to fit its tile, not a drawing of one. */
+function fit() {
+  document.querySelectorAll('.screen2').forEach((s) => {
+    const m = s.querySelector('.mini2')
+    m.style.transform = `scale(${s.clientWidth / 420})`
+  })
+}
+new ResizeObserver(fit).observe(document.getElementById('grid'))
+fit()
+
+document.querySelectorAll('.u').forEach((el) => el.addEventListener('click', () => {
+  document.querySelector('.u.pick2')?.classList.remove('pick2')
+  el.classList.add('pick2')
+  document.body.classList.add('chosen')
+  document.getElementById('whichOne').textContent = `version ${Number(el.dataset.i) + 1}`
+  document.querySelector('.idle2').style.display = 'none'
+  document.getElementById('chosenMsg').style.display = 'inline'
+}))
+document.getElementById('undoPick').addEventListener('click', (e) => {
+  e.stopPropagation()
+  document.body.classList.remove('chosen')
+  document.querySelector('.u.pick2')?.classList.remove('pick2')
+  document.querySelector('.idle2').style.display = 'inline'
+  document.getElementById('chosenMsg').style.display = 'none'
+})
+
+notes({
+  kicker: 'Variant T · the delusion you could actually ship',
+  title: 'Eight of them, running, and you point at one',
+  body: [
+    'You describe the feature once. It builds eight, in eight worktrees, on eight branches, each with its own dev server, and shows you eight <em>running apps</em>. Not mockups. You click one; the other seven stop and their branches are deleted.',
+    'This changes the interaction from describing to <b>recognising</b>. People are terrible at articulating what they want and instantly certain the moment they see it. Every tool in this category is built around the half humans are bad at.',
+    'The taste line in the corner is the compounding part. It watches which universe you keep choosing and biases the next eight, so the spread narrows toward you rather than restating the same average every time.',
+    'And it is not actually delusional. ThreadService already makes a worktree and a branch per agent. AutomationService already drives a preview over CDP. This is eight of each in a grid. The genuinely hard parts are ports and memory, which is a laptop problem, not a research problem.'
+  ],
+  good: 'Nobody else has both halves. Cursor has parallel agents and no browser; Playwright has browsers and no agents. You have both and are currently spending them on a sidebar list.',
+  bad: 'Eight agents is eight times the spend, so it needs variant S in front of it or it is a bill-generator. Eight node processes and eight webviews is real memory, and only works when the difference is visible — this is worthless for a refactor with no visual output.',
+  toggles: [
+    { label: 'Pick version 3', apply: () => document.querySelector('.u[data-i="2"]').click() },
+    { label: 'Back to all eight', apply: () => document.getElementById('undoPick').click() },
+    { label: 'Six across', apply: (on) => document.getElementById('grid').style.gridTemplateColumns =
+        on ? 'repeat(6, 1fr)' : 'repeat(4, 1fr)' }
+  ]
+})
+</script></body></html>
