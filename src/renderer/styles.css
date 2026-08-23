@@ -2507,19 +2507,15 @@ button.status-item {
   flex-direction: column;
   height: 100%;
 }
-/* The panel that runs the agent had no name at all — the one unlabelled region in
-   the window (F7). */
-.terminal-header {
-  background: var(--bg-bar);
-  border-bottom: 1px solid var(--border);
-  color: var(--fg);
-  flex: 0 0 auto;
-  font-size: var(--text-panel);
-  padding: 8px var(--panel-gutter);
-}
+/* F7 originally added a standing "Sessions" heading above this bar. Reversed: the tab
+   strip is the panel's header now, the way every terminal app and VS Code's own panels
+   do it — a full row was too much of the shortest region in the app once tab names
+   actually say what they are (F5). The region still carries the name for a screen
+   reader via `aria-label="Sessions"` on the panel itself. */
 .terminal-bar {
   align-items: center;
   background: var(--bg-bar);
+  border-bottom: 1px solid var(--border);
   display: flex;
   flex: 0 0 34px;
   gap: 4px;
@@ -2603,8 +2599,10 @@ button.status-item {
 }
 
 .terminal-actions {
+  align-items: center;
   display: flex;
   flex: 0 0 auto;
+  gap: 6px;
 }
 .terminal-new {
   display: flex;

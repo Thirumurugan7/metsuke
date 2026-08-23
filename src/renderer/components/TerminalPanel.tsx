@@ -73,7 +73,8 @@ export function TerminalPanel(): JSX.Element {
     setActiveTerminal,
     renameTerminal,
     closeActiveTerminalRequest,
-    threads
+    threads,
+    togglePanel
   } = useStore()
   const newButton = useRef<HTMLButtonElement>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -136,8 +137,7 @@ export function TerminalPanel(): JSX.Element {
   }
 
   return (
-    <div className="terminal-panel">
-      <div className="terminal-header">Sessions</div>
+    <section className="terminal-panel" aria-label="Sessions">
       <div className="terminal-bar">
         <div className="terminal-tabs" role="tablist" aria-label="Sessions">
           {terminals.map((tab) => (
@@ -238,6 +238,20 @@ export function TerminalPanel(): JSX.Element {
               </div>
             )}
           </div>
+
+          <span className="header-sep" aria-hidden="true" />
+
+          {/* Same glyph as the title bar's own terminal-panel toggle (A1) — the tab
+              strip is this panel's header now, so it needs the same self-contained
+              hide affordance every other panel already carries (Law 7). */}
+          <button
+            className="icon-only"
+            title="Hide sessions panel"
+            aria-label="Hide sessions panel"
+            onClick={() => togglePanel('terminal')}
+          >
+            <Icon name="terminalPanel" />
+          </button>
         </div>
       </div>
 
@@ -292,7 +306,7 @@ export function TerminalPanel(): JSX.Element {
           </div>
         </Modal>
       )}
-    </div>
+    </section>
   )
 }
 

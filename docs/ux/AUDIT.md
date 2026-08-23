@@ -170,7 +170,18 @@ literal code — batch files translate it into files/lines.
   shows, not state (working/waiting/done), which is the useful thing. *Fix:* kind → icon,
   state → dot.
 - **F7** (Critical) — The panel that runs the agent has no name, no header — the only
-  unlabelled region in the window. *Fix:* rename "Sessions," give it a header.
+  unlabelled region in the window. *Fix (batch 5):* rename "Sessions," give it a header.
+  **Reversed in a later pass:** the diagnosis was right, the fix treated the symptom. A
+  standing heading cost a full row in the shortest region in the app; once F5 landed and
+  tab names said what they were, the tab strip alone named the region as clearly as VS
+  Code's own panels and every terminal app do it through their tab strip, no separate
+  row needed. The heading is gone, the tab strip is the header, `aria-label="Sessions"`
+  keeps the name for a screen reader, and the tab row's right end carries a hide control
+  so the panel keeps a self-dismissal now that its header doesn't have one. This does
+  not apply to the sidebar panels (Explorer, Source Control, Search, Agents, Claude) —
+  those are tall and narrow, where a standing header costs comparatively little; this
+  panel is short and wide, where the same row is a much larger fraction of its height.
+  See `batch-05-sessions-panel.md` section 1 for the fuller reasoning.
 
 ### Zone G — Preview
 

@@ -10,6 +10,21 @@ launcher, the canned tasks, and a settings checkbox were all mixed together.
 
 ## 1. Rename the panel (closes F7)
 
+> **⚠ Reversed.** This section's fix landed as written — a standing "Sessions" heading
+> above the tab strip — and it correctly named the region. But the finding was right
+> about the symptom (the region was unidentifiable) while treating it with the wrong
+> fix: a full row spent on a heading in the shortest region in the app, one that VS
+> Code's own panel and every terminal app name through its tab strip instead. Once F5
+> landed and tab names actually said what they were, the heading was redundant with its
+> own tab strip. Reversed in a later pass: the heading is deleted, the tab strip is the
+> panel's header, `aria-label="Sessions"` on the panel carries the name for a screen
+> reader, and the tab row's right end gained a hide/collapse control so the panel can
+> still be dismissed from inside itself (Law 7) now that its header doesn't have one.
+> Do not add the heading back for consistency with the sidebar panels — those are tall
+> and narrow, where vertical space is cheap and a standing header costs comparatively
+> little; this panel is short and wide, where the same row is a much larger fraction of
+> its height. See `AUDIT.md`'s F7 row for the same note.
+
 `TerminalPanel.tsx` renders no heading at all today — just a tab strip and the New
 menu. Add a proper header above the tab strip: label it **"Sessions"**. This is a
 one-line addition but it's the single most-cited finding (F7) — don't skip it because
