@@ -113,8 +113,8 @@
 
 <script src="parts.js"></script>
 <script>
-document.getElementById('top').innerHTML = P.titlebar('<span class="title-meta">ambient · idle 1m</span>')
-document.getElementById('status').innerHTML = P.status()
+document.getElementById('top').outerHTML = P.titlebar('<span class="title-meta">ambient · idle 1m</span>')
+document.getElementById('status').outerHTML = P.status()
 
 notes({
   kicker: 'Variant N · the twenty minutes you are not watching',

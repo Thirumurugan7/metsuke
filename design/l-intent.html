@@ -96,9 +96,9 @@
 
 <script src="parts.js"></script>
 <script>
-document.getElementById('top').innerHTML = P.titlebar('<span class="title-meta">⌘K anything</span>')
-document.getElementById('peek').innerHTML = P.preview()
-document.getElementById('status').innerHTML = P.status()
+document.getElementById('top').outerHTML = P.titlebar('<span class="title-meta">⌘K anything</span>')
+document.getElementById('peek').outerHTML = P.preview()
+document.getElementById('status').outerHTML = P.status()
 document.querySelector('.preview').classList.add('peek')
 
 const bar = document.getElementById('bar')

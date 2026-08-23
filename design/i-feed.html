@@ -155,10 +155,10 @@
 
 <script src="parts.js"></script>
 <script>
-document.getElementById('top').innerHTML = P.titlebar('<button class="chip ghost">Code</button><button class="chip on">Feed</button>')
-document.getElementById('rail').innerHTML = P.rail('claude')
-document.getElementById('prev').innerHTML = P.preview()
-document.getElementById('status').innerHTML = P.status()
+document.getElementById('top').outerHTML = P.titlebar('<button class="chip ghost">Code</button><button class="chip on">Feed</button>')
+document.getElementById('rail').outerHTML = P.rail('claude')
+document.getElementById('prev').outerHTML = P.preview()
+document.getElementById('status').outerHTML = P.status()
 
 document.querySelectorAll('.art .ah').forEach((h) => h.addEventListener('click', () => {
   const a = h.parentElement

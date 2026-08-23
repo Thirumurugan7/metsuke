@@ -91,9 +91,9 @@
 
 <script src="parts.js"></script>
 <script>
-document.getElementById('top').innerHTML = P.titlebar('<button class="chip on">Agents</button><button class="chip ghost">Code</button>')
-document.getElementById('rail').innerHTML = P.rail('claude')
-document.getElementById('status').innerHTML = P.status()
+document.getElementById('top').outerHTML = P.titlebar('<button class="chip on">Agents</button><button class="chip ghost">Code</button>')
+document.getElementById('rail').outerHTML = P.rail('claude')
+document.getElementById('status').outerHTML = P.status()
 
 const LANES = [
   { id: 'auth', name: 'auth refactor', dot: 'd-run', age: '22m',

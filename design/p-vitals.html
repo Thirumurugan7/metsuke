@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>P · Vitals strip</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* The whole run, in 46px, always on screen. Efficiency is the point of this one. */
+  .vitals { align-items: center; background: #101014; border-top: 1px solid var(--border);
+            cursor: pointer; display: flex; flex: 0 0 46px; gap: 16px; padding: 0 14px; }
+  .vitals:hover { background: #14141a; }
+
+  .vnow { align-items: center; display: flex; gap: 9px; flex: 0 0 auto; max-width: 250px; }
+  .vnow .bead { background: var(--accent-fg); border-radius: 50%; flex: 0 0 8px; height: 8px;
+                width: 8px; animation: br 1.8s ease-in-out infinite; }
+  @keyframes br { 50% { opacity: .25; transform: scale(.8) } }
+  .vnow b { font-size: 12.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; }
+
+  /* one tick per step, the run so far */
+  .vrib { display: flex; gap: 1.5px; flex: 1; height: 22px; min-width: 0; }
+  .vrib i { border-radius: 1px; flex: 1; align-self: flex-end; }
+  .r-read { background: #2c4a6e; height: 40% } .r-edit { background: #7a6020; height: 72% }
+  .r-new  { background: #1f5c40; height: 72% } .r-run { background: #3a3a46; height: 55% }
+  .r-fail { background: #7a2f34; height: 100% } .r-web { background: #4a3a6e; height: 55% }
+  .r-now  { background: var(--accent-fg); height: 100% }
+
+  .vsep { background: #26262e; flex: 0 0 1px; height: 24px; }
+
+  .vmet { flex: 0 0 auto; }
+  .vmet .k { color: var(--fg-faint); font-size: 9.5px; letter-spacing: .05em; text-transform: uppercase; }
+  .vmet .v { font-family: var(--mono); font-size: 12.5px; margin-top: 2px; }
+  .vmet .v.warn { color: var(--amber) } .vmet .v.bad { color: var(--red) }
+  .vmet .v.good { color: var(--mint) }
+
+  /* diff growth, as a shape rather than a number */
+  .spark { display: flex; gap: 1.5px; height: 22px; align-items: flex-end; }
+  .spark i { background: #4a4a56; border-radius: 1px; width: 3px; }
+
+  /* the arc for context fullness */
+  .gauge { position: relative; height: 26px; width: 26px; }
+  .gauge svg { transform: rotate(-90deg) }
+  .gauge span { color: var(--amber); font-family: var(--mono); font-size: 9px; inset: 0;
+                align-items: center; display: flex; justify-content: center; position: absolute; }
+
+  /* subagents, as pips */
+  .pips { display: flex; gap: 4px; }
+  .pips i { border-radius: 50%; height: 7px; width: 7px; }
+  .p-run { background: var(--accent-fg) } .p-done { background: var(--mint) }
+  .p-fail { background: var(--red) }
+
+  .vmore { color: var(--fg-faint); font-size: 11px; margin-left: auto; }
+
+  /* what expanding it gives you */
+  body.open .sheet { display: block; }
+  .sheet { background: #0d0d10; border-top: 1px solid var(--border); bottom: 68px; display: none;
+           height: 300px; left: 0; position: absolute; right: 0; z-index: 30; padding: 14px 16px; }
+  .sheet h5 { font-size: 12px; margin: 0 0 10px; color: var(--fg-dim); font-weight: 500; }
+  .mini { display: flex; gap: 4px; height: 210px; }
+  .mg { border: 1px solid #24242c; border-radius: 5px; display: flex; flex-direction: column;
+        gap: 3px; padding: 4px; }
+  .mg .gl { color: var(--fg-faint); font-family: var(--mono); font-size: 9px; }
+  .mf { border-radius: 2px; flex: 1; }
+  .m-un { background: #191920 } .m-rd { background: #16283d } .m-ed { background: #3f3212 }
+  .m-cr { background: #123023 } .m-fl { background: #3d1a1d }
+</style></head>
+<body>
+<div class="app" style="position:relative">
+  <div id="top"></div>
+  <div class="body">
+    <div id="rail"></div>
+    <div id="tree"></div>
+    <div id="ed"></div>
+    <div id="prev"></div>
+  </div>
+
+  <div class="sheet">
+    <h5>Work map · 18 of 214 files touched · click a tile to open it</h5>
+    <div class="mini" id="mini"></div>
+  </div>
+
+  <div class="vitals" id="vitals">
+    <span class="vnow"><i class="bead"></i><b>Writing the refresh-clock test</b></span>
+    <span class="vrib" id="vrib"></span>
+    <span class="vsep"></span>
+    <span class="vmet"><div class="k">Diff</div><div class="v">+340 −112</div></span>
+    <span class="spark" id="spark"></span>
+    <span class="vsep"></span>
+    <span class="vmet"><div class="k">Tests</div><div class="v bad">2 failing</div></span>
+    <span class="vsep"></span>
+    <span class="vmet"><div class="k">Context</div></span>
+    <span class="gauge">
+      <svg width="26" height="26">
+        <circle cx="13" cy="13" r="10" fill="none" stroke="#26262e" stroke-width="3"/>
+        <circle cx="13" cy="13" r="10" fill="none" stroke="#e2c08d" stroke-width="3"
+                stroke-dasharray="62.8" stroke-dashoffset="13.8" stroke-linecap="round"/>
+      </svg><span>78</span>
+    </span>
+    <span class="vsep"></span>
+    <span class="vmet"><div class="k">Subagents</div>
+      <div class="pips" style="margin-top:4px"><i class="p-run"></i><i class="p-done"></i><i class="p-done"></i><i class="p-fail"></i></div>
+    </span>
+    <span class="vmore" id="vmore">click to expand ⌃</span>
+  </div>
+
+  <div id="status"></div>
+</div>
+
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar()
+document.getElementById('rail').outerHTML = P.rail('files')
+document.getElementById('tree').outerHTML = P.tree()
+document.getElementById('ed').outerHTML = P.editor()
+document.getElementById('prev').outerHTML = P.preview()
+document.getElementById('status').outerHTML = P.status()
+
+const K = ['read','read','read','edit','run','fail','edit','run','read','edit','edit','run','web','web',
+           'edit','run','fail','read','edit','new','run','edit','web','read','edit','run','edit','new',
+           'run','fail','edit','run','read','edit','edit','run','web','edit','run','now']
+const CLS = { read: 'r-read', edit: 'r-edit', new: 'r-new', run: 'r-run', fail: 'r-fail', web: 'r-web', now: 'r-now' }
+document.getElementById('vrib').innerHTML = K.map((k, i) =>
+  `<i class="${CLS[k]}" title="step ${i + 1} · ${k}"></i>`).join('')
+
+// diff growth: cumulative, so the shape is the change getting bigger
+let n = 0
+document.getElementById('spark').innerHTML = [3,5,5,8,12,12,16,19,19,24,26,31,31,35,38,42,44,44,48,52]
+  .map((v) => `<i style="height:${Math.round(v / 52 * 22)}px"></i>`).join('')
+
+const MINI = [
+  ['src/renderer', 34, ['m-ed','m-ed','m-rd','m-un','m-un','m-un','m-rd','m-un','m-ed','m-rd','m-un','m-un']],
+  ['src/main', 26, ['m-ed','m-cr','m-rd','m-un','m-un','m-un','m-un','m-un','m-rd','m-un']],
+  ['tests', 22, ['m-fl','m-fl','m-cr','m-ed','m-un','m-un','m-un','m-un']],
+  ['server · site · docs', 18, ['m-un','m-un','m-un','m-un','m-un','m-un','m-un','m-un']]
+]
+document.getElementById('mini').innerHTML = MINI.map(([d, w, fs]) => `
+  <div class="mg" style="flex:${w}"><div class="gl">${d}</div>
+    ${fs.map((c) => `<div class="mf ${c}"></div>`).join('')}</div>`).join('')
+
+document.getElementById('vitals').addEventListener('click', () => {
+  document.body.classList.toggle('open')
+  document.getElementById('vmore').textContent =
+    document.body.classList.contains('open') ? 'click to collapse ⌄' : 'click to expand ⌃'
+})
+
+notes({
+  kicker: 'Variant P · the same information, for 46 pixels',
+  title: 'Vitals, always on, never in the way',
+  body: [
+    'O is the deep dive. This is the version you can afford to leave on screen forever: one strip above the status bar carrying the whole run. Current action, a tick per step, diff growth as a shape, tests, context fullness as an arc, and one pip per subagent.',
+    'The layout behind it is untouched — tree, editor, preview — because the argument here is not about arrangement. It is that a long agent run has state you currently have to go and ask for, and 46px is a fair price for never asking.',
+    'Click the strip and it expands into the work map. Glance by default, detail on demand, which is the right order for something that is running while you do something else.'
+  ],
+  good: 'Costs almost nothing and composes with every other variant on this page, including the one you already ship. The ribbon makes a thrashing run recognisable at a glance: alternating amber and red.',
+  bad: 'Six encodings in one strip is close to the limit, and none of them are labelled beyond a caption. It only reads well because the shapes differ; on a smaller window it needs to start dropping items rather than shrinking them.',
+  toggles: [
+    { label: 'Expand the map', apply: (on) => { document.body.classList.toggle('open', on)
+        document.getElementById('vmore').textContent = on ? 'click to collapse ⌄' : 'click to expand ⌃' } },
+    { label: 'A run that is thrashing', apply: (on) => {
+        const bad = ['edit','fail','edit','fail','edit','fail','run','fail','edit','fail','edit','run','fail','edit','fail','now']
+        const use = on ? bad : K
+        document.getElementById('vrib').innerHTML = use.map((k, i) =>
+          `<i class="${CLS[k]}" title="step ${i + 1} · ${k}"></i>`).join('') } }
+  ]
+})
+</script></body></html>

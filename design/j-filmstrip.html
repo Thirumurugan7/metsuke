@@ -104,9 +104,9 @@
 
 <script src="parts.js"></script>
 <script>
-document.getElementById('top').innerHTML = P.titlebar('<button class="chip ghost">Live</button><button class="chip on">History</button>')
-document.getElementById('rail').innerHTML = P.rail('ports')
-document.getElementById('status').innerHTML = P.status()
+document.getElementById('top').outerHTML = P.titlebar('<button class="chip ghost">Live</button><button class="chip on">History</button>')
+document.getElementById('rail').outerHTML = P.rail('ports')
+document.getElementById('status').outerHTML = P.status()
 
 /*
  * Nine frames of a signup page being built. Each carries the paint for the device and

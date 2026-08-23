@@ -105,8 +105,8 @@
 
 <script src="parts.js"></script>
 <script>
-document.getElementById('top').innerHTML = P.titlebar('<button class="chip on">Review</button><button class="chip ghost">Back to feed</button>')
-document.getElementById('status').innerHTML = P.status()
+document.getElementById('top').outerHTML = P.titlebar('<button class="chip on">Review</button><button class="chip ghost">Back to feed</button>')
+document.getElementById('status').outerHTML = P.status()
 
 const HUNKS = [
   ['ok',   'Signup.tsx',      'the error state'],
