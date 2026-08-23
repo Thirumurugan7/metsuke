@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Q · Plain English</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /*
+   * One rule: if a normal person cannot read it out loud and know what it means,
+   * it does not go on this screen.
+   */
+  .plain { background: var(--bg); flex: 1; display: flex; min-width: 0; }
+
+  .left { display: flex; flex: 1; flex-direction: column; min-width: 0; padding: 34px 38px; }
+
+  .state { align-items: center; display: flex; gap: 12px; }
+  .state .dot { border-radius: 50%; flex: 0 0 13px; height: 13px; width: 13px; }
+  .state .word { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+  .s-work .dot { background: var(--accent-fg); animation: bl 1.8s ease-in-out infinite }
+  .s-work .word { color: var(--accent-fg) }
+  .s-ask  .dot { background: var(--amber) } .s-ask .word { color: var(--amber) }
+  .s-done .dot { background: var(--mint) }  .s-done .word { color: var(--mint) }
+  .s-stuck .dot { background: var(--red) }  .s-stuck .word { color: var(--red) }
+  @keyframes bl { 50% { opacity: .25 } }
+
+  h1.big { font-size: 34px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.2;
+           margin: 14px 0 0; max-width: 15ch; }
+  .since { color: var(--fg-dim); font-size: 15px; margin: 12px 0 0; }
+
+  /* what it has done, in past tense, in words anyone can read */
+  .did2 { margin: 28px 0 0; max-width: 460px; }
+  .d2 { align-items: flex-start; color: var(--fg-dim); display: flex; font-size: 14.5px;
+        gap: 11px; line-height: 1.5; padding: 7px 0; }
+  .d2 .m { flex: 0 0 16px; font-size: 13px; }
+  .d2.ok .m { color: var(--mint) } .d2.bad .m { color: var(--red) }
+  .d2.at { color: var(--fg) } .d2.at .m { color: var(--accent-fg) }
+  .d2.next { color: var(--fg-faint) } .d2.next .m { color: #3a3a46 }
+
+  .act { margin-top: auto; padding-top: 26px; }
+  .ask { background: #2a2312; border: 1px solid #5c4a1e; border-radius: 11px; padding: 16px 18px;
+         max-width: 520px; display: none; }
+  .plain.asking .ask { display: block }
+  .ask b { display: block; font-size: 15px; margin-bottom: 5px; }
+  .ask p { color: var(--fg-dim); font-size: 13.5px; line-height: 1.55; margin: 0 0 13px; }
+  .btns { display: flex; gap: 9px; }
+  .btn { background: #ffffff14; border: 1px solid transparent; border-radius: 8px; color: var(--fg);
+         cursor: pointer; font: inherit; font-size: 13.5px; padding: 8px 16px; }
+  .btn.go { background: var(--accent); color: #fff }
+  .btn:hover { background: #ffffff22 } .btn.go:hover { background: #0d7ee8 }
+
+  .calm { color: var(--fg-faint); font-size: 13px; }
+  .plain.asking .calm { display: none }
+
+  /* their app, large, because seeing it is the least abstract thing on offer */
+  .theirs { border-left: 1px solid var(--border); display: flex; flex: 0 0 430px;
+            flex-direction: column; }
+  .theirs .lbl { color: var(--fg-faint); font-size: 11.5px; padding: 13px 16px 9px; }
+  .win { background: #fff; border-radius: 8px; flex: 1; margin: 0 16px 16px; overflow: hidden;
+         position: relative; }
+  .win .bar3 { background: #f1f1f4; height: 22px; }
+  .win .pg { padding: 26px 30px; }
+  .win h3 { color: #16161a; font-size: 17px; margin: 0 0 16px; }
+  .win label { color: #55555f; display: block; font-size: 11px; margin-bottom: 4px; }
+  .win .inp { background: #fff; border: 1px solid #d5d5dc; border-radius: 6px; height: 30px;
+              margin-bottom: 13px; }
+  .win .inp.err { border-color: #d33 }
+  .win .msg { color: #d33; font-size: 11px; margin: -9px 0 13px; display: none }
+  .plain.fixed .win .msg { display: block }
+  .win .go2 { background: #0b6fd4; border-radius: 6px; color: #fff; font-size: 12.5px;
+              padding: 9px 0; text-align: center; }
+
+  /* the escape hatch: everything technical, behind one link */
+  .nerd { border-top: 1px solid var(--border); display: none; padding: 12px 38px 16px; }
+  .plain.nerdy .nerd { display: block }
+  .nerd pre { color: var(--fg-faint); font-family: var(--mono); font-size: 11px; line-height: 1.7;
+              margin: 0; white-space: pre-wrap; }
+  .peel { background: none; border: none; color: var(--fg-faint); cursor: pointer; font: inherit;
+          font-size: 12.5px; margin-top: 14px; padding: 0; text-decoration: underline; }
+  .peel:hover { color: var(--fg-dim) }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div class="plain" id="plain">
+      <div class="left">
+        <div class="state s-work" id="st"><i class="dot"></i><span class="word" id="stw">Working</span></div>
+        <h1 class="big" id="head">Making the sign-up form reject bad emails</h1>
+        <p class="since" id="since">Started 2 minutes ago. Nothing needs you yet.</p>
+
+        <div class="did2" id="did">
+          <div class="d2 ok"><span class="m">✓</span><span>Looked at your sign-up page to see how it works</span></div>
+          <div class="d2 ok"><span class="m">✓</span><span>Changed it so a bad email shows a message instead of doing nothing</span></div>
+          <div class="d2 bad"><span class="m">✕</span><span>Checked it still works. One old check disagreed, so it fixed that too</span></div>
+          <div class="d2 at"><span class="m">→</span><span>Trying it in the browser, the way you would</span></div>
+          <div class="d2 next"><span class="m">·</span><span>Then: making sure this cannot break again later</span></div>
+        </div>
+
+        <div class="act">
+          <div class="ask">
+            <b>It wants to change your home page</b>
+            <p>That is outside what you asked for, so it stopped to check with you first.</p>
+            <div class="btns">
+              <button class="btn go">Go ahead</button>
+              <button class="btn">No, skip that</button>
+            </div>
+          </div>
+          <p class="calm">You can leave this running. You will be told when it needs you.</p>
+          <button class="peel" id="peel">Show me the technical details</button>
+        </div>
+      </div>
+
+      <div class="theirs">
+        <div class="lbl">Your app, right now</div>
+        <div class="win">
+          <div class="bar3"></div>
+          <div class="pg">
+            <h3>Create your account</h3>
+            <label>Email address</label>
+            <div class="inp err"></div>
+            <div class="msg">Enter a real email address</div>
+            <label>Password</label>
+            <div class="inp"></div>
+            <div class="go2">Create account</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="nerd">
+    <pre>tests/auth/refresh.test.ts · edit · +12 −4      10:44:02
+npm test · 242 passed, 2 failed · 8.2s          10:43:51
+preview_click button#submit → /signup           10:43:20
+src/renderer/components/Signup.tsx · +6 −2      10:41:38
+context 78% · 14 files · +340 −112 · $1.84</pre>
+  </div>
+
+  <div id="status"></div>
+</div>
+
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar()
+document.getElementById('status').outerHTML = P.status()
+
+const plain = document.getElementById('plain')
+document.getElementById('peel').addEventListener('click', () => {
+  plain.classList.toggle('nerdy')
+  document.querySelector('.nerd').style.display = plain.classList.contains('nerdy') ? 'block' : 'none'
+  document.getElementById('peel').textContent = plain.classList.contains('nerdy')
+    ? 'Hide the technical details' : 'Show me the technical details'
+})
+
+const STATES = {
+  work:  ['s-work',  'Working',        'Making the sign-up form reject bad emails',
+          'Started 2 minutes ago. Nothing needs you yet.'],
+  ask:   ['s-ask',   'Needs you',      'It wants to change something you did not ask about',
+          'Waiting on your answer. Everything else is paused.'],
+  done:  ['s-done',  'Done',           'The sign-up form now rejects bad emails',
+          'Took 4 minutes. It changed 3 files and checked they still work.'],
+  stuck: ['s-stuck', 'Stuck',          'It could not start your app, so it stopped',
+          'Nothing was changed. The port it needed was already in use.']
+}
+function setState(k) {
+  const [cls, word, head, since] = STATES[k]
+  document.getElementById('st').className = 'state ' + cls
+  document.getElementById('stw').textContent = word
+  document.getElementById('head').textContent = head
+  document.getElementById('since').textContent = since
+  plain.classList.toggle('asking', k === 'ask')
+}
+
+notes({
+  kicker: 'Variant Q · say it in words anyone can read',
+  title: 'What the hell is going on, in one sentence',
+  body: [
+    'One rule for this screen: if a normal person cannot read it out loud and know what it means, it does not go here. No diff stats, no token counts, no tool names, no percentages. "Changed it so a bad email shows a message instead of doing nothing" says the same thing as <code>Signup.tsx +6 −2</code> and needs nothing explained.',
+    'Four states, four words: Working, Needs you, Done, Stuck. That is the entire vocabulary. The colour repeats the word rather than replacing it, so it survives colourblindness and a glance from across the room.',
+    'The list is past tense and finite, including the one thing coming next, so you know both what happened and roughly where you are. And their own app sits beside it at a readable size, because seeing the thing you are building is the least abstract answer to "what is going on" there is.',
+    'Everything I put in variants O and P still exists. It is behind one link at the bottom, where a developer can find it and nobody else has to.'
+  ],
+  good: 'Readable by someone who has never opened an editor. One sentence, four states, one button when there is a decision. Nothing on screen needs a legend.',
+  bad: 'Plain sentences have to be generated, and generating them badly is worse than showing the raw tool call. It also hides real detail by default, which will annoy the people who want it until they find the link.',
+  toggles: [
+    { label: 'When it needs you', apply: (on) => setState(on ? 'ask' : 'work') },
+    { label: 'When it finishes', apply: (on) => setState(on ? 'done' : 'work') },
+    { label: 'When it gets stuck', apply: (on) => setState(on ? 'stuck' : 'work') },
+    { label: 'Show the error in their app', apply: (on) => plain.classList.toggle('fixed', on) }
+  ]
+})
+</script></body></html>
