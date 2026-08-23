@@ -48,6 +48,27 @@
 
   .uw { color: var(--fg-dim); flex: 0 0 auto; font-size: 10.5px; line-height: 1.4; padding: 7px 9px 8px }
 
+  .modes { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 7px;
+           overflow: hidden; margin-left: 18px }
+  .mo { background: none; border: none; color: var(--fg-dim); cursor: pointer; font: inherit;
+        font-size: 11.5px; padding: 5px 11px }
+  .mo.on { background: #ffffff16; color: var(--fg) }
+
+  /* when there is nothing to look at, the tile carries evidence instead */
+  .ev2 { display: flex; flex: 1; flex-direction: column; gap: 8px; justify-content: center;
+         min-height: 0; padding: 12px 13px }
+  .ev2 .guess { font-size: 12.5px; line-height: 1.4 }
+  .ev2 .verdict { align-items: center; border-radius: 6px; display: flex; font-size: 11.5px;
+                  gap: 7px; padding: 6px 9px }
+  .v-win { background: #123023; color: #a8e6c8 } .v-part { background: #2a2312; color: #e8cf9a }
+  .v-no { background: #2a1416; color: #f0b0b0 }
+  .ev2 .facts { color: var(--fg-faint); display: flex; flex-wrap: wrap; font-family: var(--mono);
+                font-size: 10.5px; gap: 9px }
+  .ev2 .num { font-size: 21px; font-weight: 600; letter-spacing: -.02em }
+  .ev2 .num small { color: var(--fg-dim); font-size: 11px; font-weight: 400 }
+  .barlet { background: #23232b; border-radius: 3px; height: 6px; overflow: hidden }
+  .barlet i { display: block; height: 100% }
+
   /* the state after you choose */
   body.chosen .u:not(.pick2) { opacity: .16; pointer-events: none; filter: grayscale(1) }
   body.chosen .u:not(.pick2) .uh .dot2 { background: #55555f; animation: none }
@@ -71,7 +92,13 @@
     <div class="uni">
       <div class="uhead">
         <span class="said2"><b>You asked for</b>A pricing page with three plans</span>
-        <span class="taste">Eight versions, all running, all real.<br>
+        <span class="modes" id="modes">
+          <button class="mo on" data-m="page">a page</button>
+          <button class="mo" data-m="bug">a bug</button>
+          <button class="mo" data-m="perf">speed</button>
+          <button class="mo" data-m="api">a data model</button>
+        </span>
+        <span class="taste">Eight attempts, all real.<br>
           <b>From your last 6 picks: you keep choosing the calmer ones.</b></span>
       </div>
 
@@ -176,7 +203,103 @@ function inner(u) {
     </div>`
 }
 
-document.getElementById('grid').innerHTML = U.map((u, i) => `
+/*
+ * The mechanism is not "choose the prettiest". It is: run several attempts at once and
+ * compare them on whatever evidence that kind of work actually produces. For a page the
+ * evidence is a picture. For a bug it is which tests pass. For speed it is a number. The
+ * grid never changes; only what fills a tile does.
+ */
+const BUGS = [
+  { guess: 'The await is missing on the token refresh', v: 'win',  f: ['242/242 pass', '+3 −1', '1m 40s'] },
+  { guess: 'The clock in the test is not being faked',  v: 'win',  f: ['242/242 pass', '+11 −4', '2m 10s'] },
+  { guess: 'Two requests race for the same token',      v: 'part', f: ['241/242 pass', '+34 −12', '4m 02s'] },
+  { guess: 'The cache key does not include the user',   v: 'no',   f: ['238/242 pass', '+22 −9', '3m 18s'] },
+  { guess: 'The retry backoff overlaps the expiry',     v: 'part', f: ['241/242 pass', '+18 −6', '2m 55s'] },
+  { guess: 'The refresh endpoint returns the old token',v: 'no',   f: ['239/242 pass', '+8 −2', '1m 12s'] },
+  { guess: 'Timezone drift between issue and check',    v: 'no',   f: ['237/242 pass', '+15 −5', '2m 33s'] },
+  { guess: 'The middleware runs twice on redirects',    v: 'win',  f: ['242/242 pass', '+6 −2', '1m 58s'] }
+]
+const PERF = [
+  { guess: 'Lazy-load the editor bundle',        n: 410, was: 820, f: ['+42 −8', 'no test changes'] },
+  { guess: 'Cache the file tree between reloads',n: 520, was: 820, f: ['+61 −14', '1 test updated'] },
+  { guess: 'Defer the git status call',          n: 600, was: 820, f: ['+19 −3', 'no test changes'] },
+  { guess: 'Ship one font instead of four',      n: 690, was: 820, f: ['+4 −6', 'no test changes'] },
+  { guess: 'Preload the preview partition',      n: 740, was: 820, f: ['+27 −5', 'no test changes'] },
+  { guess: 'Debounce the file watcher',          n: 780, was: 820, f: ['+12 −4', '2 tests updated'] },
+  { guess: 'Compress the icon set',              n: 800, was: 820, f: ['+2 −2', 'no test changes'] },
+  { guess: 'Skip the system check on launch',    n: 815, was: 820, f: ['+9 −1', 'breaks onboarding'] }
+]
+const API = [
+  { guess: 'One table, a JSON column for the rest',   v: 'part', f: ['1 migration', '4 call sites', 'no joins'] },
+  { guess: 'Normalised, three tables, foreign keys',  v: 'win',  f: ['3 migrations', '11 call sites', '2 joins'] },
+  { guess: 'Event log, current state derived',        v: 'part', f: ['2 migrations', '19 call sites', 'replayable'] },
+  { guess: 'Keep it in the existing users table',     v: 'no',   f: ['1 migration', '3 call sites', 'blocks teams'] },
+  { guess: 'Separate service, its own database',      v: 'no',   f: ['new service', '22 call sites', 'network hop'] },
+  { guess: 'Normalised, but soft-deleted rows',       v: 'win',  f: ['3 migrations', '13 call sites', 'undo is free'] },
+  { guess: 'Two tables, teams denormalised',          v: 'part', f: ['2 migrations', '9 call sites', '1 join'] },
+  { guess: 'Graph edges between users and things',    v: 'no',   f: ['4 migrations', '31 call sites', 'slow reads'] }
+]
+
+const VERDICT = { win: ['✓', 'Fixed it, nothing else broke'], part: ['~', 'Fixed it, something else moved'],
+                  no: ['✕', 'Did not fix it'] }
+const VERDICT_API = { win: ['✓', 'Does everything you asked'], part: ['~', 'Works, with a trade'],
+                      no: ['✕', 'Rules something out'] }
+
+function tile(mode, d, i) {
+  if (mode === 'page') {
+    return `<div class="screen2"><div class="mini2" style="${d.dark ? 'background:#16161a;color:#f2f2f5' : ''}">${inner(d)}</div></div>
+            <div class="uw">${d.note}</div>`
+  }
+  if (mode === 'perf') {
+    const pct = Math.round((1 - d.n / d.was) * 100)
+    return `<div class="ev2">
+      <div class="guess">${d.guess}</div>
+      <div><span class="num">${d.n}ms <small>from ${d.was}ms</small></span></div>
+      <div class="barlet"><i style="width:${Math.max(4, pct)}%;background:${pct > 30 ? '#4ec9b0' : pct > 10 ? '#e2c08d' : '#55555f'}"></i></div>
+      <div class="facts"><span>${pct}% faster</span>${d.f.map((x) => `<span>${x}</span>`).join('')}</div>
+    </div>`
+  }
+  const map = mode === 'api' ? VERDICT_API : VERDICT
+  const [mark, label] = map[d.v]
+  return `<div class="ev2">
+    <div class="guess">${d.guess}</div>
+    <div class="verdict v-${d.v}"><b>${mark}</b>${label}</div>
+    <div class="facts">${d.f.map((x) => `<span>${x}</span>`).join('')}</div>
+  </div>`
+}
+
+const ASKED = {
+  page: 'A pricing page with three plans',
+  bug: 'Find out why the token refresh test is flaky',
+  perf: 'Make the editor start faster',
+  api: 'Let a user belong to more than one team'
+}
+const DATA = { page: U, bug: BUGS, perf: PERF, api: API }
+let mode = 'page'
+
+function render() {
+  const d = DATA[mode]
+  document.querySelector('.said2').innerHTML = `<b>You asked for</b>${ASKED[mode]}`
+  document.getElementById('grid').innerHTML = d.map((x, i) => `
+    <div class="u" data-i="${i}">
+      <div class="uh">
+        <i class="dot2 ${mode === 'page' && !x.done ? 'run' : ''}"></i>
+        <span class="n2">${mode === 'page' ? 'version' : 'attempt'} ${i + 1}</span>
+        <span class="sz">${mode === 'page' ? x.sz : ''}</span>
+      </div>
+      ${tile(mode, x, i)}
+    </div>`).join('')
+  wire()
+  if (mode === 'page') fit()
+  document.body.classList.remove('chosen')
+  document.querySelector('.idle2').style.display = 'inline'
+  document.getElementById('chosenMsg').style.display = 'none'
+  document.querySelector('.idle2').textContent = mode === 'page'
+    ? 'Click the one you like. The other seven stop and their branches are deleted.'
+    : 'Click the one that won. The other seven stop and their branches are deleted.'
+}
+
+const OLD_GRID = U.map((u, i) => `
   <div class="u" data-i="${i}">
     <div class="uh">
       <i class="dot2 ${u.done ? '' : 'run'}"></i>
@@ -186,6 +309,7 @@ document.getElementById('grid').innerHTML = U.map((u, i) => `
     <div class="screen2"><div class="mini2" style="${u.dark ? 'background:#16161a;color:#f2f2f5' : ''}">${inner(u)}</div></div>
     <div class="uw">${u.note}</div>
   </div>`).join('')
+void OLD_GRID
 
 /* Each preview is a real 420px-wide page scaled to fit its tile, not a drawing of one. */
 function fit() {
@@ -197,14 +321,24 @@ function fit() {
 new ResizeObserver(fit).observe(document.getElementById('grid'))
 fit()
 
-document.querySelectorAll('.u').forEach((el) => el.addEventListener('click', () => {
-  document.querySelector('.u.pick2')?.classList.remove('pick2')
-  el.classList.add('pick2')
-  document.body.classList.add('chosen')
-  document.getElementById('whichOne').textContent = `version ${Number(el.dataset.i) + 1}`
-  document.querySelector('.idle2').style.display = 'none'
-  document.getElementById('chosenMsg').style.display = 'inline'
+function wire() {
+  document.querySelectorAll('.u').forEach((el) => el.addEventListener('click', () => {
+    document.querySelector('.u.pick2')?.classList.remove('pick2')
+    el.classList.add('pick2')
+    document.body.classList.add('chosen')
+    document.getElementById('whichOne').textContent =
+      `${mode === 'page' ? 'version' : 'attempt'} ${Number(el.dataset.i) + 1}`
+    document.querySelector('.idle2').style.display = 'none'
+    document.getElementById('chosenMsg').style.display = 'inline'
+  }))
+}
+
+document.querySelectorAll('.mo').forEach((b) => b.addEventListener('click', () => {
+  document.querySelector('.mo.on').classList.remove('on'); b.classList.add('on')
+  mode = b.dataset.m
+  render()
 }))
+render()
 document.getElementById('undoPick').addEventListener('click', (e) => {
   e.stopPropagation()
   document.body.classList.remove('chosen')
@@ -217,13 +351,14 @@ notes({
   kicker: 'Variant T · the delusion you could actually ship',
   title: 'Eight of them, running, and you point at one',
   body: [
-    'You describe the feature once. It builds eight, in eight worktrees, on eight branches, each with its own dev server, and shows you eight <em>running apps</em>. Not mockups. You click one; the other seven stop and their branches are deleted.',
+    'You describe the work once. It makes eight attempts, in eight worktrees, on eight branches. You pick one; the other seven stop and their branches are deleted.',
     'This changes the interaction from describing to <b>recognising</b>. People are terrible at articulating what they want and instantly certain the moment they see it. Every tool in this category is built around the half humans are bad at.',
+    '<b>It is not only for choosing how something looks.</b> Use the four buttons in the header. For a page the evidence is a picture. For a bug it is which hypothesis actually made the tests pass, and three of the eight here did not. For speed it is a measured number. For a data model it is how many call sites each shape drags in. The grid never changes; only what fills a tile does. The real principle is running several attempts at once when quality can only be judged after the fact, which is most non-trivial work.',
     'The taste line in the corner is the compounding part. It watches which universe you keep choosing and biases the next eight, so the spread narrows toward you rather than restating the same average every time.',
     'And it is not actually delusional. ThreadService already makes a worktree and a branch per agent. AutomationService already drives a preview over CDP. This is eight of each in a grid. The genuinely hard parts are ports and memory, which is a laptop problem, not a research problem.'
   ],
   good: 'Nobody else has both halves. Cursor has parallel agents and no browser; Playwright has browsers and no agents. You have both and are currently spending them on a sidebar list.',
-  bad: 'Eight agents is eight times the spend, so it needs variant S in front of it or it is a bill-generator. Eight node processes and eight webviews is real memory, and only works when the difference is visible — this is worthless for a refactor with no visual output.',
+  bad: 'Eight agents is eight times the spend, so it needs variant S in front of it or it is a bill-generator. Eight node processes and eight webviews is real memory. And it needs the work to produce comparable evidence: eight attempts at a rename all succeed identically, and picking between them is a coin toss dressed up as a decision.',
   toggles: [
     { label: 'Pick version 3', apply: () => document.querySelector('.u[data-i="2"]').click() },
     { label: 'Back to all eight', apply: () => document.getElementById('undoPick').click() },
