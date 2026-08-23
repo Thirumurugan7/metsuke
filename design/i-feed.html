@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>I · The feed is the window</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* No tabs, no tree. The centre column is the agent's work, top to bottom. */
+  .workset { background: var(--bg-alt); border-right: 1px solid var(--border); flex: 0 0 210px; }
+  .ws { color: var(--fg-dim); cursor: pointer; display: flex; gap: 8px; font-size: 12px; padding: 5px 12px; }
+  .ws:hover { background: #ffffff08; color: var(--fg); }
+  .ws .st { font-family: var(--mono); font-size: 9.5px; width: 22px; }
+  .ws .m { color: var(--amber); } .ws .u { color: var(--mint); }
+  .ws.now { background: #ffffff10; color: var(--fg); }
+  .ws-group { color: var(--fg-faint); font-size: 10px; letter-spacing: .07em;
+              padding: 12px 12px 4px; text-transform: uppercase; }
+
+  .feedcol { background: var(--bg); flex: 1; }
+  .feed { margin: 0 auto; max-width: 720px; padding: 18px 26px 120px; }
+
+  .step { border-left: 2px solid #2c2c34; margin-left: 7px; padding: 0 0 20px 22px; position: relative; }
+  .step::before { background: var(--bg); border: 2px solid #3a3a46; border-radius: 50%;
+                  content: ''; height: 11px; left: -6.5px; position: absolute; top: 2px; width: 11px; }
+  .step.done::before { background: var(--mint); border-color: var(--mint); }
+  .step.live::before { background: var(--accent-fg); border-color: var(--accent-fg);
+                       animation: pulse 1.4s infinite; }
+  .step.bad::before  { background: var(--red); border-color: var(--red); }
+  @keyframes pulse { 50% { opacity: .35 } }
+
+  .step h4 { align-items: center; display: flex; font-size: 13.5px; font-weight: 550;
+             gap: 9px; margin: 0 0 4px; }
+  .step h4 .t { color: var(--fg-faint); font-family: var(--mono); font-size: 10px;
+                font-weight: 400; margin-left: auto; }
+  .step p { color: var(--fg-dim); font-size: 12.5px; line-height: 1.6; margin: 0 0 8px; }
+
+  .art { background: var(--bg-deep); border: 1px solid var(--border); border-radius: 7px;
+         overflow: hidden; }
+  .art .ah { align-items: center; background: #ffffff08; color: var(--fg-dim); cursor: pointer;
+             display: flex; font-family: var(--mono); font-size: 10.5px; gap: 8px; padding: 5px 10px; }
+  .art .ah .stat { margin-left: auto; }
+  .art .ab { border-top: 1px solid var(--border); }
+  .art.fold .ab { display: none; }
+  .dl { font-family: var(--mono); font-size: 11px; padding: 1px 10px; white-space: pre; }
+  .dl.add { background: #14321f; color: #b5e8c9; } .dl.del { background: #3a1a1c; color: #f0b0b0; }
+  .dl.ctx { color: var(--fg-faint); }
+  .out { color: var(--fg-dim); font-family: var(--mono); font-size: 11px; line-height: 1.65;
+         padding: 8px 10px; white-space: pre-wrap; }
+  .shot { background: #16161a; display: block; height: 116px; position: relative; width: 100%; }
+  .shot span { background: #ffffff10; border-radius: 3px; position: absolute; }
+  .thinking { border-left: 2px solid #33333d; color: var(--fg-faint); font-size: 12.5px;
+              font-style: italic; line-height: 1.6; margin: 0; padding-left: 12px; }
+
+  .composer { background: linear-gradient(transparent, var(--bg) 34%); bottom: 0; left: 0;
+              padding: 26px 26px 18px; position: absolute; right: 0; }
+  .composer .box { background: var(--bg-alt); border: 1px solid #45454f; border-radius: 10px;
+                   margin: 0 auto; max-width: 720px; padding: 11px 14px; }
+  .composer .box .ph { color: var(--fg-faint); font-size: 13px; }
+  .composer .box .row { color: var(--fg-faint); display: flex; font-size: 10.5px; gap: 10px;
+                        margin-top: 9px; }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div id="rail"></div>
+
+    <div class="panel workset">
+      <div class="panel-head">Working set <span class="count">6</span></div>
+      <div class="panel-body">
+        <div class="ws-group">Editing now</div>
+        <div class="ws now"><span class="st m">M</span>Toasts.tsx</div>
+        <div class="ws-group">Touched this session</div>
+        <div class="ws"><span class="st m">M</span>Signup.tsx</div>
+        <div class="ws"><span class="st m">M</span>App.tsx</div>
+        <div class="ws"><span class="st u">U</span>api.ts</div>
+        <div class="ws"><span class="st">·</span>signup.test.ts</div>
+        <div class="ws"><span class="st">·</span>package.json</div>
+      </div>
+    </div>
+
+    <div class="panel feedcol" style="position:relative">
+      <div class="panel-body">
+        <div class="feed">
+
+          <div class="step done">
+            <h4>Read the signup flow <span class="t">10:41:02</span></h4>
+            <p>Four files, looking for where validation runs before submit.</p>
+          </div>
+
+          <div class="step done">
+            <h4>Edited 3 files <span class="t">10:41:38</span></h4>
+            <p>Moved the email check out of the submit handler so it runs on blur too.</p>
+            <div class="art">
+              <div class="ah">Signup.tsx <span class="stat">+6 −2</span> <span>⌄</span></div>
+              <div class="ab">
+                <div class="dl ctx">  const [email, setEmail] = useState('')</div>
+                <div class="dl del">-  if (!email.includes('@')) return</div>
+                <div class="dl add">+  const invalid = !email.includes('@')</div>
+                <div class="dl add">+  if (invalid) { setError('Enter a real email'); return }</div>
+                <div class="dl ctx">  await post('/api/signup', { email })</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step bad">
+            <h4>npm test <span class="t">10:42:11</span></h4>
+            <p>One failure, in the test that asserted the old behaviour.</p>
+            <div class="art">
+              <div class="ah">2 passed · 1 failed <span class="stat">8.2s</span> <span>⌄</span></div>
+              <div class="ab"><div class="out">FAIL  tests/signup.test.ts
+  ✗ rejects a bad email
+    expected error to be null, got 'Enter a real email'</div></div>
+            </div>
+          </div>
+
+          <div class="step done">
+            <h4>Fixed the test <span class="t">10:42:44</span></h4>
+            <div class="art fold">
+              <div class="ah">signup.test.ts <span class="stat">+2 −2</span> <span>›</span></div>
+              <div class="ab"></div>
+            </div>
+          </div>
+
+          <div class="step done">
+            <h4>Checked it in the browser <span class="t">10:43:20</span></h4>
+            <p>Typed a bad address, then a good one, on /signup.</p>
+            <div class="art">
+              <div class="ah">preview · localhost:5173/signup <span class="stat">2 actions</span> <span>⌄</span></div>
+              <div class="ab"><div class="shot">
+                <span style="left:16%;top:16px;width:68%;height:13px"></span>
+                <span style="left:16%;top:42px;width:68%;height:22px"></span>
+                <span style="left:16%;top:72px;width:68%;height:22px;background:#3a1a1c"></span>
+                <span style="left:16%;top:100px;width:34%;height:9px;background:#f14c4c40"></span>
+              </div></div>
+            </div>
+          </div>
+
+          <div class="step live">
+            <h4>Writing a regression test <span class="t">now</span></h4>
+            <p class="thinking">the blur handler fires before React commits the state, so asserting straight after the event will be flaky…</p>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="box">
+          <div class="ph">Tell Claude what to do next…</div>
+          <div class="row"><span>⏎ send</span><span>@ file</span><span>&gt; command</span><span>⌥⏎ new lane</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="prev"></div>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').innerHTML = P.titlebar('<button class="chip ghost">Code</button><button class="chip on">Feed</button>')
+document.getElementById('rail').innerHTML = P.rail('claude')
+document.getElementById('prev').innerHTML = P.preview()
+document.getElementById('status').innerHTML = P.status()
+
+document.querySelectorAll('.art .ah').forEach((h) => h.addEventListener('click', () => {
+  const a = h.parentElement
+  a.classList.toggle('fold')
+  h.lastElementChild.textContent = a.classList.contains('fold') ? '›' : '⌄'
+}))
+
+notes({
+  kicker: 'Variant I · agent-first, taken all the way',
+  title: 'The feed is the window',
+  body: [
+    'E put a timeline where the tree was. This deletes the editor as the default centre entirely. The middle column is what Claude did, in order, and each step carries its own evidence inline: the diff, the test output, the screenshot it took.',
+    'The tree is replaced by a working set, which is the only file list anyone wants during an agent run: what has been touched, most recent first. Code opens as an overlay on a step, not as a tab you accumulate.',
+    'The composer sits at the bottom of the same column, so writing an instruction and reading the result are the same eyeline rather than two panes apart.'
+  ],
+  good: 'Every step is self-evidencing. You never leave the column to find out whether something worked, and there is no tab bar to garden.',
+  bad: 'Hand-editing becomes a deliberate act rather than the default posture. If someone lives in Monaco this will feel like a cage until they find the overlay.',
+  toggles: [
+    { label: 'Hide the working set', apply: (on) => document.querySelector('.workset').style.display = on ? 'none' : 'flex' },
+    { label: 'Hide the preview', apply: (on) => document.querySelector('.preview').style.display = on ? 'none' : 'flex' },
+    { label: 'Fold every artifact', apply: (on) => document.querySelectorAll('.art').forEach((a) => {
+        a.classList.toggle('fold', on); a.querySelector('.ah').lastElementChild.textContent = on ? '›' : '⌄' }) }
+  ]
+})
+</script></body></html>

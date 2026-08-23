@@ -112,10 +112,16 @@
     <div class="wrap">
       <h1>Layout explorations</h1>
       <p class="lede">
-        Seven arrangements of the same editor. The content in each is identical, so anything that
-        looks different between two of them is a difference of layout rather than of styling. Every
-        page has a notes panel with the tradeoff and a couple of live toggles to push the layout
-        around. The last one is drawn from how Zed actually works.
+        Fourteen arrangements of the same editor. The content in each is identical, so anything
+        that looks different between two of them is a difference of layout rather than of styling.
+        Every page has a notes panel with the tradeoff and a couple of live toggles to push the
+        layout around.
+      </p>
+      <p class="lede">
+        <b>A through H rearrange an IDE.</b> I through N ask whether this should be one at all: if
+        Claude writes the code, the tab bar, the tree and the terminal are furniture for a job
+        nobody is doing. Those six start from what you actually do, which is say what you want,
+        watch it happen, and judge the result.
       </p>
 
       <div class="cards">
@@ -215,6 +221,91 @@
             <span class="tag pick">H · both models</span>
             <h3>Instances and subagents in one list</h3>
             <p>A thread is either its own process on its own branch, or a subagent inside another thread. The user picks, and the list shows which is which.</p>
+          </div>
+        </a>
+      </div>
+
+      <h2>Not an IDE</h2>
+      <p class="lede" style="margin-bottom:26px">
+        These six drop the assumption that you type the code. Each one takes a single job and gives
+        it the middle of the window.
+      </p>
+
+      <div class="cards">
+        <a class="card" href="i-feed.html">
+          <div class="thumb">
+            <i class="t-rail"></i><i class="t-side" style="flex:0 0 26px"></i>
+            <i class="t-term" style="flex:1;background:#1e1e1e"></i><i class="t-prev"></i>
+          </div>
+          <div class="card-body">
+            <span class="tag">I</span>
+            <h3>The feed is the window</h3>
+            <p>No tabs, no tree. The centre column is every step Claude took, each carrying its own diff, output or screenshot inline.</p>
+          </div>
+        </a>
+
+        <a class="card" href="j-filmstrip.html">
+          <div class="thumb" style="flex-direction:column">
+            <i class="t-prev" style="flex:1;width:100%"></i>
+            <span style="display:flex;gap:2px;flex:0 0 22px">
+              <i class="t-ed" style="flex:1"></i><i class="t-ed" style="flex:1"></i><i class="t-ed" style="flex:1"></i>
+              <i class="t-ed" style="flex:1;border-color:#6cb6ff"></i><i class="t-ed" style="flex:1"></i><i class="t-ed" style="flex:1"></i>
+            </span>
+          </div>
+          <div class="card-body">
+            <span class="tag pick">J · build this one</span>
+            <h3>A scrubber through your own app</h3>
+            <p>Screenshot the preview every step and you get a filmstrip. Drag back to the frame where the layout broke, with the diff that caused it.</p>
+          </div>
+        </a>
+
+        <a class="card" href="k-lanes.html">
+          <div class="thumb" style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            <i class="t-ed"></i><i class="t-ed"></i><i class="t-ed"></i><i class="t-ed" style="border-style:dashed"></i>
+          </div>
+          <div class="card-body">
+            <span class="tag pick">K · already built, badly shown</span>
+            <h3>Agents are the top-level object</h3>
+            <p>Open the app and see what is running, not a repo. Each lane is a thread with its worktree, branch, diff stat and preview thumbnail.</p>
+          </div>
+        </a>
+
+        <a class="card" href="l-intent.html">
+          <div class="thumb" style="flex-direction:column;justify-content:flex-end">
+            <i class="t-ed" style="flex:1;width:100%"></i>
+            <i class="t-side" style="flex:0 0 20px;width:100%;background:#2a2a30;border-radius:5px"></i>
+          </div>
+          <div class="card-body">
+            <span class="tag">L</span>
+            <h3>One bar, and it knows where things go</h3>
+            <p>A single always-focused input. Prefixes route it to commands, files or a new agent. The terminal moves behind a shortcut.</p>
+          </div>
+        </a>
+
+        <a class="card" href="m-review.html">
+          <div class="thumb">
+            <span class="t-col"><i class="t-ed" style="flex:1"></i><i class="t-term t-h"></i></span>
+            <i class="t-side" style="flex:0 0 30px"></i>
+          </div>
+          <div class="card-body">
+            <span class="tag">M</span>
+            <h3>A review queue, not an editor</h3>
+            <p>One hunk at a time, keyboard driven, with Claude's own reason above it. Hand-editing lives here, as the escape hatch.</p>
+          </div>
+        </a>
+
+        <a class="card" href="n-ambient.html">
+          <div class="thumb" style="flex-direction:column;gap:5px;padding:14px">
+            <i class="t-ed" style="flex:0 0 16px;border:none;background:#2a2a30"></i>
+            <span style="display:flex;gap:3px;flex:0 0 14px">
+              <i class="t-ed" style="flex:1"></i><i class="t-ed" style="flex:1"></i><i class="t-ed" style="flex:1"></i><i class="t-ed" style="flex:1"></i>
+            </span>
+            <i class="t-prev" style="flex:1;width:100%"></i>
+          </div>
+          <div class="card-body">
+            <span class="tag">N</span>
+            <h3>A control room, not an editor</h3>
+            <p>After a minute idle the window becomes a status board: what it is doing now, the live preview, burn rate and context-fullness.</p>
           </div>
         </a>
       </div>

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>L · Intent bar</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* One input, always there. No terminal as furniture, no menus. */
+  .surface { background: var(--bg); flex: 1; position: relative; }
+  .scroll { height: 100%; overflow: auto; padding: 26px 0 150px; }
+  .col { margin: 0 auto; max-width: 780px; padding: 0 26px; }
+
+  .said { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 10px;
+          font-size: 13.5px; margin: 0 0 16px; padding: 11px 14px; }
+  .did { color: var(--fg-dim); display: flex; font-size: 12.5px; gap: 9px; padding: 5px 2px; }
+  .did i { color: var(--fg-faint); font-family: var(--mono); font-size: 10.5px; font-style: normal;
+           flex: 0 0 58px; }
+  .did b { color: var(--fg); font-weight: 500; }
+  .prose { font-size: 13.5px; line-height: 1.7; margin: 14px 0 22px; }
+
+  /* -- the bar ------------------------------------------------------------ */
+  .dockbar { bottom: 0; left: 0; padding: 34px 26px 20px; position: absolute; right: 0;
+             background: linear-gradient(transparent, var(--bg) 38%); }
+  .bar2 { background: var(--bg-alt); border: 1px solid #4a4a55; border-radius: 12px;
+          box-shadow: 0 12px 40px #0007; margin: 0 auto; max-width: 780px;
+          overflow: hidden; }
+  .bar2.hot { border-color: var(--accent-fg); }
+  .barin { align-items: center; display: flex; gap: 10px; padding: 12px 15px; }
+  .barin .mode { border-radius: 5px; color: var(--accent-fg); flex: 0 0 auto;
+                 font-family: var(--mono); font-size: 11px; padding: 2px 7px;
+                 background: #16283d; display: none; }
+  .bar2.cmd .barin .mode, .bar2.file .barin .mode { display: block; }
+  .barin .typed { font-size: 14px; }
+  .barin .caret { animation: blink 1.1s steps(1) infinite; background: var(--fg);
+                  display: inline-block; height: 16px; margin-left: 1px; width: 1.5px;
+                  vertical-align: -3px; }
+  @keyframes blink { 50% { opacity: 0 } }
+  .barin .to { color: var(--fg-faint); font-size: 11px; margin-left: auto; }
+
+  .sugg { border-top: 1px solid var(--border); display: none; }
+  .bar2.cmd .sugg, .bar2.file .sugg { display: block; }
+  .sg { align-items: center; color: var(--fg-dim); display: flex; font-size: 12.5px;
+        gap: 10px; padding: 7px 15px; }
+  .sg:first-child { background: #ffffff10; color: var(--fg); }
+  .sg .k { color: var(--fg-faint); font-family: var(--mono); font-size: 10.5px; margin-left: auto; }
+
+  .hints { color: var(--fg-faint); display: flex; font-size: 11px; gap: 14px;
+           justify-content: center; margin: 9px auto 0; }
+  .hints b { color: var(--fg-dim); font-family: var(--mono); font-weight: 400; }
+
+  .peek { background: var(--bg-alt); border-left: 1px solid var(--border); flex: 0 0 300px; }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div class="panel surface">
+      <div class="scroll">
+        <div class="col">
+          <div class="said">Make the signup form reject an email without an @, and say so under the field.</div>
+
+          <div class="did"><i>10:41:02</i><span>read <b>Signup.tsx</b>, <b>api.ts</b>, <b>signup.test.ts</b></span></div>
+          <div class="did"><i>10:41:38</i><span>edited <b>Signup.tsx</b> · +6 −2</span></div>
+          <div class="did"><i>10:42:11</i><span>ran <b>npm test</b> · 1 failed</span></div>
+          <div class="did"><i>10:42:44</i><span>edited <b>signup.test.ts</b> · +2 −2</span></div>
+          <div class="did"><i>10:43:20</i><span>checked <b>/signup</b> in the preview</span></div>
+
+          <p class="prose">
+            Done. The check now runs on blur as well as on submit, so the message appears as soon as
+            you leave the field rather than only when you try to send it. One test asserted the old
+            behaviour and I updated it. The button stays disabled while the address is invalid.
+          </p>
+
+          <div class="said">Now make the error red and put it under the input, not above.</div>
+          <div class="did"><i>10:44:02</i><span>editing <b>Signup.tsx</b> · in progress</span></div>
+        </div>
+      </div>
+
+      <div class="dockbar">
+        <div class="bar2" id="bar">
+          <div class="barin">
+            <span class="mode" id="mode">command</span>
+            <span class="typed" id="typed">and give it a shake animation when it fails</span><span class="caret"></span>
+            <span class="to" id="to">→ auth refactor</span>
+          </div>
+          <div class="sugg" id="sugg"></div>
+        </div>
+        <div class="hints">
+          <span><b>⏎</b> send</span><span><b>&gt;</b> commands</span><span><b>@</b> files</span>
+          <span><b>/</b> slash</span><span><b>⌥⏎</b> new agent</span><span><b>⌃`</b> a real shell</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="peek"></div>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').innerHTML = P.titlebar('<span class="title-meta">⌘K anything</span>')
+document.getElementById('peek').innerHTML = P.preview()
+document.getElementById('status').innerHTML = P.status()
+document.querySelector('.preview').classList.add('peek')
+
+const bar = document.getElementById('bar')
+const SUGG = {
+  cmd: [['Run the project check', '⌘⇧B'], ['Land this agent', '⌘⇧L'], ['Switch model', ''], ['Change theme', ''], ['Open a real shell', '⌃`']],
+  file: [['src/renderer/components/Signup.tsx', 'edited 3m ago'], ['src/api.ts', 'edited 12m ago'], ['tests/signup.test.ts', 'edited 2m ago']]
+}
+function mode(kind, text) {
+  bar.className = 'bar2' + (kind ? ' ' + kind : '')
+  document.getElementById('typed').textContent = text
+  document.getElementById('mode').textContent = kind === 'cmd' ? 'command' : 'file'
+  document.getElementById('to').style.display = kind ? 'none' : 'block'
+  document.getElementById('sugg').innerHTML = kind
+    ? SUGG[kind].map(([a, b]) => `<div class="sg">${a}<span class="k">${b}</span></div>`).join('') : ''
+}
+
+notes({
+  kicker: 'Variant L · delete the terminal as furniture',
+  title: 'One bar, and it knows where things go',
+  body: [
+    'There is a single input, always present, always focused. Plain text goes to the agent that is running. A leading <code>&gt;</code> turns it into the command palette, <code>@</code> into a file picker, <code>/</code> into a slash command, and <code>⌥⏎</code> starts a new agent instead of talking to the current one.',
+    'The terminal still exists behind <code>⌃`</code>. It stops being a permanent pane that most users never type into and that eats a third of the vertical space.',
+    'The bar also says where the words are going, which matters the moment there is more than one agent: <code>→ auth refactor</code> is the difference between a message and a message sent to the wrong branch.'
+  ],
+  good: 'Collapses six discovery surfaces into one, and gives the beginner exactly one thing to look at. The routing prefix is already how people expect a modern launcher to behave.',
+  bad: 'Modal input is a real cost: a stray <code>&gt;</code> at the start of a sentence changes what the app does with it. Needs a very visible mode indicator, which is why it is in the bar rather than implied.',
+  toggles: [
+    { label: 'Type a >', apply: (on) => on ? mode('cmd', '> land') : mode('', 'and give it a shake animation when it fails') },
+    { label: 'Type an @', apply: (on) => on ? mode('file', '@Sign') : mode('', 'and give it a shake animation when it fails') },
+    { label: 'Hide the preview', apply: (on) => document.querySelector('.preview').style.display = on ? 'none' : 'flex' }
+  ]
+})
+</script></body></html>

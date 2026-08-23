@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>K · Lanes</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* No files at the top level. Agents are the top-level object. */
+  .board { background: #0e0e11; flex: 1; overflow: auto; padding: 20px 22px 30px; }
+  .boardhead { align-items: baseline; display: flex; gap: 12px; margin-bottom: 16px; }
+  .boardhead h2 { font-size: 19px; letter-spacing: -0.02em; margin: 0; }
+  .boardhead span { color: var(--fg-dim); font-size: 12.5px; }
+  .boardhead .right { margin-left: auto; display: flex; gap: 6px; }
+
+  .lanes { display: grid; gap: 13px; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); }
+  .lane { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 10px;
+          cursor: pointer; display: flex; flex-direction: column; overflow: hidden;
+          transition: border-color .15s, transform .15s; }
+  .lane:hover { border-color: #55555f; transform: translateY(-1px); }
+  .lane.sel { border-color: var(--accent-fg); }
+
+  .lane .top { align-items: center; display: flex; gap: 8px; padding: 11px 12px 8px; }
+  .lane .dot { border-radius: 50%; flex: 0 0 7px; height: 7px; width: 7px; }
+  .d-run { background: var(--accent-fg); animation: pulse 1.4s infinite; }
+  .d-done { background: var(--mint); } .d-wait { background: var(--amber); }
+  .d-fail { background: var(--red); } .d-idle { background: #55555f; }
+  @keyframes pulse { 50% { opacity: .3 } }
+  .lane .top b { font-size: 13px; font-weight: 550; }
+  .lane .top .age { color: var(--fg-faint); font-family: var(--mono); font-size: 10px;
+                    margin-left: auto; }
+
+  .lane .doing { color: var(--fg-dim); font-size: 11.5px; line-height: 1.5;
+                 min-height: 32px; padding: 0 12px 9px; }
+  .lane .thumb { background: #16161a; border-block: 1px solid var(--border);
+                 height: 84px; position: relative; }
+  .lane .thumb i { background: #ffffff12; border-radius: 2px; display: block; position: absolute; }
+  .lane .thumb .none { align-items: center; color: var(--fg-faint); display: flex; font-size: 10.5px;
+                       height: 100%; justify-content: center; }
+
+  .lane .foot { align-items: center; display: flex; font-family: var(--mono); font-size: 10.5px;
+                gap: 9px; padding: 8px 12px 10px; }
+  .lane .foot .br { color: var(--fg-dim); }
+  .lane .foot .add { color: var(--mint); } .lane .foot .del { color: var(--red); }
+  .lane .foot .cta { margin-left: auto; }
+  .cta.ready { color: var(--mint); }
+
+  .lane.new { align-items: center; border-style: dashed; color: var(--fg-faint);
+              display: flex; justify-content: center; min-height: 190px; }
+  .lane.new:hover { color: var(--fg); }
+
+  /* the zoomed lane */
+  .zoom { background: var(--bg); border-left: 1px solid var(--border); flex: 0 0 340px; }
+  .zoom .z { padding: 13px 15px; }
+  .zoom h3 { font-size: 15px; margin: 0 0 3px; }
+  .zoom .sub { color: var(--fg-dim); font-family: var(--mono); font-size: 11px; }
+  .zline { border-left: 2px solid #2c2c34; color: var(--fg-dim); font-size: 12px;
+           margin-left: 6px; padding: 0 0 13px 16px; position: relative; }
+  .zline::before { background: #3a3a46; border-radius: 50%; content: ''; height: 7px;
+                   left: -4.5px; position: absolute; top: 4px; width: 7px; }
+  .zline.now::before { background: var(--accent-fg); }
+  .zline b { color: var(--fg); display: block; font-size: 12.5px; font-weight: 500; }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div id="rail"></div>
+
+    <div class="panel board">
+      <div class="boardhead">
+        <h2>my-app</h2>
+        <span>4 agents · 3 branches · 1 needs you</span>
+        <span class="right">
+          <button class="chip on">Board</button><button class="chip ghost">Files</button>
+        </span>
+      </div>
+
+      <div class="lanes" id="lanes"></div>
+    </div>
+
+    <div class="panel zoom">
+      <div class="panel-head">Lane detail</div>
+      <div class="panel-body">
+        <div class="z">
+          <h3 id="zt">auth refactor</h3>
+          <div class="sub" id="zs">⑂ agent/auth-refactor · worktree ../my-app-auth</div>
+        </div>
+        <div class="z" style="padding-top:0" id="zbody"></div>
+      </div>
+    </div>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').innerHTML = P.titlebar('<button class="chip on">Agents</button><button class="chip ghost">Code</button>')
+document.getElementById('rail').innerHTML = P.rail('claude')
+document.getElementById('status').innerHTML = P.status()
+
+const LANES = [
+  { id: 'auth', name: 'auth refactor', dot: 'd-run', age: '22m',
+    doing: 'Writing tests for the token refresh path',
+    br: 'agent/auth-refactor', add: 340, del: 112, files: 14, cta: 'running',
+    paint: [['14%','12px','60%','8px'],['14%','28px','72%','20px'],['14%','56px','40%','16px','#0b6fd4']],
+    steps: [['Read 6 files', 'auth/, middleware/'], ['Rewrote the refresh flow', '+210 −80'], ['npm test', '2 failed'], ['Fixing the mock clock', 'now']] },
+  { id: 'flaky', name: 'fix flaky test', dot: 'd-done', age: '9m',
+    doing: 'Done. 2 commits, ready to land.',
+    br: 'agent/flaky-signup', add: 8, del: 3, files: 1, cta: 'ready to land', ready: true,
+    paint: [['14%','16px','70%','10px'],['14%','36px','52%','10px'],['14%','56px','30%','14px','#4ec9b0']],
+    steps: [['Reproduced it', '14 runs, 3 failures'], ['Found the race', 'blur before commit'], ['Fixed and re-ran', '200 runs clean']] },
+  { id: 'onboard', name: 'onboarding copy', dot: 'd-wait', age: '4m',
+    doing: 'Waiting on you: may it edit site/index.html?',
+    br: 'agent/onboarding', add: 22, del: 19, files: 3, cta: 'needs you',
+    paint: [['14%','14px','76%','12px'],['14%','34px','62%','8px'],['14%','48px','66%','8px']],
+    steps: [['Read the landing page', ''], ['Drafted 3 headlines', ''], ['Asked permission', 'site/index.html']] },
+  { id: 'perf', name: 'startup profiling', dot: 'd-fail', age: '1h',
+    doing: 'Stopped: the dev server never came up on :5174.',
+    br: 'agent/perf', add: 0, del: 0, files: 0, cta: 'failed',
+    paint: null,
+    steps: [['Started the dev server', 'timed out'], ['Retried once', 'timed out'], ['Gave up', 'port in use']] }
+]
+
+document.getElementById('lanes').innerHTML = LANES.map((l, i) => `
+  <div class="lane ${i === 0 ? 'sel' : ''}" data-id="${l.id}">
+    <div class="top"><i class="dot ${l.dot}"></i><b>${l.name}</b><span class="age">${l.age}</span></div>
+    <div class="doing">${l.doing}</div>
+    <div class="thumb">${l.paint
+      ? l.paint.map(([x, y, w, h, c]) => `<i style="left:${x};top:${y};width:${w};height:${h}${c ? ';background:' + c : ''}"></i>`).join('')
+      : '<div class="none">no preview</div>'}</div>
+    <div class="foot">
+      <span class="br">⑂ ${l.br.replace('agent/', '')}</span>
+      ${l.files ? `<span class="add">+${l.add}</span><span class="del">−${l.del}</span>` : ''}
+      <span class="cta ${l.ready ? 'ready' : ''}">${l.cta}</span>
+    </div>
+  </div>`).join('') + '<div class="lane new">+ new agent</div>'
+
+function zoom(id) {
+  const l = LANES.find((x) => x.id === id)
+  document.querySelectorAll('.lane').forEach((el) => el.classList.toggle('sel', el.dataset.id === id))
+  document.getElementById('zt').textContent = l.name
+  document.getElementById('zs').textContent = `⑂ ${l.br} · worktree ../my-app-${l.id}`
+  document.getElementById('zbody').innerHTML = l.steps
+    .map(([a, b], i) => `<div class="zline ${i === l.steps.length - 1 ? 'now' : ''}"><b>${a}</b>${b}</div>`).join('')
+}
+document.querySelectorAll('.lane[data-id]').forEach((el) => el.addEventListener('click', () => zoom(el.dataset.id)))
+zoom('auth')
+
+notes({
+  kicker: 'Variant K · the feature you already built',
+  title: 'Agents are the top-level object, not files',
+  body: [
+    'Open the app and you do not see a repo, you see what is running. Each lane is a thread: its own process, its own worktree, its own branch, with a live status line, a preview thumbnail and a diff stat.',
+    'ThreadService already creates and tracks every bit of this. Today it renders as a list in a sidebar, which is the least ambitious presentation available for the most differentiated thing in the product.',
+    'The four states on this board are the four that matter and are currently invisible: running, done and ready to land, blocked on a permission, and dead. Right now finding out which is which means clicking each tab.'
+  ],
+  good: 'This is the view Cursor structurally cannot build: one window, one repo, one agent. Parallelism becomes the shape of the app rather than a hidden capability.',
+  bad: 'It only makes sense once people habitually run several agents. With one thread it is a board with one card on it, which is worse than a tab.',
+  toggles: [
+    { label: 'Show the blocked one', apply: () => zoom('onboard') },
+    { label: 'Hide the detail pane', apply: (on) => document.querySelector('.zoom').style.display = on ? 'none' : 'flex' },
+    { label: 'Wide cards', apply: (on) => document.getElementById('lanes').style.gridTemplateColumns = on ? '1fr' : 'repeat(auto-fill, minmax(268px, 1fr))' }
+  ]
+})
+</script></body></html>
