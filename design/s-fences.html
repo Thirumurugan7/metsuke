@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>S · Before it runs</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /*
+   * Two decisions, ten seconds, before anything happens: what it may touch, and what
+   * you are willing to spend. Both are enforceable with plumbing that already exists —
+   * PreToolUse can deny a call by path, and the run history knows what jobs like this
+   * have actually cost.
+   */
+  .stage2 { align-items: center; background: #0b0b0e; display: flex; flex: 1;
+            justify-content: center; overflow: auto; padding: 26px }
+  .card2 { max-width: 620px; width: 100% }
+
+  .kicker2 { color: var(--fg-faint); font-size: 11.5px; letter-spacing: .07em;
+             text-transform: uppercase }
+  h1.q { font-size: 25px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25;
+         margin: 9px 0 26px }
+
+  .block { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 11px;
+           margin-bottom: 13px; padding: 16px 18px }
+  .block h2 { font-size: 14.5px; font-weight: 600; margin: 0 0 3px }
+  .block .hint { color: var(--fg-dim); font-size: 12.5px; line-height: 1.5; margin: 0 0 13px }
+
+  /* what it may touch */
+  .picks { display: flex; flex-wrap: wrap; gap: 7px }
+  .pick { align-items: center; background: #ffffff0d; border: 1px solid var(--border);
+          border-radius: 7px; cursor: pointer; display: flex; font-family: var(--mono);
+          font-size: 12px; gap: 7px; padding: 6px 11px; user-select: none }
+  .pick .tick { color: var(--fg-faint); font-family: var(--ui); font-size: 11px }
+  .pick.on { background: #123023; border-color: #2b7a57; color: #cdeadd }
+  .pick.on .tick { color: var(--mint) }
+  .locked { color: var(--fg-faint); font-size: 12px; margin-top: 11px }
+  .locked b { color: var(--fg-dim); font-weight: 400 }
+
+  /* what you will spend */
+  .money { align-items: baseline; display: flex; gap: 10px; margin-bottom: 11px }
+  .money .big2 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em }
+  .money .rng { color: var(--fg-dim); font-size: 12.5px }
+  .caps { display: flex; gap: 7px }
+  .cap { background: #ffffff0d; border: 1px solid var(--border); border-radius: 7px;
+         cursor: pointer; font-family: var(--mono); font-size: 12.5px; padding: 6px 13px;
+         color: var(--fg-dim) }
+  .cap.on { background: var(--accent); border-color: var(--accent); color: #fff }
+
+  /* the history it is quoting, as a shape not a table */
+  .hist { display: flex; align-items: flex-end; gap: 3px; height: 34px; margin: 12px 0 0 }
+  .hist i { background: #2f2f39; border-radius: 1px; flex: 1 }
+  .hist i.over { background: #5c4a1e }
+  .histl { color: var(--fg-faint); font-size: 11px; margin-top: 6px }
+
+  .go3 { background: var(--accent); border: none; border-radius: 9px; color: #fff; cursor: pointer;
+         font: inherit; font-size: 14.5px; font-weight: 500; margin-top: 6px; padding: 12px 26px }
+  .go3:hover { background: #0d7ee8 }
+  .after2 { color: var(--fg-faint); font-size: 12px; margin: 12px 0 0 }
+
+  /* ---- the two states where a fence actually does something ------------- */
+  .live2 { display: none } body.blocked .live2.b, body.capped .live2.c { display: block }
+  body.blocked .before2, body.capped .before2 { display: none }
+
+  .alert2 { border-radius: 11px; padding: 16px 18px; margin-bottom: 13px }
+  .alert2.warn2 { background: #2a2312; border: 1px solid #5c4a1e }
+  .alert2.stop2 { background: #2a1416; border: 1px solid #6a2b2e }
+  .alert2 h2 { font-size: 15px; margin: 0 0 4px }
+  .alert2 p { color: var(--fg-dim); font-size: 13px; line-height: 1.55; margin: 0 0 14px }
+  .alert2 code { background: #ffffff12; border-radius: 4px; font-family: var(--mono);
+                 font-size: 12px; padding: 1px 5px }
+  .row2 { display: flex; flex-wrap: wrap; gap: 8px }
+  .b2 { background: #ffffff14; border: 1px solid transparent; border-radius: 8px; color: var(--fg);
+        cursor: pointer; font: inherit; font-size: 13px; padding: 8px 15px }
+  .b2:hover { background: #ffffff22 }
+  .b2.main { background: var(--accent); color: #fff } .b2.main:hover { background: #0d7ee8 }
+
+  .meter { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 11px;
+           padding: 14px 18px }
+  .meter .t2 { display: flex; font-size: 12.5px; margin-bottom: 8px }
+  .meter .t2 b { margin-left: auto }
+  .track2 { background: #23232b; border-radius: 4px; height: 8px; overflow: hidden }
+  .track2 i { display: block; height: 100% }
+</style></head>
+<body>
+<div class="app">
+  <div id="top"></div>
+  <div class="body">
+    <div class="stage2">
+      <div class="card2">
+
+        <!-- before anything runs -->
+        <div class="before2">
+          <div class="kicker2">Before it starts</div>
+          <h1 class="q">Make the sign-up form reject bad emails</h1>
+
+          <div class="block">
+            <h2>What it can change</h2>
+            <p class="hint">Tick the parts of your project it is allowed to touch. It cannot go anywhere else, even if it thinks it should.</p>
+            <div class="picks" id="picks"></div>
+            <p class="locked">Everything else is <b>locked, including your home page, the server and anything to do with payments.</b></p>
+          </div>
+
+          <div class="block">
+            <h2>What you'll spend</h2>
+            <p class="hint">Based on the 23 jobs like this you have already run, not on a guess.</p>
+            <div class="money">
+              <span class="big2">$0.80 to $4.20</span>
+              <span class="rng">is what those cost. One went to $11.</span>
+            </div>
+            <div class="hist" id="hist"></div>
+            <p class="histl">Your last 23 jobs of this size. The amber one ran away.</p>
+            <p class="hint" style="margin:16px 0 9px">Stop it and ask me when it reaches</p>
+            <div class="caps" id="caps"></div>
+          </div>
+
+          <button class="go3">Start</button>
+          <p class="after2">You can change both of these while it is running.</p>
+        </div>
+
+        <!-- it tried to go outside the fence -->
+        <div class="live2 b">
+          <div class="kicker2">Working · 3 minutes in</div>
+          <h1 class="q">It tried to change something you did not allow</h1>
+          <div class="alert2 warn2">
+            <h2>Blocked: your home page</h2>
+            <p>It wanted to edit <code>site/index.html</code> to add a link. That is outside what you ticked, so nothing happened and it is waiting.</p>
+            <div class="row2">
+              <button class="b2 main">Allow just this file</button>
+              <button class="b2">Keep it blocked, carry on</button>
+              <button class="b2">Stop the whole thing</button>
+            </div>
+          </div>
+          <div class="meter">
+            <div class="t2">Spent so far <b>$1.84 of $5.00</b></div>
+            <div class="track2"><i style="width:37%;background:#6cb6ff"></i></div>
+          </div>
+        </div>
+
+        <!-- it reached the ceiling -->
+        <div class="live2 c">
+          <div class="kicker2">Paused · 14 minutes in</div>
+          <h1 class="q">It has spent the $5 you allowed</h1>
+          <div class="alert2 stop2">
+            <h2>Paused, nothing lost</h2>
+            <p>It is about two thirds through and has changed 9 files. Everything it has done so far is kept whichever you choose.</p>
+            <div class="row2">
+              <button class="b2 main">Give it $5 more</button>
+              <button class="b2">Stop, keep the work</button>
+              <button class="b2">Stop, undo everything</button>
+            </div>
+          </div>
+          <div class="meter">
+            <div class="t2">Spent <b>$5.00 of $5.00</b></div>
+            <div class="track2"><i style="width:100%;background:#e2c08d"></i></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script src="parts.js"></script>
+<script>
+document.getElementById('top').outerHTML = P.titlebar()
+document.getElementById('status').outerHTML = P.status()
+
+const AREAS = [
+  ['the sign-up page', true], ['everything under src', true], ['the tests', true],
+  ['the styles', false], ['your home page', false], ['the server', false], ['payments', false]
+]
+document.getElementById('picks').innerHTML = AREAS.map(([n, on]) =>
+  `<span class="pick ${on ? 'on' : ''}"><span class="tick">${on ? '✓' : '+'}</span>${n}</span>`).join('')
+document.querySelectorAll('.pick').forEach((p) => p.addEventListener('click', () => {
+  p.classList.toggle('on')
+  p.querySelector('.tick').textContent = p.classList.contains('on') ? '✓' : '+'
+}))
+
+// what 23 previous jobs of this size actually cost, as a shape
+const RUNS = [1.2,0.9,2.1,1.6,3.4,0.8,1.9,2.6,1.1,4.2,1.4,2.2,11,1.7,0.9,3.1,2.4,1.3,2.8,1.6,0.8,2.0,1.5]
+document.getElementById('hist').innerHTML = RUNS
+  /*
+   * Scaled against the normal range rather than the outlier. Dividing by the $11 run
+   * flattened the other 22 into an identical stripe, which hid the exact thing the
+   * chart is for: that jobs like this usually land between one and four dollars.
+   */
+  .map((v) => `<i class="${v > 6 ? 'over' : ''}" style="height:${Math.min(34, 6 + v / 4.5 * 28)}px" title="$${v.toFixed(2)}"></i>`).join('')
+
+const CAPS = ['$2', '$5', '$10', 'no limit']
+document.getElementById('caps').innerHTML = CAPS
+  .map((c) => `<button class="cap ${c === '$5' ? 'on' : ''}">${c}</button>`).join('')
+document.querySelectorAll('.cap').forEach((c) => c.addEventListener('click', () => {
+  document.querySelector('.cap.on')?.classList.remove('on'); c.classList.add('on')
+}))
+
+notes({
+  kicker: 'Variant S · the two decisions worth making',
+  title: 'Fence it before it runs, not after',
+  body: [
+    'Two questions, ten seconds, and they close the two loudest complaints in the category. What may it touch, and what will you spend. Everything else about the run can stay exactly as it is today.',
+    'The money half matters because a Microsoft and Stanford study found identical tasks vary by up to <b>30x</b> in spend, and that models cannot predict their own consumption — they correlate at 0.39 and systematically underestimate. So do not ask the model. <b>Quote your own history</b>, which the editor has and the model does not, and show it as a shape rather than a promise: 23 previous jobs, one of which ran to $11.',
+    'The limit pauses rather than kills, because a hard stop that loses the work is a worse outcome than the overspend. Three choices, all of which keep what it has already done.',
+    'The scope half is enforceable today. <code>PreToolUse</code> already receives the full tool call including the exact path, and can deny it with a reason. Guardrails like this exist as YAML and MCP servers, which is a tool for people who already know they need one. This is the same thing as a row of tick boxes.'
+  ],
+  good: 'Ten seconds of judgment before, instead of twenty minutes of review after that nobody does honestly. Both fences are enforceable with plumbing that already exists here.',
+  bad: 'Every fence is a prompt, and prompts get clicked through. The scope list has to default to something sensible or people will tick everything once and never look again.',
+  toggles: [
+    { label: 'It hits the fence', apply: (on) => { document.body.classList.toggle('blocked', on)
+        document.body.classList.remove('capped') } },
+    { label: 'It reaches the limit', apply: (on) => { document.body.classList.toggle('capped', on)
+        document.body.classList.remove('blocked') } }
+  ]
+})
+</script></body></html>
