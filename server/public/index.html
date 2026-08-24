@@ -158,13 +158,28 @@
 
       let days = 30
 
+      /*
+       * Every exit from here has to leave a message on screen. There was no catch, so a
+       * fetch that rejected — offline, DNS, a dropped connection, a body that is not
+       * JSON — left the header reading "loading…" forever, which says "nearly there"
+       * when the truth is "this is never going to arrive".
+       */
       async function load() {
-        const res = await fetch(`/api/overview?days=${days}`, { credentials: 'same-origin' })
-        if (!res.ok) {
-          el('scope').textContent = `could not load (${res.status})`
-          return
+        el('scope').textContent = 'loading…'
+        try {
+          const res = await fetch(`/api/overview?days=${days}`, { credentials: 'same-origin' })
+          if (res.status === 401 || res.status === 403) {
+            el('scope').textContent = 'not signed in · reload and enter the dashboard token'
+            return
+          }
+          if (!res.ok) {
+            el('scope').textContent = `could not load · the server answered ${res.status}`
+            return
+          }
+          render(await res.json())
+        } catch (error) {
+          el('scope').textContent = `could not reach the server · ${error?.message ?? 'network error'}`
         }
-        render(await res.json())
       }
 
       function render(d) {
