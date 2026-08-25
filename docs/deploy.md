@@ -23,7 +23,7 @@ This is not a preference, it is what the code already does:
 repo need an authenticated request: download links, and the update feed the app polls,
 would 404 for everybody.
 
-The answer is a second repository, `Thirumurugan7/metsuke-releases`, public, containing no
+The answer is a second repository, `Thirumurugan7/metsuke`, public, containing no
 code — releases and nothing else. `electron-builder.yml` publishes there, `download.js`
 looks there, and auto-update reads its feed from there. Nothing else changes, it stays
 free and unmetered, and the source stays private. Object storage (R2, S3) would also work

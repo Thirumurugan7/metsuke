@@ -10,8 +10,10 @@
 // ── Where releases live ──────────────────────────────────────────────────────
 // Deliberately not the code repository: that one is private, and assets on a private
 // repo need an authenticated request, so every download link here would 404. This is a
-// public repo that holds releases and nothing else.
-const REPO = 'Thirumurugan7/metsuke-releases'
+// public repo the app is developed in. Anonymous GitHub API reads are rate limited
+// per IP, which is why a failed lookup falls back to the releases page rather than
+// leaving a dead button.
+const REPO = 'Thirumurugan7/metsuke'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const RELEASES_URL = `https://github.com/${REPO}/releases`

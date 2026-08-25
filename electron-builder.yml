@@ -67,11 +67,11 @@ linux:
       Categories: Development;IDE;
   artifactName: ${productName}-${version}-${arch}.${ext}
 
-# Releases go to a separate, public repository so that the code can stay private.
-# Assets on a private repo need an authenticated request, so download links and the
-# update feed would 404 for everybody. This repo holds nothing but releases.
+# Releases go to this repository. That is only possible because it is public: assets on
+# a private repo need an authenticated request, so download links and the update feed
+# would 404 for everybody, which is what the separate releases repo used to work around.
 publish:
   provider: github
   owner: Thirumurugan7
-  repo: metsuke-releases
+  repo: metsuke
   releaseType: release
