@@ -1,7 +1,7 @@
 {
   "name": "metsuke",
   "productName": "Metsuke",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A VS Code-style editor built around Claude Code",
   "main": "./out/main/index.js",
   "author": "Thirumurugan Sivalingam",
