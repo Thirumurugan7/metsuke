@@ -90,3 +90,42 @@ installers plus the update feeds to a GitHub Release. The website needs no edit:
 the latest release at page load.
 
 The first run of that workflow has never happened. Expect to fix something.
+
+## Signing and notarisation
+
+Until this is done, macOS tells every user *"Apple could not verify Metsuke is free of
+malware"*, and since macOS 15 the right click, Open shortcut no longer gets past it. The
+only route left in the interface is System Settings, Privacy and Security, Open Anyway.
+Most people will not do that.
+
+The config is already in place. `mac.notarize` is on, and `build/afterPack.cjs` ad-hoc
+signs the bundle when no real identity exists, which is what stops macOS calling the app
+damaged. Neither needs changing.
+
+What is missing is the certificate:
+
+1. Enrol in the Apple Developer Program, $99 a year. Individual enrolment usually clears
+   in a day or two; business enrolment needs a D-U-N-S number and takes longer.
+2. Xcode, Settings, Accounts, Manage Certificates, plus, **Developer ID Application**.
+   Not "Mac App Store" and not "Development", neither of which works for direct download.
+3. Export it from Keychain Access, My Certificates, as a `.p12` with a password, then
+   `base64 -i Certificates.p12 | pbcopy`.
+4. Generate an app specific password at appleid.apple.com, under Sign-In and Security.
+   The normal Apple password is rejected by notarisation.
+5. Add five repository secrets: `CSC_LINK` (the base64 blob), `CSC_KEY_PASSWORD`,
+   `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`, and pass them into the
+   build step in `.github/workflows/release.yml`.
+
+Check the result on a downloaded build rather than in the CI log:
+
+```bash
+spctl -a -vvv -t install /Applications/Metsuke.app   # want: source=Notarized Developer ID
+xcrun stapler validate /Applications/Metsuke.app     # want: The validate action worked!
+```
+
+`codesign -dv` alone is not enough. It passes on a signed but un-notarised app, which is
+exactly the build that still gets stopped on a machine that has never seen it.
+
+Windows is a separate purchase. An OV certificate still shows SmartScreen until reputation
+accrues over hundreds of installs; an EV certificate clears it immediately and needs a
+hardware token or cloud HSM.

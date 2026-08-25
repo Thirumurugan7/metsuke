@@ -24,6 +24,12 @@ npmRebuild: true
 afterPack: build/afterPack.cjs
 
 mac:
+  # Inert until a Developer ID certificate is in the environment: with no identity
+  # electron-builder skips signing and notarisation and the build still succeeds, which
+  # was checked rather than assumed. The afterPack hook keeps ad-hoc signing the bundle
+  # in that case, and stands aside once CSC_LINK is set. So the day the certificate
+  # exists, five secrets are the entire change.
+  notarize: true
   category: public.app-category.developer-tools
   target:
     - target: dmg
