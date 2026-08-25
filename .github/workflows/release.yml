@@ -37,7 +37,12 @@ jobs:
       # node-pty needs a toolchain to compile against Electron's headers.
       - name: Install Linux build dependencies
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install -y libarchive-tools rpm
+        # libfuse2 is what AppImage packaging needs; ubuntu-latest is 24.04, where the
+        # package was renamed, so try both names rather than pinning to one release.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools rpm
+          sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2
 
       - run: npm ci
 
@@ -79,12 +84,24 @@ jobs:
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    # always(), so one platform failing does not withhold the others. Three separate
+    # runners producing three separate installers should fail separately too: with a
+    # plain needs: build, a Windows toolchain error meant nobody got the macOS build
+    # either, which is the wrong trade when the failures are unrelated.
+    if: always() && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      # A release with no installers in it is worse than no release: the site would
+      # stop falling back to the releases page and start offering nothing.
+      - name: Fail if nothing built
+        run: |
+          found=$(find artifacts -type f \( -name '*.dmg' -o -name '*.exe' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.zip' \) | wc -l)
+          echo "installers found: $found"
+          test "$found" -gt 0
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
