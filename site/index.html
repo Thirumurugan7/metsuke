@@ -302,11 +302,13 @@
               <code>claude</code> CLI in its terminal. Everything else works fine without it.
             </p>
             <p>
-              <b>Builds are not signed yet, so your OS will be dramatic about it.</b> On macOS,
-              right click the app and hit Open the first time. If it says the app is damaged, it
-              is not: run
-              <code>xattr -dr com.apple.quarantine "/Applications/Metsuke.app"</code> and then
-              <code>codesign --force --deep --sign - "/Applications/Metsuke.app"</code>. Windows
+              <b>Builds are not notarised yet, so macOS will stop you the first time.</b> It says
+              Apple could not verify the app is free of malware. Nothing is wrong with the download.
+              Open <b>System Settings, Privacy and Security</b>, scroll to the bottom and hit
+              <b>Open Anyway</b>. Or run
+              <code>xattr -dr com.apple.quarantine "/Applications/Metsuke.app"</code> once and it
+              will open normally after that. Right clicking and choosing Open used to work and no
+              longer does: macOS 15 removed that shortcut for apps like this one. Windows
               SmartScreen complains once. On Linux, <code>chmod +x</code> the AppImage.
             </p>
             <p>
