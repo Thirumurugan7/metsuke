@@ -44,12 +44,21 @@ jobs:
           sudo apt-get install -y libarchive-tools rpm
           sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2
 
-      - run: npm ci
+      # Every command that can fail writes to step.log, and the step below turns the
+      # tail of it into a ::error:: annotation. Annotations are readable from the API
+      # without a token; job logs are not. Without this, a failure on a runner you
+      # cannot log into reports only "Process completed with exit code 1", which is
+      # true and useless.
+      - name: Install dependencies
+        shell: bash
+        run: set -o pipefail && npm ci 2>&1 | tee -a step.log
 
       - name: Typecheck and test
+        shell: bash
         run: |
-          npm run typecheck
-          npm test
+          set -o pipefail
+          npm run typecheck 2>&1 | tee -a step.log
+          npm test 2>&1 | tee -a step.log
 
       # --publish never, and deliberately no GH_TOKEN. On a tag push electron-builder
       # publishes by default, so with a github provider it tries to create the release
@@ -57,11 +66,28 @@ jobs:
       # It still writes latest-*.yml and the blockmaps, which is the part we actually
       # need: the release job attaches them.
       - name: Build installers
-        run: npm run ${{ matrix.script }} -- --publish never
+        shell: bash
+        run: set -o pipefail && npm run ${{ matrix.script }} -- --publish never 2>&1 | tee -a step.log
         env:
           # Compiled into the build. Unset in a fork or a local build, which is what
           # makes those collect nothing at all regardless of what a user consents to.
           METSUKE_TELEMETRY_ENDPOINT: ${{ secrets.METSUKE_TELEMETRY_ENDPOINT }}
+
+      # The reason this job failed, in a form readable without a token.
+      - name: Report the failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "--- last 40 lines on ${{ matrix.os }} ---"
+          tail -n 40 step.log || echo "(no step.log: the failure was before any command ran)"
+          {
+            echo "### ${{ matrix.os }} failed"
+            echo '```'
+            tail -n 40 step.log 2>/dev/null || echo "(no step.log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          msg=$(tail -n 12 step.log 2>/dev/null | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::error title=${{ matrix.os }} build failed::${msg:-no output captured}"
 
       # The .yml files are the update feed: latest-mac.yml, latest.yml and
       # latest-linux.yml are what electron-updater reads to decide whether anything is
