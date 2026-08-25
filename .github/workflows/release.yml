@@ -46,11 +46,13 @@ jobs:
           npm run typecheck
           npm test
 
-      # Deliberately without GH_TOKEN. electron-builder would otherwise create the
-      # release itself and race the job below for it; here it only builds, and writes
-      # the update metadata beside the installers.
+      # --publish never, and deliberately no GH_TOKEN. On a tag push electron-builder
+      # publishes by default, so with a github provider it tries to create the release
+      # itself, races the job below for it, and aborts outright when it finds no token.
+      # It still writes latest-*.yml and the blockmaps, which is the part we actually
+      # need: the release job attaches them.
       - name: Build installers
-        run: npm run ${{ matrix.script }}
+        run: npm run ${{ matrix.script }} -- --publish never
         env:
           # Compiled into the build. Unset in a fork or a local build, which is what
           # makes those collect nothing at all regardless of what a user consents to.
